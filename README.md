@@ -1,8 +1,20 @@
 # Mimi 课表
 
+<p align="center">
+  <img src=".github/app-icon.webp" width="96" alt="Mimi课表" />
+</p>
+
 武夷学院课程安排与成绩查询工具。
 
 把教务系统里散落的课表和分数，收进一个能随手打开的地方。
+
+## 下载安装
+
+**[下载 mimi-kebiao-3.1.apk](https://github.com/Aokiisei/-Mimi-/releases/tag/v3.1)** （6.2 MB，Android 7.0+）
+
+下载后传到手机上点开安装即可。若提示「禁止安装未知来源应用」，去系统设置里允许浏览器/文件管理器安装即可。
+
+> 历史版本与更新日志见 [Releases](https://github.com/Aokiisei/-Mimi-/releases) 页面。
 
 ## 功能
 
@@ -44,7 +56,8 @@ echo "sdk.dir=/your/path/to/Android/sdk" > local.properties
 ## 目录结构
 
 ```
-app/src/main/
+├── .github/app-icon.webp         # 应用图标
+└── app/src/main/
 ├── java/com/wuyi/kebiao/
 │   ├── MainActivity.java          # 主界面（Fragment 容器）
 │   ├── SplashActivity.java        # 启动页

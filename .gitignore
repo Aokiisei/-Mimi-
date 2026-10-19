@@ -10,6 +10,8 @@ captures/
 *.ap_
 *.dex
 
+# 注意：发行版 APK 一律走 GitHub Releases 附件，不要提交进仓库
+
 # ========== IDE ==========
 .idea/
 *.iml
