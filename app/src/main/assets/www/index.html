@@ -1,0 +1,1952 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mimi课表</title>
+    <script>
+    (function(){
+        var g = '0';
+        try { if (window.Android && Android.getGlassUi) g = Android.getGlassUi() || '0'; } catch(e) {}
+        document.documentElement.setAttribute('data-glass', g === '1' ? '1' : '0');
+    })();
+    </script>
+    <style>
+        :root{
+            --primary:#0B6BCB;
+            --primary-soft:rgba(11,107,203,0.10);
+            --bg:#EEF3F8;
+            --card:#FFFFFF;
+            --text:#16324F;
+            --sub:#5B7186;
+            --input-bg:#F4F8FC;
+            --input-border:#D3E0EC;
+            --secondary:#6C757D;--glass-hi:rgba(255,255,255,0);--glass-glow:rgba(255,255,255,0);--glass-g1:#EEF3F8;--glass-g2:#EEF3F8;--glass-g3:#EEF3F8;--glass-card:#FFFFFF;--glass-card-soft:#F4F8FC;--glass-border:#D3E0EC;--glass-shadow:rgba(31,45,61,0.10);
+            --bf: none;
+        }
+        /* 动态玻璃效果开关：默认关闭=纯实色普通UI；开启=强毛玻璃 */
+        html[data-glass="1"]{
+            --glass-hi:rgba(255,255,255,0.55);
+            --glass-glow:rgba(255,255,255,0.30);
+            --glass-g1:#D5E7F5;--glass-g2:#DFEDE7;--glass-g3:#EFE9DB;
+            --glass-card:rgba(255,255,255,0.20);
+            --glass-card-soft:rgba(255,255,255,0.13);
+            --glass-border:rgba(255,255,255,0.55);
+            --glass-shadow:rgba(23,60,101,0.18);
+            --bf: blur(20px) saturate(175%);
+        }
+        html[data-glass="0"] body::before { content: none; }
+        /* 液态玻璃动态背景（仅玻璃模式）：低饱和平滑渐变，缓慢连贯漂移 */
+        html[data-glass="1"] body::before {
+            background:
+                radial-gradient(120vmax 90vmax at 50% 118%, rgba(255,255,255,0.30), rgba(255,255,255,0) 62%),
+                linear-gradient(125deg, #D5E7F5 0%, #DFEDE7 26%, #EFE9DB 48%, #E1E6F3 72%, #D5E7F5 100%);
+            background-size: 100% 100%;
+            animation: lg-flow 40s ease-in-out infinite alternate;
+            will-change: transform;
+        }
+        @keyframes lg-flow {
+            0% { transform: translate3d(0,0,0); }
+            50% { transform: translate3d(-2.5vmax, 1.6vmax, 0); }
+            100% { transform: translate3d(1.6vmax, -2.5vmax, 0); }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* 待机态：无进度条、文字居中 */
+        .login-progress.idle .login-progress-track { display: none; }
+        .login-progress.idle .login-progress-text { flex: 1; text-align: center; }
+        .login-progress-track { display: none !important; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            background: var(--bg);
+            padding: 16px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .card {
+            background: var(--card);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+        }
+        h1 { font-size: 22px; margin-bottom: 20px; text-align: center; color: var(--text); }
+        .input-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            font-size: 14px;
+            color: var(--sub);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            font-size: 16px;
+            transition: 0.2s;
+            background: var(--glass-card-soft);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: inset 0 1px 0 var(--glass-hi);
+            color: var(--text);
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(255,255,255,0.85);
+            box-shadow: 0 0 0 3px var(--primary-soft);
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: var(--glass-card-soft);
+            color: var(--text);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: 0 4px 14px var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+            transition: 0.2s;
+            margin-top: 8px;
+        }
+        button:active { opacity: 0.85; }
+        .btn-secondary {
+            background: var(--glass-card);
+            margin-top: 12px;
+        }
+        .tip {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            text-align: center;
+        }
+        .tip.ok { display: none; }
+        .tip.err { background: #ffebee; color: #c62828; }
+
+        /* ===== 问候卡（2.5：时间/日期问候/励志语/天气） ===== */
+        .hello-card {
+            background: var(--glass-card-soft);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin: 0 0 12px;
+        }
+        .hello-top { display: flex; align-items: baseline; gap: 10px; }
+        .hello-time { font-size: 26px; font-weight: 800; color: var(--text); letter-spacing: .5px; font-variant-numeric: tabular-nums; }
+        .hello-greet { font-size: 13px; font-weight: 700; color: var(--primary); }
+        .hello-date { font-size: 12px; color: var(--sub); margin-top: 2px; }
+        .hello-quote {
+            font-size: 12.5px; color: var(--sub); line-height: 1.65;
+            margin-top: 9px; padding: 8px 10px;
+            background: var(--primary-soft); border-radius: 10px;
+        }
+        .hello-quote .q-src { opacity: .75; font-size: 11px; margin-left: 4px; }
+        .hello-weather {
+            margin-top: 10px; display: flex; align-items: center; gap: 7px;
+            font-size: 12.5px; color: var(--sub);
+        }
+        #hhWIcon { display: inline-flex; line-height: 0; }
+        .hello-weather svg { width: 15px; height: 15px; flex: 0 0 15px; color: var(--primary); }
+        .hw-city {
+            margin-left: auto; color: var(--primary); font-weight: 700;
+            padding: 2px 9px; background: var(--primary-soft);
+            border-radius: 8px; cursor: pointer;
+            transition: transform .15s cubic-bezier(.2,.8,.2,1);
+        }
+        .hw-city:active { transform: scale(.94); }
+        #cityMask {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 70;
+        }
+        #cityPanel {
+            position: fixed; left: 0; right: 0; bottom: 0;
+            background: var(--card);
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            z-index: 71;
+        }
+        #cityPanel h2 { font-size: 17px; color: var(--text); margin-bottom: 14px; text-align: center; }
+        .city-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+        .city-chip {
+            padding: 7px 14px; border-radius: 10px; font-size: 13px;
+            background: var(--input-bg); color: var(--text);
+            border: 1px solid var(--input-border);
+            transition: transform .15s cubic-bezier(.2,.8,.2,1);
+        }
+        .city-chip:active { transform: scale(.93); }
+        .hidden { display: none; }
+        /* ===== 动态玻璃增强层（2.6：叠加在 2.1 原 UI 之上，不改布局/尺寸） ===== */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -12vmax; left: -12vmax; right: -12vmax; bottom: -12vmax;
+            z-index: -1;
+            background: linear-gradient(135deg, var(--glass-g1), var(--glass-g2), var(--glass-g3), var(--glass-g2), var(--glass-g1));
+            background-size: 400% 400%;
+        }
+        .card {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: 0 10px 34px var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 rgba(255,255,255,0.10);
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute; left: 0; right: 0; top: 0; height: 42%;
+            pointer-events: none;
+            background: linear-gradient(180deg, var(--glass-glow), rgba(255,255,255,0));
+        }
+        .gcard {
+            background: var(--glass-card-soft);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: inset 0 1px 0 var(--glass-hi);
+        }
+        #cityPanel {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: 0 -8px 30px var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+        }
+        .btn { box-shadow: inset 0 1px 0 rgba(255,255,255,0.28); }
+        /* 玻璃模式：按钮与内容区强化毛玻璃质感 */
+        html[data-glass="1"] button:not(.clear-btn):not(.copy-log-link) {
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.40), rgba(255,255,255,0.16));
+            box-shadow: 0 8px 22px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.60), inset 0 -1px 0 rgba(255,255,255,0.14);
+        }
+        html[data-glass="1"] .course-list:not(.wk) {
+            background: rgba(255,255,255,0.26);
+            border: 1px solid var(--glass-border);
+        }
+        html[data-glass="1"] .card {
+            background: linear-gradient(165deg, rgba(255,255,255,0.38), rgba(255,255,255,0.16) 45%, rgba(255,255,255,0.24));
+            box-shadow: 0 14px 44px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -1px 0 rgba(255,255,255,0.15);
+        }
+        html[data-glass="1"] #loginBtn { border-radius: 999px; }
+        /* 主登录按钮：经典蓝色 */
+        #loginBtn { background: var(--primary); color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(11,107,203,0.35); }
+        /* 返回主界面按钮：缩小并居中 */
+        #logoutBtn { width: auto; display: block; margin: 12px auto 0; padding: 9px 26px; font-size: 13.5px; border-radius: 12px; }
+        /* 玻璃模式：记住密码控件玻璃化 */
+        html[data-glass="1"] .checkbox-row {
+            background: linear-gradient(180deg, rgba(255,255,255,0.30), rgba(255,255,255,0.13));
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            padding: 9px 14px;
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: 0 6px 18px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.55);
+        }
+        /* 清空账号密码确认弹窗 */
+        .confirm-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,30,50,0.38); display: flex; align-items: center; justify-content: center; z-index: 999; }
+        .confirm-mask.hidden { display: none; }
+        .confirm-card { width: 78%; max-width: 320px; background: var(--card); border-radius: 18px; padding: 20px 18px 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.22); text-align: center; }
+        .confirm-title { font-size: 15.5px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+        .confirm-text { font-size: 13.5px; color: var(--sub); margin-bottom: 18px; }
+        .confirm-btns { display: flex; gap: 10px; }
+        .confirm-btn { flex: 1; margin: 0; padding: 10px 0; font-size: 14px; border-radius: 999px; border: none; }
+        .confirm-btn.cancel { background: rgba(128,128,128,0.14); color: var(--text); }
+        .confirm-btn.ok { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(11,107,203,0.30); }
+        html[data-glass="1"] .confirm-card { background: linear-gradient(165deg, rgba(255,255,255,0.38), rgba(255,255,255,0.16) 45%, rgba(255,255,255,0.24)); border: 1px solid var(--glass-border); backdrop-filter: var(--bf); -webkit-backdrop-filter: var(--bf); box-shadow: 0 14px 44px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.75); }
+        html[data-glass="1"] .confirm-btn.cancel { background: rgba(255,255,255,0.28); }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+            .card, .gcard, #cityPanel { background: var(--card); }
+        }
+        button { transition: transform .16s cubic-bezier(.2,.8,.2,1), box-shadow .2s, opacity .2s, filter .2s; }
+        button:active { transform: scale(.97); filter: brightness(1.05); }
+        button:disabled { transform: none; }
+        .copy-log-link { transition: transform .15s cubic-bezier(.2,.8,.2,1); }
+        .copy-log-link:active { transform: scale(.95); opacity: 1; }
+        .hw-city { transition: transform .15s cubic-bezier(.2,.8,.2,1); }
+        .hw-city:active { transform: scale(.94); }
+        .city-chip { transition: transform .15s cubic-bezier(.2,.8,.2,1); }
+        .city-chip:active { transform: scale(.93); }
+        .hello-card { transition: transform .15s cubic-bezier(.2,.8,.2,1); }
+        .hello-card:active { transform: scale(.995); }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .btn-group button {
+            flex: 1;
+            min-width: 70px;
+            margin-top: 0;
+            padding: 10px;
+            font-size: 14px;
+        }
+        #weekQueryRow {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        #weekQueryRow.hidden { display: none; }
+        .cur-week-tip {
+            width: 100%;
+            padding: 6px 12px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            color: #1565c0;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .cur-week-tip.hidden { display: none; }
+        #weekQueryRow input {
+            flex: 1;
+            margin: 0;
+            padding: 10px 14px;
+            border: 1px solid var(--input-bg);
+            border-radius: 10px;
+            background: var(--input-bg);
+            color: var(--text);
+            font-size: 14px;
+        }
+        #weekQueryRow button {
+            width: auto;
+            margin: 0;
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+        .course-list {
+            background: var(--input-bg);
+            color: var(--text);
+            padding: 16px;
+            border-radius: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        /* ===== 选周等待提示 ===== */
+        .wk-hint { text-align: center; color: var(--sub); font-size: 13px; padding: 20px 8px; }
+        /* ===== 课表卡片视图（2.3 新增：替代原生网格与文本视图） ===== */
+        .course-list.wk {
+            font-family: inherit;
+            white-space: normal;
+            font-size: 14px;
+            padding: 12px;
+            background: transparent;
+            max-height: none;
+            overflow: visible;
+        }
+        /* ===== 标准周课表网格（2.5.4） ===== */
+        .wk-grid-wrap {
+            margin: 2px 0 16px; border-radius: 16px; overflow: hidden;
+            background: var(--glass-card); border: 1px solid var(--glass-border);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: 0 8px 26px var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+            position: relative;
+        }
+        /* 全屏按钮已移到 wk-title 行内，此处不再保留 wk-grid-wrap 内嵌按钮样式 */
+        .wk-grid-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .wk-grid { display: grid; grid-template-columns: 30px repeat(7, 1fr); min-width: 540px; }
+        .wkg-corner { background: var(--input-bg); border-right: 1px solid var(--input-border); border-bottom: 1px solid var(--input-border); }
+        .wkg-head {
+            padding: 8px 0 6px; text-align: center; font-size: 11px; font-weight: 700;
+            color: var(--sub); border-right: 1px solid var(--input-border); border-bottom: 1px solid var(--input-border);
+        }
+        .wkg-head small { display: block; font-size: 9px; font-weight: 400; margin-top: 1px; }
+        .wkg-head.today { color: var(--primary); background: var(--primary-soft); }
+        .wkg-slot {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 9px; color: var(--sub); height: 56px; padding: 2px 0;
+            background: var(--input-bg); border-right: 1px solid var(--input-border); border-bottom: 1px solid var(--input-border);
+        }
+        .wkg-slot small { font-size: 8px; margin-top: 1px; font-weight: 400; }
+        .wkg-cell {
+            height: 56px; padding: 2px; display: flex; flex-direction: column; gap: 2px;
+            border-right: 1px solid var(--input-border); border-bottom: 1px solid var(--input-border);
+            overflow: hidden;
+        }
+        .wkg-cell.today { background: var(--primary-soft); }
+        .wkg-course {
+            flex: 1; min-height: 0; border-radius: 7px; padding: 2px 3px; font-size: 9px; line-height: 1.2;
+            background: var(--wk-accent-soft); box-shadow: inset 0 0 0 1px var(--wk-accent);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1px;
+        }
+        .wkg-course span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-all; color: var(--text); font-size: 9px; font-weight: 600; max-width: 100%; }
+        .wkg-course small { max-width: 100%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-all; white-space: normal; line-height: 1.15; font-size: 7.5px; color: var(--sub); }
+        .wk-title {
+            font-size: 15px; font-weight: 700; color: var(--text);
+            margin: 2px 2px 8px; display: flex; align-items: center; gap: 8px;
+            position: relative; flex-wrap: nowrap;
+        }
+        /* 标题文字必须是独立 span（裸文本节点不受 flex-shrink 选择器约束，会被压成竖排） */
+        .wk-title-text { flex: 0 0 auto; white-space: nowrap; }
+        .wk-title-spacer { flex: 1 1 auto; min-width: 0; }
+        .wk-week-badge {
+            display: inline-block; padding: 2px 10px; border-radius: 10px;
+            background: #e3f2fd; color: #1976d2; font-size: 12px; font-weight: 600;
+            border: 1px solid #90caf9; letter-spacing: 0.3px;
+            white-space: nowrap; flex: 0 0 auto;
+        }
+        /* 全屏角标：尺寸与"第X周"徽标一致。必须显式 width:auto / margin:0，
+           否则会被全局 button{width:100%} 撑成整条，flex-basis 会回退到该宽度 */
+        .wk-fullscreen-btn {
+            flex: 0 0 auto;
+            width: auto; margin: 0;
+            padding: 2px 7px; border-radius: 10px; border: 1px solid #90caf9;
+            background: #e3f2fd; color: #1976d2;
+            font-size: 11px; font-weight: 600; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            line-height: 1.2; white-space: nowrap; min-width: 24px;
+            box-shadow: none;
+        }
+        .wk-fullscreen-btn:active { transform: scale(0.94); }
+        /* 全屏模式样式（针对整个 courseContent） */
+        #courseContent:fullscreen {
+            background: var(--bg, #f5f7fa);
+            overflow: auto; -webkit-overflow-scrolling: touch;
+            padding: 12px;
+            max-height: none;
+        }
+        #courseContent:fullscreen .wk-title {
+            font-size: 17px; margin-bottom: 12px;
+            position: sticky; top: 0; background: var(--bg, #f5f7fa);
+            padding: 8px 0; z-index: 10;
+        }
+        #courseContent:fullscreen .wk-week-badge { font-size: 13px; }
+        #courseContent:fullscreen .wk-fullscreen-btn { font-size: 12px; padding: 2px 8px; }
+        #courseContent:fullscreen .wk-grid-wrap {
+            margin: 0 0 12px;
+        }
+        /* 全屏只显示网格课表，隐藏下方的日视图卡片列表 */
+        #courseContent:fullscreen .wk-day,
+        #courseContent:fullscreen .wk-note {
+            display: none;
+        }
+        #courseContent:fullscreen .wk-grid-scroll { overflow: visible; }
+        #courseContent:fullscreen .wk-grid {
+            min-width: 100%;
+            grid-template-columns: 30px repeat(7, 1fr);
+        }
+        #courseContent:fullscreen .wkg-head { font-size: 13px; padding: 10px 0 8px; }
+        #courseContent:fullscreen .wkg-head small { font-size: 11px; }
+        #courseContent:fullscreen .wkg-slot { font-size: 11px; height: 64px; }
+        #courseContent:fullscreen .wkg-slot small { font-size: 10px; }
+        #courseContent:fullscreen .wkg-cell { height: 64px; }
+        #courseContent:fullscreen .wkg-course span { font-size: 11px; }
+        #courseContent:fullscreen .wkg-course small { font-size: 9px; }
+        /* 横屏时单元格稍矮，更多内容可见 */
+        @media (orientation: landscape) {
+            #courseContent:fullscreen .wkg-head { font-size: 14px; }
+            #courseContent:fullscreen .wkg-slot { height: 56px; }
+            #courseContent:fullscreen .wkg-cell { height: 56px; }
+        }
+        .wk-note { text-align: center; color: var(--sub); font-size: 11px; margin: 0 0 12px; }
+        .wk-day { margin-bottom: 14px; }
+        .wk-day-head {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            margin: 0 2px 8px; font-size: 13px; font-weight: 700; color: var(--sub);
+        }
+        .wk-day.today .wk-day-head { color: var(--primary); }
+        .wk-date { font-weight: 500; font-size: 12px; opacity: .85; }
+        .wk-cnt {
+            font-size: 11px; font-weight: 600;
+            background: var(--primary-soft); color: var(--primary);
+            border-radius: 8px; padding: 1px 8px;
+        }
+        .wk-today-badge {
+            font-size: 10px; font-weight: 700; color: #fff;
+            background: var(--primary); border-radius: 8px; padding: 1px 8px;
+        }
+        .wk-course {
+            background: var(--glass-card-soft);
+            border: 1px solid var(--glass-border);
+            border-left: 3px solid var(--wk-accent, var(--primary));
+            box-shadow: inset 0 1px 0 var(--glass-hi);
+            border-radius: 14px; padding: 10px 12px; margin-bottom: 8px;
+            display: flex; gap: 10px; align-items: flex-start;
+            transition: transform .15s cubic-bezier(.2,.8,.2,1);
+        }
+        .wk-course:active { transform: scale(.98); }
+        .wk-icon {
+            flex: 0 0 30px; width: 30px; height: 30px; border-radius: 10px;
+            background: var(--wk-accent-soft, var(--primary-soft));
+            color: var(--wk-accent, var(--primary));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 800;
+        }
+        .wk-main { flex: 1; min-width: 0; }
+        /* 课程名字号放大到与左侧图标框(30px)一样大，单行行高与图标框等高 */
+        .wk-name {
+            font-size: 20px; font-weight: 700; color: var(--text);
+            line-height: 1.5; word-break: break-all;
+            min-height: 30px; display: flex; align-items: center;
+        }
+        /* 重点信息框：小节(含别名)、地点、任课教师，字号小于课程名(14px) */
+        .wk-hl {
+            margin-top: 6px; padding: 6px 9px;
+            display: flex; flex-wrap: wrap; gap: 3px 10px;
+            background: var(--wk-accent-soft, var(--primary-soft));
+            border-radius: 9px;
+            font-size: 12.5px; font-weight: 600; line-height: 1.4;
+            color: var(--wk-accent, var(--primary));
+        }
+        .wk-hl span { display: inline-flex; align-items: center; gap: 4px; min-width: 0; word-break: break-all; }
+        .wk-hl svg { width: 12px; height: 12px; flex: 0 0 12px; opacity: .9; }
+        .wk-weeks {
+            margin-top: 5px; display: inline-flex; align-items: center; gap: 3px;
+            font-size: 10.5px; color: var(--sub);
+        }
+        .wk-weeks svg { width: 10px; height: 10px; flex: 0 0 10px; opacity: .75; }
+        .wk-empty { text-align: center; color: var(--sub); font-size: 13px; padding: 26px 8px; }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .btn .loading { display: none; }
+        button:disabled { opacity: 0.6; }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+        .checkbox-row label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            margin-bottom: 0;
+        }
+        .checkbox-row input {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+        }
+        .checkbox-row input:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        .checkbox-row input:disabled + span {
+            opacity: 0.4;
+        }
+        .clear-btn {
+            background: none;
+            border: none;
+            color: var(--sub);
+            font-size: 12px;
+            padding: 4px 8px;
+            margin: 0;
+            width: auto;
+            cursor: pointer;
+        }
+        .clear-btn:active { opacity: 0.7; }
+        .pwd-wrap { position: relative; }
+        .pwd-wrap input { padding-right: 42px; }
+        .pwd-eye {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--sub);
+            opacity: 0.65;
+            user-select: none;
+            border-radius: 50%;
+            transition: opacity .15s, background .15s;
+        }
+        .pwd-eye:active { opacity: 1; background: rgba(128,128,128,0.14); }
+        .pwd-eye svg { display: block; }
+        .login-progress {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+        .login-progress.hidden { display: none; }
+        .login-progress-track {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(128,128,128,0.22);
+            overflow: hidden;
+        }
+        .login-progress-bar {
+            height: 100%;
+            width: 40%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #f44336, #ff9800, #ffeb3b, #4caf50);
+            animation: lp-slide 1.1s ease-in-out infinite;
+        }
+        @keyframes lp-slide {
+            0% { margin-left: -40%; }
+            100% { margin-left: 100%; }
+        }
+        .login-progress-text { font-size: 12px; color: #0B6BCB; font-weight: 500; flex: 1 0 100%; text-align: center; line-height: 1.35; margin-top: 2px; }
+        .copy-log-link {
+            background: none;
+            border: none;
+            color: var(--sub);
+            font-size: 10px;
+            padding: 3px;
+            margin: 4px auto 0;
+            width: auto;
+            display: block;
+            opacity: 0.7;
+        }
+        .copy-log-link:active { opacity: 1; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card" id="login-page">
+        <h1>Mimi课表</h1>
+        <div class="hello-card" id="hhCard">
+            <div class="hello-top">
+                <span class="hello-time" id="hhTime">--:--</span>
+                <span class="hello-greet" id="hhGreet"></span>
+            </div>
+            <div class="hello-date" id="hhDate"></div>
+            <div class="hello-quote" id="hhQuote"></div>
+            <div class="hello-weather" id="hhWeather">
+                <span id="hhWIcon"></span>
+                <span id="hhWText">天气加载中</span>
+                <span class="hw-city" id="hhWCity">武夷山</span>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>学号</label>
+            <input type="text" id="username" placeholder="请输入学号" autocomplete="off">
+        </div>
+        <div class="input-group">
+            <label>密码</label>
+            <div class="pwd-wrap">
+                <input type="password" id="password" placeholder="请输入密码">
+                <span id="pwdEye" class="pwd-eye"></span>
+            </div>
+        </div>
+        <div class="checkbox-row">
+            <label>
+                <input type="checkbox" id="rememberCheckbox" checked>
+                <span style="font-size: 14px; color: var(--sub);">记住密码</span>
+            </label>
+            <label>
+                <input type="checkbox" id="autoLoginCheckbox" checked>
+                <span style="font-size: 14px; color: var(--sub);">自动登录</span>
+            </label>
+            <label>
+                <input type="checkbox" id="cacheCheckbox" checked>
+                <span style="font-size: 14px; color: var(--sub);">课表记忆</span>
+            </label>
+            <button id="clearCredentialsBtn" class="clear-btn" style="display: none;">清空账号密码</button>
+        </div>
+        <button id="loginBtn" class="btn">
+            <span class="txt">登录教务系统</span>
+            <span class="loading hidden"></span>
+        </button>
+        <div id="loginProgress" class="login-progress hidden">
+            <span class="login-progress-text" id="lpText">正在登录教务系统...</span>
+        </div>
+        <div id="tip" class="tip hidden"></div>
+    </div>
+
+    <div class="card hidden" id="timetable-page">
+        <h1>Mimi课表</h1>
+        <div class="btn-group">
+            <button id="todayBtn">今天</button>
+            <button id="tomorrowBtn">明天</button>
+            <button id="weekBtn">本周</button>
+            <button id="customWeekBtn">选周</button>
+            <button id="refreshBtn">更新</button>
+        </div>
+        <div id="weekQueryRow" class="hidden">
+            <span id="curWeekTip" class="cur-week-tip hidden"></span>
+            <input type="number" id="weekInput" placeholder="输入周数（1-18）" min="1" max="18">
+            <button id="weekQueryBtn">查询</button>
+        </div>
+        <div id="ttProgress" class="login-progress hidden" style="margin:0 2px 12px;">
+            <span class="login-progress-text" id="ttLpText">正在更新课表...</span>
+        </div>
+        <div id="courseContent" class="course-list">加载中...</div>
+        <button id="logoutBtn" class="btn-secondary">返回主界面</button>
+    </div>
+
+    <button id="copyLogBtn" class="copy-log-link">复制运行日志（出问题时点我）</button>
+</div>
+
+
+<div id="cityMask" class="hidden"></div>
+<div id="confirmMask" class="confirm-mask hidden">
+    <div class="confirm-card">
+        <div class="confirm-title">清空账号密码</div>
+        <div class="confirm-text">是否清空账号密码？</div>
+        <div class="confirm-btns">
+            <button id="confirmCancel" class="confirm-btn cancel">取消</button>
+            <button id="confirmOk" class="confirm-btn ok">确定</button>
+        </div>
+    </div>
+</div>
+<div id="cityPanel" class="hidden">
+    <h2>选择城市</h2>
+    <div class="city-grid" id="cityGrid"></div>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+        <input id="cityInput" type="text" placeholder="输入城市名，如：武夷山" autocomplete="off" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--text);font-size:14px;">
+        <button id="cityOk" style="flex:0 0 84px;margin:0;padding:10px;font-size:14px;">确定</button>
+    </div>
+</div>
+
+
+<script>
+    // 页面元素
+    const loginPage = document.getElementById('login-page');
+    const timetablePage = document.getElementById('timetable-page');
+    const tipDiv = document.getElementById('tip');
+    const loginBtn = document.getElementById('loginBtn');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const rememberCheckbox = document.getElementById('rememberCheckbox');
+    const autoLoginCheckbox = document.getElementById('autoLoginCheckbox');
+    const cacheCheckbox = document.getElementById('cacheCheckbox');
+    // 恢复记住密码、自动登录、课表记忆偏好（三勾选框状态均持久化）
+    try {
+        const rm = localStorage.getItem('mimi_remember_pref');
+        if (rm !== null) rememberCheckbox.checked = (rm === '1');
+        const al = localStorage.getItem('mimi_auto_login');
+        if (al !== null) autoLoginCheckbox.checked = (al === '1');
+        const cc = localStorage.getItem('mimi_cache_pref');
+        if (cc !== null) cacheCheckbox.checked = (cc === '1');
+    } catch(e) {}
+    // 记住密码＝总开关：未勾选时后两项置灰不可勾选，重新勾选时恢复各自偏好
+    function syncMasterSwitch() {
+        var on = rememberCheckbox.checked;
+        autoLoginCheckbox.disabled = !on;
+        cacheCheckbox.disabled = !on;
+        if (!on) {
+            autoLoginCheckbox.checked = false;
+            cacheCheckbox.checked = false;
+        } else {
+            autoLoginCheckbox.checked = prefOn('mimi_auto_login', autoLoginCheckbox);
+            cacheCheckbox.checked = prefOn('mimi_cache_pref', cacheCheckbox);
+        }
+    }
+    rememberCheckbox.addEventListener('change', function() {
+        try { localStorage.setItem('mimi_remember_pref', rememberCheckbox.checked ? '1' : '0'); } catch(e) {}
+        syncMasterSwitch();
+    });
+    autoLoginCheckbox.addEventListener('change', function() {
+        try { localStorage.setItem('mimi_auto_login', autoLoginCheckbox.checked ? '1' : '0'); } catch(e) {}
+    });
+    cacheCheckbox.addEventListener('change', function() {
+        try { localStorage.setItem('mimi_cache_pref', cacheCheckbox.checked ? '1' : '0'); } catch(e) {}
+    });
+    // 页面隐藏/关闭时强制保存所有勾选框状态（防止 change 事件未触发）
+    function saveAllPrefs() {
+        try {
+            localStorage.setItem('mimi_remember_pref', rememberCheckbox.checked ? '1' : '0');
+            localStorage.setItem('mimi_auto_login', autoLoginCheckbox.checked ? '1' : '0');
+            localStorage.setItem('mimi_cache_pref', cacheCheckbox.checked ? '1' : '0');
+        } catch(e) {}
+    }
+    window.addEventListener('pagehide', saveAllPrefs);
+    window.addEventListener('visibilitychange', function() { if (document.hidden) saveAllPrefs(); });
+    // 统一读取勾选框真实状态：优先 localStorage 持久化值，无值时才用 checkbox 当前状态
+    function prefOn(key, checkbox) {
+        try { var v = localStorage.getItem(key); if (v !== null) return v === '1'; } catch(e) {}
+        return checkbox.checked;
+    }
+    syncMasterSwitch(); // 初始化时按总开关应用一次联动状态
+    const clearCredentialsBtn = document.getElementById('clearCredentialsBtn');
+    const todayBtn = document.getElementById('todayBtn');
+    const tomorrowBtn = document.getElementById('tomorrowBtn');
+    const weekBtn = document.getElementById('weekBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const courseContent = document.getElementById('courseContent');
+
+    let coursesData = [];
+
+    // 辅助函数
+    function showTip(msg, isErr = false, duration = 4000) {
+        tipDiv.textContent = msg;
+        tipDiv.className = 'tip ' + (isErr ? 'err' : 'ok');
+        tipDiv.classList.remove('hidden');
+        setTimeout(() => {
+            if (tipDiv) tipDiv.classList.add('hidden');
+        }, duration);
+    }
+
+    function setLoginBtnLoading(loading) {
+        const txt = loginBtn.querySelector('.txt');
+        const spin = loginBtn.querySelector('.loading');
+        if (loading) {
+            txt.textContent = '登录中...';
+            spin.classList.remove('hidden');
+            loginBtn.disabled = true;
+        } else {
+            txt.textContent = '登录教务系统';
+            spin.classList.add('hidden');
+            loginBtn.disabled = false;
+        }
+    }
+
+    // ========== 运行日志（界面显示在进度条小字里，复制时带完整版） ==========
+    const fullLogLines = [];
+    const lpBars = [document.getElementById('loginProgress'), document.getElementById('ttProgress')];
+    const lpTexts = [document.getElementById('lpText'), document.getElementById('ttLpText')];
+    let lpHideTimer = null;
+    let lpLocked = false; // 课表加载成功后锁定，后续日志不再触发进度条显示，避免查完还在转
+    var __fromLogout = false; // 标记是否从"返回主界面"进入登录页（true时不自动登录、不加载缓存）
+    var __autoLoginFired = false; // 防止一次开屏/返回主界面期间重复触发自动登录
+    function pad2(n) { return ('0' + n).slice(-2); }
+    // 格式化缓存时间戳为友好文本：今天 14:32 / 昨天 09:10 / 10-19 20:11
+    function fmtCacheTime(ts) {
+        if (!ts) return '未知';
+        var d = new Date(ts), now = new Date();
+        var hm = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()) return '今天 ' + hm;
+        var y = new Date(now.getTime() - 86400000);
+        if (d.getFullYear() === y.getFullYear() && d.getMonth() === y.getMonth() && d.getDate() === y.getDate()) return '昨天 ' + hm;
+        return pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + hm;
+    }
+    // 读取上次课表缓存时间戳（毫秒），无则返回 0
+    function lastCacheTime() {
+        try { return parseInt(localStorage.getItem('mimi_last_cache_time') || '0', 10) || 0; } catch(e) { return 0; }
+    }
+    function nowStamp() {
+        const d = new Date();
+        return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+    }
+    function showProgress(t) {
+        if (lpHideTimer) { clearTimeout(lpHideTimer); lpHideTimer = null; }
+        lpBars.forEach(function(el){ if (el) el.classList.remove('idle'); });
+        lpTexts.forEach(function(el){ if (el && t) el.textContent = t; });
+        lpBars.forEach(function(el){ if (el) el.classList.remove('hidden'); });
+    }
+    function hideProgress(delay) {
+        if (lpHideTimer) clearTimeout(lpHideTimer);
+        lpHideTimer = setTimeout(function() {
+            lpBars.forEach(function(el){ if (el) el.classList.add('hidden'); });
+        }, delay || 0);
+    }
+    // 待机态：只显示居中文字，不出进度条
+    function showIdle(t) {
+        if (lpHideTimer) { clearTimeout(lpHideTimer); lpHideTimer = null; }
+        lpBars.forEach(function(el){ if (el) el.classList.remove('hidden'); });
+        lpTexts.forEach(function(el){ if (el && t) el.textContent = t; });
+        if (lpBars[0]) lpBars[0].classList.add('idle');
+    }
+    // 内部消息翻译成大白话；返回 null 不显示
+    function simplifyTimetableMsg(msg) {
+        if (!msg) return null;
+        if (msg.indexOf('[page] ') === 0) {
+            const u = msg.substring(7);
+            if (u.indexOf('sso.') >= 0) return '正在统一身份认证登录...';
+            if (u.indexOf('xsMainV_new') >= 0) return '登录成功，正在进入教务系统...';
+            if (u.indexOf('xsMainV.htmlx') >= 0) return '已进入教务系统，正在读取课表...';
+            return null;
+        }
+        if (msg.indexOf('[A] ') === 0) return msg.substring(4);
+        if (msg.indexOf('[JS] ') === 0) return msg.substring(4);
+        if (msg.indexOf('[页] ') === 0) {
+            const p = msg.substring(4);
+            if (p.indexOf('课表页已加载') === 0) return null;
+            return p;
+        }
+        return msg;
+    }
+    window.timetableLog = function(msg) {
+        try {
+            fullLogLines.push(nowStamp() + ' ' + msg);
+            if (lpLocked) return; // 已查完，后续日志只记录不显示进度条
+            const s = simplifyTimetableMsg(msg);
+            if (s === null) return;
+            showProgress(s);
+        } catch(e) {}
+    };
+    document.getElementById('copyLogBtn').onclick = function() {
+        const btn = this;
+        const text = fullLogLines.join('\n') || '（暂无日志）';
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(ta);
+        const old = btn.textContent;
+        btn.textContent = ok ? '已复制，粘贴发给开发者即可' : '复制失败，请长按日志文字复制';
+        setTimeout(function() { btn.textContent = old; }, 2000);
+    };
+
+    const pwdEye = document.getElementById('pwdEye');
+    // 平面UI小眼睛：图标表示「当前状态」——密码隐藏(密文)时显示闭眼斜杠，密码可见(明文)时显示睁眼
+    const EYE_OPEN = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.9"/></svg>';
+    const EYE_OFF = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.8 12 5.8c1.5 0 2.9.35 4.1.9M21.5 12S18 18.2 12 18.2c-1.5 0-2.9-.35-4.1-.9"/><path d="M4 4l16 16"/><path d="M9.9 9.9a2.9 2.9 0 1 0 4.1 4.1"/></svg>';
+    function setEyeIcon() {
+        pwdEye.innerHTML = passwordInput.type === 'password' ? EYE_OFF : EYE_OPEN;
+    }
+    pwdEye.onclick = function() {
+        passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+        setEyeIcon();
+    };
+    setEyeIcon();
+
+
+    function getTodayWeekday() {
+        const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        const today = new Date();
+        const weekday = weekdays[today.getDay()];
+        console.log('计算得到的今天:', weekday);
+        return weekday;
+    }
+
+    function getTomorrowWeekday() {
+        const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return weekdays[tomorrow.getDay()];
+    }
+
+    // 解析周次范围，如 [1-16周] / [3周] / [1-8周,10-16周]
+    function parseWeekRanges(wr) {
+        if (!wr) return null;
+        const m = wr.match(/\[(.*?)\]/);
+        let s = m ? m[1] : wr;
+        s = s.replace(/周/g, '');
+        const segs = [];
+        s.split(',').forEach(p => {
+            p = p.trim();
+            if (!p) return;
+            if (p.indexOf('-') >= 0) {
+                const ab = p.split('-');
+                segs.push([parseInt(ab[0]), parseInt(ab[1])]);
+            } else {
+                const n = parseInt(p);
+                if (!isNaN(n)) segs.push([n, n]);
+            }
+        });
+        return segs.length ? segs : null;
+    }
+
+    function courseInWeek(c, n) {
+        const segs = parseWeekRanges(c.weekRange);
+        if (!segs) return true;
+        for (let s of segs) {
+            if (n >= s[0] && n <= s[1]) return true;
+        }
+        return false;
+    }
+
+    // ===== 课表卡片渲染（2.3：替代 emoji 文本与原生网格） =====
+    const WK_ICONS = {
+        clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+        pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 21s-7-5.1-7-11a7 7 0 1 1 14 0c0 5.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+        user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.8-3.2 4.6-4.5 8-4.5s6.2 1.3 8 4.5"/></svg>',
+        cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>'
+    };
+    const WK_COLORS = ['#0B6BCB', '#2F9E6E', '#E07800', '#8E5CE7', '#D64545', '#0891B2', '#C2185B', '#5B8C00'];
+    const WK_ORDER = ['第一二节', '第三四节', '第五六节', '第七八节', '第九十节'];
+    const WK_SLOT_ALIAS = { '第一二节': '早八', '第三四节': '早十', '第五六节': '午二', '第七八节': '午四', '第九十节': '晚七' };
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    // 教务系统回传的上课地点常含重复前缀（如"同文2同文2-404"），去重后返回
+    function cleanLoc(s) {
+        if (!s) return s;
+        let t = String(s).trim();
+        for (let pass = 0; pass < 3; pass++) {
+            let changed = false;
+            const maxK = Math.min(Math.floor(t.length / 2), 12);
+            for (let k = maxK; k >= 2; k--) {
+                const head = t.slice(0, k);
+                if (head === t.slice(k, 2 * k) && /[^\x00-\xff]/.test(head)) {
+                    t = t.slice(k);
+                    changed = true;
+                    break;
+                }
+            }
+            if (!changed) break;
+        }
+        return t;
+    }
+    function wkColor(name) {
+        let h = 0;
+        for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+        return WK_COLORS[Math.abs(h) % WK_COLORS.length];
+    }
+    function hexSoft(hex) {
+        const n = parseInt(hex.slice(1), 16);
+        return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',0.13)';
+    }
+    // 小节别名：sections 形如 "03~04小节"，按首节号成对映射为早八/早十/午二/午四/晚七
+    function slotAlias(c) {
+        const s = String((c && (c.sections || c.timeSlot)) || '');
+        const m = s.match(/\d+/);
+        if (m) {
+            const n = parseInt(m[0], 10);
+            if (n >= 1 && n <= 10) return WK_SLOT_ALIAS[WK_ORDER[Math.floor((n - 1) / 2)]] || '';
+        }
+        return WK_SLOT_ALIAS[s] || '';
+    }
+    function fmtWeeks(w) {
+        return esc(String(w).replace(/[[\]]/g, '').trim());
+    }
+    function courseCard(c, idx) {
+        const col = wkColor(c.name || '?');
+        const secText = c.sections || c.timeSlot || '';
+        const alias = slotAlias(c);
+        return '<div class="wk-course" style="--wk-accent:' + col + ';--wk-accent-soft:' + hexSoft(col) + '">'
+            + '<div class="wk-icon">' + esc((c.name || '?').substring(0, 1)) + '</div>'
+            + '<div class="wk-main"><div class="wk-name">' + esc(c.name || '未知课程') + '</div>'
+            + '<div class="wk-hl">'
+            + '<span>' + WK_ICONS.clock + esc(secText) + (alias ? '(' + esc(alias) + ')' : '') + '</span>'
+            + '<span>' + WK_ICONS.pin + esc(cleanLoc(c.location) || '未知地点') + '</span>'
+            + '<span>' + WK_ICONS.user + esc(c.teacher || '未知教师') + '</span>'
+            + '</div>'
+            + (c.weekRange ? '<div class="wk-weeks">' + WK_ICONS.cal + fmtWeeks(c.weekRange) + '</div>' : '')
+            + '</div></div>';
+    }
+    function daySection(day, list, idx0, dateStr, isCurWeek) {
+        const isToday = isCurWeek !== false && day === getTodayWeekday();
+        list.sort(function(a, b) { return WK_ORDER.indexOf(a.timeSlot) - WK_ORDER.indexOf(b.timeSlot); });
+        let html = '<div class="wk-day' + (isToday ? ' today' : '') + '">';
+        html += '<div class="wk-day-head"><span>' + day + '</span>'
+            + (dateStr ? '<span class="wk-date">' + esc(dateStr) + '</span>' : '')
+            + (isToday ? '<span class="wk-today-badge">今天</span>' : '')
+            + '<span class="wk-cnt">' + list.length + ' 门课</span></div>';
+        list.forEach(function(c, i) { html += courseCard(c, idx0 + i); });
+        html += '</div>';
+        return html;
+    }
+    function wkgDateShort(s) {
+        s = String(s || '');
+        const m = s.match(/(\d{1,2})\D+(\d{1,2})/);
+        if (m) return m[1] + '/' + m[2];
+        return s.slice(0, 6);
+    }
+    // 解析课表里的 dayDate（如 "9月2日" / "9/2"）→ {month, day}
+    function parseDayDate(s) {
+        s = String(s || '');
+        const re = /(\d{1,2})\D+(\d{1,2})/g;
+        let m, last = null;
+        while ((m = re.exec(s)) !== null) last = m;
+        if (!last) return null;
+        return { month: parseInt(last[1], 10), day: parseInt(last[2], 10) };
+    }
+    // 周次锚点：{w: 周次, m: 该周第一天的ISO日期}（第一天可能是周一~周日任意一天）
+    let __weekAnchor = null;
+    let __week1Locked = false; // 已用课程数据锚定（最高优先级）
+    try {
+        const _wa = localStorage.getItem('mimi_week_anchor2');
+        if (_wa) {
+            const o = JSON.parse(_wa);
+            if (o && o.w >= 1 && o.w <= 30 && o.m) {
+                __weekAnchor = o;
+                if (o.locked === true) __week1Locked = true; // 锁定状态随锚点持久化
+            }
+        }
+    } catch(e) {}
+    function saveWeekAnchor(n, firstDayIso) {
+        // 优先用课程数据推算的第一周第一天，否则退回今天所在周的第一天
+        let m = firstDayIso;
+        if (!m) {
+            const t = new Date();
+            const td = t.getDay() === 0 ? 7 : t.getDay();
+            const mon = new Date(t.getFullYear(), t.getMonth(), t.getDate() - (td - 1));
+            m = mon.getFullYear() + '-' + String(mon.getMonth() + 1).padStart(2, '0') + '-' + String(mon.getDate()).padStart(2, '0');
+        }
+        __weekAnchor = { w: n, m: m };
+        try { localStorage.setItem('mimi_week_anchor2', JSON.stringify(__weekAnchor)); } catch(e) {}
+        console.log('周次锚点已设置: 第' + n + '周, 第一天=' + __weekAnchor.m);
+    }
+    // 双锚定：教务首页当前周次 + 当前周课程表头实际日期 → 反推第1周周一（开学日可为任意星期）
+    let __homeWeek = null;   // 教务首页解析到的当前周次
+    let __courseRef = null;  // 当前周任一课程的 {dow:星期1-7, t:实际日期ms}
+    function isoOf(d) {
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function tryLockAnchor() {
+        if (__week1Locked || !__homeWeek || !__courseRef) return;
+        try {
+            const ref = new Date(__courseRef.t);
+            // 该课程所在周的周一（dayOfWeek: 1=周一...7=周日）
+            const mondayRef = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - (__courseRef.dow - 1));
+            // 反推第1周周一 = 当前周周一 - (当前周次-1)*7天
+            const monday1 = new Date(mondayRef.getTime() - (__homeWeek - 1) * 604800000);
+            __weekAnchor = { w: 1, m: isoOf(monday1), locked: true };
+            __week1Locked = true;
+            try { localStorage.setItem('mimi_week_anchor2', JSON.stringify(__weekAnchor)); } catch(e) {}
+            timetableLog('[A] 锚点锁定：第1周周一=' + __weekAnchor.m + '（首页第' + __homeWeek + '周+课程日期反推）');
+            console.log('第1周周一锚点: ' + __weekAnchor.m);
+        } catch(e) { console.log('锚点锁定失败: ' + e.message); }
+    }
+    function mondayMs(iso) {
+        const p = String(iso).split('-');
+        return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)).getTime();
+    }
+    // 以锚点推算当前周次：锚点周次 + (本周一 - 锚点周一) 的整周差
+    function anchorCurrentWeek() {
+        if (!__weekAnchor) return null;
+        try {
+            const t = new Date();
+            const td = t.getDay() === 0 ? 7 : t.getDay();
+            const mon = new Date(t.getFullYear(), t.getMonth(), t.getDate() - (td - 1));
+            // 锚点日期先归一到其所在周的周一，兼容历史非周一锚点
+            const am = new Date(mondayMs(__weekAnchor.m));
+            const ad = am.getDay() === 0 ? 7 : am.getDay();
+            const amon = new Date(am.getFullYear(), am.getMonth(), am.getDate() - (ad - 1));
+            const diff = Math.round((mon.getTime() - amon.getTime()) / 604800000);
+            const w = __weekAnchor.w + diff;
+            return w >= 1 && w <= 30 ? w : null;
+        } catch(e) { return null; }
+    }
+    // 以锚点推算第 weekNo 周、星期 dayOfWeek 的日期字符串
+    function anchorDateFor(weekNo, dayOfWeek) {
+        // m 是该周第一天（可能是周一~周日），dayOfWeek 1=周一...7=周日
+        // 先求出该周周一，再加 dayOfWeek-1 天
+        const first = new Date(mondayMs(__weekAnchor.m));
+        const fd = first.getDay() === 0 ? 7 : first.getDay();
+        const monday = new Date(first);
+        monday.setDate(first.getDate() - (fd - 1)); // 该周周一
+        const target = new Date(monday);
+        target.setDate(monday.getDate() + (weekNo - __weekAnchor.w) * 7 + (dayOfWeek - 1));
+        return (target.getMonth() + 1) + '/' + target.getDate();
+    }
+    // 从课程数据推算第一周第一天（取所有课程中最早 dayDate，支持任意星期开始）
+    let __semStart = null, __semStartChecked = false;
+    function getSemesterStart() {
+        if (__semStartChecked) return __semStart;
+        __semStartChecked = true;
+        if (!window.coursesData) return null;
+        let best = null;
+        const now = new Date();
+        const thisYear = now.getFullYear();
+        for (let i = 0; i < window.coursesData.length; i++) {
+            const p = parseDayDate(window.coursesData[i].dayDate);
+            if (!p) continue;
+            let cand = null;
+            for (let yr of [thisYear, thisYear - 1, thisYear + 1]) {
+                const d = new Date(yr, p.month - 1, p.day);
+                const m = d.getMonth() + 1;
+                const inWindow = (m >= 8) || (m <= 2);
+                if (!inWindow) continue;
+                if (!cand || Math.abs(d - now) < Math.abs(cand - now)) cand = d;
+            }
+            if (cand && (!best || cand < best)) best = cand;
+        }
+        __semStart = best;
+        return best;
+    }
+    // 计算当前是第几周（1-based），无法推算时返回 null
+    function getCurrentWeekNo() {
+        // 优先使用教务系统首页解析到的周次锚点
+        const aw = anchorCurrentWeek();
+        if (aw) return aw;
+        const start = getSemesterStart();
+        if (!start) return null;
+        // 归一到第一周周一，避免第一周非周一开始时周次偏移
+        const sd = start.getDay() === 0 ? 7 : start.getDay();
+        const monday1 = new Date(start);
+        monday1.setDate(start.getDate() - (sd - 1));
+        const diff = Math.floor((Date.now() - monday1.getTime()) / 86400000);
+        const w = Math.floor(diff / 7) + 1;
+        return w >= 1 && w <= 30 ? w : null;
+    }
+    // 根据周次和星期几（1-7）算出实际日期字符串，如 "10/12"
+    function getDateForWeekDay(weekNo, dayOfWeek) {
+        // dayOfWeek: 1=周一...7=周日
+        // 优先使用周次锚点：锚点周一 + (weekNo-锚点周)*7 + (dayOfWeek-1) 天，日期精确对应
+        if (__weekAnchor && weekNo && dayOfWeek) return anchorDateFor(weekNo, dayOfWeek);
+        const start = getSemesterStart();
+        if (!start || !weekNo || !dayOfWeek) {
+            // 无法推算时退回今天所在周
+            const today = new Date();
+            const td = today.getDay() === 0 ? 7 : today.getDay();
+            const monday = new Date(today);
+            monday.setDate(today.getDate() - (td - 1));
+            const d = new Date(monday);
+            d.setDate(monday.getDate() + (dayOfWeek - 1));
+            return (d.getMonth() + 1) + '/' + d.getDate();
+        }
+        // start 是第一周的某一天（可能是周一~周日），先归一到第一周周一
+        const sd = start.getDay() === 0 ? 7 : start.getDay();
+        const monday1 = new Date(start);
+        monday1.setDate(start.getDate() - (sd - 1));
+        const target = new Date(monday1);
+        target.setDate(monday1.getDate() + (weekNo - 1) * 7 + (dayOfWeek - 1));
+        return (target.getMonth() + 1) + '/' + target.getDate();
+    }
+    const DAY_NAME_TO_NUM = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 7 };
+    // 课表全屏切换：对整个 courseContent 进/出 fullscreen，避免网格被切分
+    window.toggleTimetableFullscreen = function(btn) {
+        const target = document.getElementById('courseContent');
+        if (!target) return;
+        const doc = document;
+        const isFs = doc.fullscreenElement || doc.webkitFullscreenElement;
+        const enter = function(el) {
+            if (el.requestFullscreen) return el.requestFullscreen();
+            if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+            return Promise.reject(new Error('no fullscreen api'));
+        };
+        const exit = function() {
+            if (doc.exitFullscreen) return doc.exitFullscreen();
+            if (doc.webkitExitFullscreen) return doc.webkitExitFullscreen();
+            return Promise.resolve();
+        };
+        if (isFs) {
+            exit().catch(function(){});
+        } else {
+            enter(target).catch(function(e) {
+                try { timetableLog('[页] 全屏失败: ' + (e && e.message)); } catch(_) {}
+            });
+        }
+    };
+    // 全屏状态变化时同步按钮文案（支持 Esc / 系统返回键退出）
+    document.addEventListener('fullscreenchange', updateFullscreenBtns);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenBtns);
+    function updateFullscreenBtns() {
+        const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        document.querySelectorAll('.wk-fullscreen-btn').forEach(function(b) {
+            b.textContent = isFs ? '✕' : '⛶';
+            b.title = isFs ? '退出全屏' : '全屏';
+        });
+    }
+    function renderWeekGrid(filterFn, weekNo, isCurWeek) {
+        const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+        const labels = ['1-2', '3-4', '5-6', '7-8', '9-10'];
+        const labelSubs = ['早八', '早十', '午二', '午四', '晚七'];
+        const today = isCurWeek === false ? '' : getTodayWeekday();
+        // 推算各天的实际日期：本周用今天推算，选周用学期第一周推算
+        const dates = {};
+        days.forEach(function(d) {
+            const dn = DAY_NAME_TO_NUM[d];
+            if (weekNo) dates[d] = getDateForWeekDay(weekNo, dn);
+            else dates[d] = getDateForWeekDay(null, dn); // 本周：用今天推算
+        });
+        let h = '<div class="wk-grid-wrap"><div class="wk-grid-scroll"><div class="wk-grid"><div class="wkg-corner"></div>';
+        days.forEach(function(d) {
+            h += '<div class="wkg-head' + (d === today ? ' today' : '') + '">' + d.slice(1)
+                + '<small>' + wkgDateShort(dates[d]) + '</small></div>';
+        });
+        labels.forEach(function(lb, ri) {
+            h += '<div class="wkg-slot">' + lb + '<small>(' + labelSubs[ri] + ')</small></div>';
+            days.forEach(function(d) {
+                const list = window.coursesData.filter(function(c) {
+                    return c.dayOfWeek === d && c.timeSlot === WK_ORDER[ri] && (!filterFn || filterFn(c));
+                });
+                h += '<div class="wkg-cell' + (d === today ? ' today' : '') + '">';
+                list.forEach(function(c) {
+                    const col = wkColor(c.name || '?');
+                    h += '<div class="wkg-course" style="--wk-accent:' + col + ';--wk-accent-soft:' + hexSoft(col) + '">'
+                    + '<span>' + esc(c.name || '课程') + '</span>'
+                    + (cleanLoc(c.location) ? '<small>' + esc(cleanLoc(c.location)) + '</small>' : '') + '</div>';
+                });
+                h += '</div>';
+            });
+        });
+        h += '</div></div></div>';
+        return h;
+    }
+    function renderWeekCards(title, filterFn, note, showGrid, weekNo, hideBadge) {
+        if (!window.coursesData || window.coursesData.length === 0) {
+            courseContent.classList.add('wk');
+            courseContent.innerHTML = '<div class="wk-empty">暂无课表，请先登录</div>';
+            return;
+        }
+        // 只有所选周就是当前周时，才显示"今天"标记与高亮
+        const curW = getCurrentWeekNo();
+        // 回传当前教学周给桌面小组件（仅在周次变化时调用，避免每次渲染都触发刷新）
+        try {
+            if (curW && window.__widgetWeek !== curW) {
+                window.__widgetWeek = curW;
+                Android.setWidgetWeek(String(curW));
+            }
+        } catch(e) {}
+        const isCurWeek = (weekNo == null) || (curW != null && weekNo === curW);
+        // 推算各天的实际日期
+        const dates = {};
+        ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].forEach(function(day) {
+            const dn = DAY_NAME_TO_NUM[day];
+            if (weekNo) dates[day] = getDateForWeekDay(weekNo, dn);
+            else dates[day] = getDateForWeekDay(null, dn);
+        });
+        let html = '<div class="wk-title"><span class="wk-title-text">' + esc(title) + '</span>';
+        // 仅周视图显示周次徽标；日视图（今天/明天）不显示
+        if (!hideBadge) {
+            if (weekNo) {
+                html += '<span class="wk-week-badge">第' + weekNo + '周</span>';
+            } else if (curW) {
+                html += '<span class="wk-week-badge">第' + curW + '周</span>';
+            }
+            // 弹性间隔块把全屏按钮推到行末，同时保证标题横向单行不被压缩
+            html += '<span class="wk-title-spacer"></span>';
+            // 全屏按钮仅周视图显示
+            html += '<button class="wk-fullscreen-btn" onclick="toggleTimetableFullscreen(this)" title="全屏">⛶</button>';
+        }
+        html += '</div>';
+        if (note) html += '<div class="wk-note">' + esc(note) + '</div>';
+        if (showGrid !== false) html += renderWeekGrid(filterFn, weekNo, isCurWeek);
+        let idx = 0, any = false;
+        ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].forEach(function(day) {
+            const list = window.coursesData.filter(function(c) {
+                return c.dayOfWeek === day && (!filterFn || filterFn(c));
+            });
+            if (!list.length) return;
+            any = true;
+            html += daySection(day, list, idx, dates[day] || '', isCurWeek);
+            idx += list.length;
+        });
+        courseContent.classList.add('wk');
+        courseContent.innerHTML = any ? html : '<div class="wk-empty">' + esc(title) + '：暂无课程</div>';
+    }
+    function renderDayView(day, label) {
+        renderWeekCards(label + ' · ' + day, function(c) { return c.dayOfWeek === day; }, '', false, undefined, true);
+    }
+
+
+    // 接收来自 Android 的消息
+    window.receiveFromAndroid = function(type, data) {
+        console.log('收到 Android:', type);
+        try {
+            if (type !== 'saved_credentials') fullLogLines.push(nowStamp() + ' [页] 收到App消息: ' + type);
+        } catch(e) {}
+
+        if (type === 'courses') {
+            try {
+                window.coursesData = JSON.parse(data);
+                __semStart = null; __semStartChecked = false; // 新数据来了，清除学期起点缓存
+                if (prefOn('mimi_cache_pref', cacheCheckbox)) { try { localStorage.setItem('mimi_cached_courses', data); } catch(e) {} } // 课表记忆勾选时才保存缓存
+                try { localStorage.setItem('mimi_last_cache_time', String(Date.now())); } catch(e) {} // 记录本次成功获取课表的时间戳，供"超过30分钟才自动更新"判断
+                console.log('✅ 课表数据已存储，共 ' + window.coursesData.length + ' 门课程');
+                try {
+                    var _hdr = [];
+                    for (var _i = 0; _i < Math.min(window.coursesData.length, 5); _i++) {
+                        _hdr.push(window.coursesData[_i].dayOfWeek + '=' + window.coursesData[_i].dayDate);
+                    }
+                    timetableLog('[A] 课表表头样本: ' + _hdr.join(', '));
+                } catch(e) {}
+
+                // 记录当前周课程的「星期-实际日期」对照（课表仅渲染当前周，dayDate 即本周日期），
+                // 与教务首页周次合成后反推第1周周一并锁定锚点
+                try {
+                    __courseRef = null;
+                    const now = new Date();
+                    for (let i = 0; i < window.coursesData.length; i++) {
+                        const c = window.coursesData[i];
+                        const p = parseDayDate(c.dayDate);
+                        const dn = DAY_NAME_TO_NUM[c.dayOfWeek];
+                        if (!p || !dn) continue;
+                        let bd = null;
+                        for (let yr of [now.getFullYear(), now.getFullYear() - 1, now.getFullYear() + 1]) {
+                            const d = new Date(yr, p.month - 1, p.day);
+                            if (!bd || Math.abs(d - now) < Math.abs(bd - now)) bd = d;
+                        }
+                        __courseRef = { dow: dn, t: bd.getTime() };
+                        break;
+                    }
+                    tryLockAnchor();
+                    if (!__week1Locked) {
+                        timetableLog('[A] 周次锚点未锁定（教务周次未到达），选周日期暂不精准，稍后可点更新课表重试');
+                    }
+                } catch(e) { console.log('锚点推算失败: ' + e.message); }
+
+                if (__fromLogout) {
+                    // 用户已点"返回主界面"，忽略迟到的后台课表，保持登录页不变（防止"返回后又自动登录"）
+                    timetableLog('[页] 已返回主界面，忽略迟到的后台课表');
+                    setLoginBtnLoading(false);
+                    hideProgress(600);
+                    return;
+                }
+                loginPage.classList.add('hidden');
+                timetablePage.classList.remove('hidden');
+                setLoginBtnLoading(false);
+                showTip('登录成功，课表已加载', false);
+                timetableLog('[JS] 课表加载完成，共 ' + window.coursesData.length + ' 门课程');
+                hideProgress(900);
+                setTimeout(function() { lpLocked = true; }, 1000); // 1秒后锁定，避免后续状态消息再触发进度条
+
+                // 登录成功后：记住密码未勾选时清除已保存的旧凭据（BackBridge 无条件保存，此处覆盖）
+                if (!prefOn('mimi_remember_pref', rememberCheckbox)) {
+                    try { Android.clearSavedCredentials(); } catch(e) {}
+                    timetableLog('[页] 记住密码未勾选，已清除保存的凭据');
+                }
+
+                window.requestToday();
+
+            } catch(e) {
+                console.error('解析课表失败:', e);
+            }
+        } else if (type === 'status') {
+            timetableLog('[A] ' + data);
+            if (String(data || '').indexOf('成功') >= 0) hideProgress(900);
+        } else if (type === 'error') {
+            courseContent.textContent = '错误: ' + data;
+            showTip(data, true);
+            setLoginBtnLoading(false);
+            timetableLog('[A] 查询失败：' + data);
+            hideProgress(3000);
+        } else if (type === 'weekno') {
+            // 教务系统首页解析到的当前周次，用于锚定本周与选周日期
+            try {
+                const n = parseInt(data, 10);
+                if (n >= 1 && n <= 30) {
+                    __homeWeek = n;
+                    // 自愈合：若已锁定锚点推出的当前周与教务周次不一致，说明锚点错误，作废重锚
+                    if (__week1Locked && __weekAnchor) {
+                        const cw = anchorCurrentWeek();
+                        if (cw !== n) {
+                            timetableLog('[A] 锚点偏差（锁定锚点推为第' + cw + '周，教务实为第' + n + '周），已重新锚定');
+                            __week1Locked = false;
+                            __weekAnchor = null;
+                        }
+                    }
+                    if (!__week1Locked) saveWeekAnchor(n);
+                    tryLockAnchor();
+                    timetableLog('[A] 当前周次: 第' + n + '周' + (__week1Locked ? '（已锁定第1周周一=' + __weekAnchor.m + '）' : '（临时锚定）'));
+                } else {
+                    timetableLog('[A] 周次数据异常: ' + data);
+                }
+            } catch(e) {}
+        } else if (type === 'saved_credentials') {
+            // 三勾选框开屏逻辑核心（「记住密码」为总开关）：
+            // - 记住密码未勾选 → 清空凭据，不填充、不登录
+            // - 记住密码勾选 + 自动登录勾选 + 非返回主界面 → 填充凭据并自动登录
+            // - 记住密码勾选 + 自动登录未勾选/返回主界面 → 填充凭据但不自动登录
+            lpLocked = false;
+            if (!prefOn('mimi_remember_pref', rememberCheckbox)) {
+                // 总开关关闭：清空输入框与已保存凭据
+                clearCredentialsBtn.style.display = 'none';
+                usernameInput.value = '';
+                passwordInput.value = '';
+                try { Android.clearSavedCredentials(); } catch(e2) {}
+                return;
+            }
+            var didFill = false;
+            if (data && data !== 'null') {
+                try {
+                    const cred = JSON.parse(data);
+                    if (cred.username && cred.username !== 'null') {
+                        usernameInput.value = cred.username;
+                        if (cred.password && cred.password !== 'null') {
+                            passwordInput.value = cred.password;
+                        }
+                        clearCredentialsBtn.style.display = 'inline-block';
+                        didFill = true;
+                        timetableLog('[页] 已填充保存的账号');
+                    }
+                } catch(e) {
+                    timetableLog('[页] 解析保存的账号失败: ' + e);
+                }
+            } else {
+                clearCredentialsBtn.style.display = 'none';
+            }
+            // 自动登录：凭据已填充 + 自动登录勾选 + 非返回主界面 + 未重复触发 + 缓存确已过期（或本无缓存）
+            // __needAutoUpdate 由开屏逻辑按「缓存时间戳是否超过30分钟」设置，防止每次后台重进都自动更新
+            if (didFill && prefOn('mimi_auto_login', autoLoginCheckbox) && !__fromLogout && !__autoLoginFired && passwordInput.value && window.__needAutoUpdate) {
+                __autoLoginFired = true;
+                setLoginBtnLoading(true);
+                showProgress('正在登录教务系统...');
+                Android.login(usernameInput.value.trim(), passwordInput.value);
+            } else {
+                if (didFill && prefOn('mimi_auto_login', autoLoginCheckbox) && !window.__needAutoUpdate) {
+                    var __lu = lastCacheTime();
+                    timetableLog('[页] 缓存未过期（上次缓存 ' + fmtCacheTime(__lu) + '），每30分钟自动更新');
+                }
+                // 跳过自动登录时解除按钮 loading 状态
+                setLoginBtnLoading(false);
+                lpLocked = false;
+            }
+            // 不重置 __fromLogout，防止 Android 二次回调时 __fromLogout 已变 false 导致误触发自动登录
+        }
+    };
+
+    // 请求课表
+    window.requestToday = function() {
+        console.log('requestToday 被调用');
+        console.log('coursesData:', window.coursesData);
+
+        if (!window.coursesData || window.coursesData.length === 0) {
+            console.log('coursesData 为空');
+            courseContent.textContent = '暂无课表，请先登录';
+            return;
+        }
+
+        const today = getTodayWeekday();
+        console.log('今天是:', today);
+        renderDayView(today, '今天');
+    };
+
+    window.requestTomorrow = function() {
+        if (!window.coursesData || window.coursesData.length === 0) {
+            courseContent.textContent = '暂无课表，请先登录';
+            return;
+        }
+
+        const tomorrow = getTomorrowWeekday();
+        console.log('明天是:', tomorrow);
+        renderDayView(tomorrow, '明天');
+    };
+
+    window.requestSavedCredentials = function() {
+        if (Android && Android.getSavedCredentials) {
+            Android.getSavedCredentials();
+        }
+    };
+
+    // 登录
+    loginBtn.onclick = function() {
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+        if (!username || !password) {
+            showTip('请填写完整的学号和密码', true);
+            return;
+        }
+        __fromLogout = false; // 用户主动登录，解除"返回主界面"标记，允许显示课表
+        __autoLoginFired = true; // 用户已主动登录，不再需要任何自动登录
+        setLoginBtnLoading(true);
+        lpLocked = false; // 用户主动操作，解锁进度条
+        tipDiv.classList.add('hidden');
+        timetableLog('[页] 点击登录教务系统');
+        showProgress('正在登录教务系统...');
+        Android.login(username, password);
+    };
+
+    // 清空账号密码：先弹确认框，确认后才清空
+    const confirmMask = document.getElementById('confirmMask');
+    const closeConfirm = function() { confirmMask.classList.add('hidden'); };
+    clearCredentialsBtn.onclick = function() {
+        confirmMask.classList.remove('hidden');
+    };
+    document.getElementById('confirmCancel').onclick = closeConfirm;
+    confirmMask.addEventListener('click', function(e) { if (e.target === confirmMask) closeConfirm(); });
+    document.getElementById('confirmOk').onclick = function() {
+        closeConfirm();
+        try {
+            if (Android && Android.clearSavedCredentials) {
+                Android.clearSavedCredentials();
+                usernameInput.value = '';
+                passwordInput.value = '';
+                rememberCheckbox.checked = true;
+                try { localStorage.setItem('mimi_remember_pref', '1'); } catch(e3) {}
+                clearCredentialsBtn.style.display = 'none';
+                showTip('已清空保存的账号密码', false);
+            }
+        } catch(e) {
+            showTip('清空失败：' + e.message, true);
+        }
+    };
+
+    // 按钮事件
+    const weekQueryRow = document.getElementById('weekQueryRow');
+    const weekInput = document.getElementById('weekInput');
+    todayBtn.onclick = function() {
+        weekQueryRow.classList.add('hidden'); // 切视图时收起选周输入行
+        window.requestToday();
+    };
+    tomorrowBtn.onclick = function() {
+        weekQueryRow.classList.add('hidden');
+        window.requestTomorrow();
+    };
+    weekBtn.onclick = function() {
+        weekQueryRow.classList.add('hidden');
+        console.log('本周按钮被点击');
+        timetableLog('[页] 点击查看本周课表');
+        if (window.coursesData && window.coursesData.length > 0) {
+            const curW = getCurrentWeekNo();
+            renderWeekCards('本周课表', null, '日期为本周实际日期，周次为各课上课周', undefined, curW);
+            courseContent.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            showTip('请先登录获取课表', true);
+        }
+    };
+    refreshBtn.onclick = function() {
+        weekQueryRow.classList.add('hidden'); // 更新时收起选周面板，避免"当前教学周"提示残留
+        courseContent.textContent = '正在更新课表...';
+        lpLocked = false; // 用户主动刷新，解锁进度条
+        __semStart = null; __semStartChecked = false; // 清除学期起点缓存，刷新后重新推算
+        timetableLog('[页] 点击更新课表');
+        showProgress('正在重新获取课表...');
+        Android.refresh();
+    };
+    document.getElementById('customWeekBtn').onclick = function() {
+        if (!window.coursesData || window.coursesData.length === 0) {
+            showTip('请先登录获取课表', true);
+            return;
+        }
+        weekQueryRow.classList.toggle('hidden');
+        if (!weekQueryRow.classList.contains('hidden')) {
+            weekInput.focus();
+            // 同步显示当前教学周
+            const curTip = document.getElementById('curWeekTip');
+            const curW = getCurrentWeekNo();
+            if (curW) {
+                curTip.textContent = '当前教学周：第 ' + curW + ' 周';
+                curTip.classList.remove('hidden');
+            } else {
+                curTip.classList.add('hidden');
+            }
+            // 进入选周视图：清掉今天/明天/本周残留的课表，输入周数查询后才显示对应课表
+            courseContent.innerHTML = '<div class="wk-hint">请输入周数（1-18），点击查询后显示该周课表</div>';
+        }
+    };
+    document.getElementById('weekQueryBtn').onclick = function() {
+        const n = parseInt(weekInput.value);
+        if (isNaN(n) || n < 1 || n > 18) {
+            showTip('请输入 1-18 之间的周数', true);
+            return;
+        }
+        renderWeekCards('第' + n + '周课表', function(c) { return courseInWeek(c, n); }, undefined, undefined, n);
+    };
+    logoutBtn.onclick = function() {
+        // 返回主界面：不退出账号，不清理任何数据，仅回到登录页
+        // 双保险：__fromLogout=true 阻止 saved_credentials 触发登录；__autoLoginFired=true 兜底
+        __fromLogout = true;
+        __autoLoginFired = true;
+        // 记住密码勾选则保留已填充的学号密码，未勾选则清空输入框
+        if (!prefOn('mimi_remember_pref', rememberCheckbox)) {
+            usernameInput.value = '';
+            passwordInput.value = '';
+        }
+        loginPage.classList.remove('hidden');
+        timetablePage.classList.add('hidden');
+        lpLocked = false;
+        setLoginBtnLoading(false);
+        showIdle('页面就绪，请登录');
+        tipDiv.classList.add('hidden');
+        // 不调用 requestSavedCredentials：避免异步回调再次触发自动登录
+    };
+
+    window.addEventListener('DOMContentLoaded', function() {
+        __fromLogout = false; // App 启动（非返回主界面），恢复正常逻辑
+        __autoLoginFired = false; // 新会话重置自动登录标记
+        lpLocked = false; // 重置进度锁，确保新会话日志可见
+
+        // 读取三个勾选框真实状态（「记住密码」为总开关）
+        var rememberOk = prefOn('mimi_remember_pref', rememberCheckbox);
+        var autoLoginOk = prefOn('mimi_auto_login', autoLoginCheckbox);
+        var cacheOk = prefOn('mimi_cache_pref', cacheCheckbox);
+        timetableLog('[页] 课表页已加载（记住密码=' + rememberOk + ' 自动登录=' + autoLoginOk + ' 课表记忆=' + cacheOk + '）');
+
+        // 总开关关闭：清空登录页，不填充、不自动登录、不显示缓存
+        if (!rememberOk) {
+            usernameInput.value = '';
+            passwordInput.value = '';
+            clearCredentialsBtn.style.display = 'none';
+            try { Android.clearSavedCredentials(); } catch(e) {}
+            showIdle('页面就绪，请登录');
+            return;
+        }
+
+        // 记住密码勾选 + 课表记忆勾选且有缓存 → 开屏直接显示缓存课表
+        var hasCache = false;
+        // 自动更新间隔：30 分钟。仅当缓存时间戳超过该间隔时才自动更新，避免每次后台重进都刷新
+        var AUTO_UPDATE_INTERVAL = 30 * 60 * 1000;
+        window.AUTO_UPDATE_INTERVAL = AUTO_UPDATE_INTERVAL;
+        // 默认无缓存 → 需要更新；有缓存时下面按时间戳覆盖
+        window.__needAutoUpdate = true;
+        if (cacheOk) {
+            try {
+                var cached = localStorage.getItem('mimi_cached_courses');
+                if (cached && cached.length > 10) {
+                    window.coursesData = JSON.parse(cached);
+                    timetableLog('[页] 已加载缓存课表，共 ' + window.coursesData.length + ' 门课程');
+                    loginPage.classList.add('hidden');
+                    timetablePage.classList.remove('hidden');
+                    window.requestToday();
+                    hasCache = true;
+                    var __lastCache = lastCacheTime();
+                    var __cacheStale = (Date.now() - __lastCache) > AUTO_UPDATE_INTERVAL;
+                    // 仅"缓存已过期"时才自动登录更新；未过期只展示缓存
+                    window.__needAutoUpdate = autoLoginOk && __cacheStale;
+                    if (autoLoginOk && __cacheStale) {
+                        showTip('缓存已超过30分钟（上次缓存：' + fmtCacheTime(__lastCache) + '），正在自动更新...', false);
+                        timetableLog('[页] 缓存已过期（上次缓存 ' + fmtCacheTime(__lastCache) + '），将自动更新');
+                    } else {
+                        showTip('已加载缓存课表（上次缓存：' + fmtCacheTime(__lastCache) + '），点"返回主界面"可刷新', false, 8000);
+                        timetableLog('[页] 缓存未过期（上次缓存 ' + fmtCacheTime(__lastCache) + '），每30分钟自动更新');
+                    }
+                } else {
+                    timetableLog('[页] 课表记忆已勾选，但无缓存数据');
+                }
+            } catch(e) { timetableLog('[页] 加载缓存课表失败: ' + e.message); }
+        }
+        // 无缓存或未勾选课表记忆时显示登录页
+        if (!hasCache) {
+            showIdle('页面就绪，请登录');
+        }
+        // 每 30 分钟检测一次缓存时间戳：超过 30 分钟且已保存凭据时自动更新
+        setInterval(function() {
+            try {
+                if (document.hidden) return;
+                var lu = parseInt(localStorage.getItem('mimi_last_cache_time') || '0', 10);
+                if (Date.now() - lu <= AUTO_UPDATE_INTERVAL) return;
+                if (!prefOn('mimi_auto_login', autoLoginCheckbox)) return;
+                if (!usernameInput.value || !passwordInput.value) return;
+                timetableLog('[页] 缓存已超30分钟，触发自动更新');
+                Android.refresh();
+            } catch(e) {}
+        }, AUTO_UPDATE_INTERVAL);
+        // 请求保存的凭据；是否自动登录由 saved_credentials handler 按「自动登录」勾选决定
+        window.requestSavedCredentials();
+    });
+
+    // ===== 问候卡（2.5：时间/励志语/天气） =====
+    const HH_ICONS = {
+        sun: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg>',
+        cloud: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5h10.5a3.5 3.5 0 0 0 .4-6.98A5.5 5.5 0 0 0 7.3 10.6 4 4 0 0 0 7 18.5z"/></svg>',
+        rain: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15.5h10.5a3.5 3.5 0 0 0 .4-6.98A5.5 5.5 0 0 0 7.3 7.6 4 4 0 0 0 7 15.5z"/><path d="M8.5 18.5l-.9 2M12.4 18.5l-.9 2M16.3 18.5l-.9 2"/></svg>',
+        snow: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15.5h10.5a3.5 3.5 0 0 0 .4-6.98A5.5 5.5 0 0 0 7.3 7.6 4 4 0 0 0 7 15.5z"/><circle cx="8.5" cy="19.5" r=".9" fill="currentColor" stroke="none"/><circle cx="12.4" cy="20.5" r=".9" fill="currentColor" stroke="none"/><circle cx="16.3" cy="19.5" r=".9" fill="currentColor" stroke="none"/></svg>',
+        fog: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9.5h16M4 13.5h16M6.5 17.5h11"/></svg>',
+        bolt: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 14.5h10.5a3.5 3.5 0 0 0 .4-6.98A5.5 5.5 0 0 0 7.3 6.6 4 4 0 0 0 7 14.5z"/><path d="M12.8 13.5l-2.3 4h2.8l-1.6 4.2"/></svg>'
+    };
+    const HH_CODES = {0:['晴','sun'],1:['基本晴','sun'],2:['多云','cloud'],3:['阴','cloud'],45:['雾','fog'],48:['雾凇','fog'],51:['毛毛雨','rain'],53:['毛毛雨','rain'],55:['毛毛雨','rain'],56:['冻雨','rain'],57:['冻雨','rain'],61:['小雨','rain'],63:['中雨','rain'],65:['大雨','rain'],66:['冻雨','rain'],67:['冻雨','rain'],71:['小雪','snow'],73:['中雪','snow'],75:['大雪','snow'],77:['雪粒','snow'],80:['阵雨','rain'],81:['阵雨','rain'],82:['强阵雨','rain'],85:['阵雪','snow'],86:['阵雪','snow'],95:['雷雨','bolt'],96:['雷雨伴冰雹','bolt'],99:['雷雨伴冰雹','bolt']};
+    const HH_QUOTES = [
+        ['不积跬步，无以至千里','荀子'],['业精于勤，荒于嬉','韩愈'],['宝剑锋从磨砺出，梅花香自苦寒来','《警世贤文》'],
+        ['长风破浪会有时，直挂云帆济沧海','李白'],['千磨万击还坚劲，任尔东西南北风','郑燮'],
+        ['路漫漫其修远兮，吾将上下而求索','屈原'],['会当凌绝顶，一览众山小','杜甫'],
+        ['少年易老学难成，一寸光阴不可轻','朱熹'],['纸上得来终觉浅，绝知此事要躬行','陆游'],
+        ['天生我材必有用','李白'],['山重水复疑无路，柳暗花明又一村','陆游'],
+        ['沉舟侧畔千帆过，病树前头万木春','刘禹锡'],['欲穷千里目，更上一层楼','王之涣'],
+        ['黑发不知勤学早，白首方悔读书迟','颜真卿'],['莫等闲，白了少年头，空悲切','岳飞'],
+        ['盛年不重来，一日难再晨','陶渊明'],['及时当勉励，岁月不待人','陶渊明'],
+        ['有志者，事竟成','《后汉书》'],['绳锯木断，水滴石穿','罗大经'],['锲而不舍，金石可镂','荀子'],
+        ['读书破万卷，下笔如有神','杜甫'],['问渠那得清如许，为有源头活水来','朱熹'],
+        ['博观而约取，厚积而薄发','苏轼'],['士不可以不弘毅，任重而道远','《论语》'],
+        ['千里之行，始于足下','老子'],['天行健，君子以自强不息','《周易》'],
+        ['穷且益坚，不坠青云之志','王勃'],['老骥伏枥，志在千里','曹操'],
+        ['非淡泊无以明志，非宁静无以致远','诸葛亮'],['千淘万漉虽辛苦，吹尽狂沙始到金','刘禹锡'],
+        ['咬定青山不放松，立根原在破岩中','郑燮'],['少壮不努力，老大徒伤悲','《长歌行》'],
+        ['花有重开日，人无再少年','《窦娥冤》'],['明日复明日，明日何其多','《明日歌》'],
+        ['莫愁前路无知己，天下谁人不识君','高适'],['大鹏一日同风起，扶摇直上九万里','李白'],
+        ['精诚所至，金石为开','《后汉书》'],['读万卷书，行万里路','刘彝'],
+        ['世上无难事，只怕有心人','《西游记》'],['不飞则已，一飞冲天；不鸣则已，一鸣惊人','《史记》']
+    ];
+    const HH_CITY_COORDS = {
+        '武夷山': [27.75995, 118.03066], '南平': [26.64, 118.18], '福州': [26.07, 119.30],
+        '厦门': [24.48, 118.09], '泉州': [24.87, 118.67], '北京': [39.90, 116.40],
+        '上海': [31.23, 121.47], '广州': [23.13, 113.26], '深圳': [22.54, 114.06],
+        '杭州': [30.27, 120.16], '武汉': [30.59, 114.31], '长沙': [28.23, 112.94]
+    };
+    const HH_CITIES = Object.keys(HH_CITY_COORDS);
+    let hhLastWx = 0;
+
+    function hhPad(n) { return ('0' + n).slice(-2); }
+    function hhEsc(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function hhGreet(h) {
+        if (h < 5) return '夜深了，早点休息';
+        if (h < 9) return '早上好';
+        if (h < 12) return '上午好';
+        if (h < 14) return '中午好';
+        if (h < 18) return '下午好';
+        if (h < 23) return '晚上好';
+        return '夜深了，早点休息';
+    }
+    function hhTick() {
+        const now = new Date();
+        const t = hhPad(now.getHours()) + ':' + hhPad(now.getMinutes());
+        const timeEl = document.getElementById('hhTime');
+        const greetEl = document.getElementById('hhGreet');
+        const dateEl = document.getElementById('hhDate');
+        if (timeEl) timeEl.textContent = t;
+        if (greetEl) greetEl.textContent = hhGreet(now.getHours());
+        if (dateEl) dateEl.textContent = (now.getMonth() + 1) + '月' + now.getDate() + '日 · 星期' + '日一二三四五六'[now.getDay()];
+        if (Date.now() - hhLastWx > 30 * 60 * 1000) loadWeather();
+        if (Date.now() - hhLastQuoteTry > 60 * 1000) fetchQuote(); // 语录每 1 分钟自动换一句
+    }
+    let hhLastQuote = 0, hhLastQuoteTry = 0; // 上次成功拉取/尝试拉取一言的时间戳
+    function hhQuoteOfDay() {
+        const now = new Date();
+        const seed = now.getFullYear() * 400 + (now.getMonth() + 1) * 40 + now.getDate();
+        return HH_QUOTES[seed % HH_QUOTES.length];
+    }
+    function renderQuote(q) {
+        const el = document.getElementById('hhQuote');
+        if (el) el.innerHTML = '「' + hhEsc(q[0]) + '」<span class="q-src">—— ' + hhEsc(q[1] || '佚名') + '</span>';
+    }
+    // 语录刷新策略：先显示内置每日句，再联网拉一言覆盖；之后每 1 分钟自动换一句
+    function fetchQuote() {
+        hhLastQuoteTry = Date.now();
+        try {
+            const x = new XMLHttpRequest();
+            x.timeout = 8000;
+            x.onreadystatechange = function() {
+                if (x.readyState === 4 && x.status === 200) {
+                    try {
+                        const d = JSON.parse(x.responseText);
+                        if (d && d.hitokoto) {
+                            renderQuote([d.hitokoto, d.from || '一言']);
+                            hhLastQuote = Date.now();
+                        }
+                    } catch (e) {}
+                }
+            };
+            x.open('GET', 'https://v1.hitokoto.cn/?c=d&c=i&c=k&encode=json', true);
+            x.send();
+        } catch (e) {}
+    }
+    function loadQuote() {
+        renderQuote(hhQuoteOfDay());
+        fetchQuote();
+    }
+    function hhXhrJson(url, ok, fail) {
+        try {
+            const x = new XMLHttpRequest();
+            x.timeout = 9000;
+            x.onreadystatechange = function() {
+                if (x.readyState === 4) {
+                    if (x.status === 200) {
+                        try { ok(JSON.parse(x.responseText)); return; } catch (e) {}
+                    }
+                    fail && fail();
+                }
+            };
+            x.open('GET', url, true);
+            x.send();
+        } catch (e) { fail && fail(); }
+    }
+    function renderWeather(d) {
+        const iconEl = document.getElementById('hhWIcon');
+        const textEl = document.getElementById('hhWText');
+        const cityEl = document.getElementById('hhWCity');
+        if (!textEl) return;
+        if (d.fail) {
+            if (iconEl) iconEl.innerHTML = HH_ICONS.cloud;
+            textEl.textContent = '暂时无法获取天气';
+        } else {
+            if (iconEl) iconEl.innerHTML = HH_ICONS[d.icon] || HH_ICONS.cloud;
+            textEl.textContent = d.temp + '°C · ' + d.desc;
+        }
+        if (cityEl) cityEl.textContent = d.city;
+    }
+    function fetchWx(lat, lon, city, cityKey) {
+        hhXhrJson('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code&timezone=auto', function(w) {
+            const cur = w.current || {};
+            const info = HH_CODES[cur.weather_code] || ['', 'cloud'];
+            const data = { city: city, cityKey: cityKey || city, temp: Math.round(cur.temperature_2m), desc: info[0], icon: info[1], t: Date.now() };
+            try { localStorage.setItem('mimi_weather', JSON.stringify(data)); } catch (e) {}
+            renderWeather(data);
+        }, function() { renderWeather({ fail: true, city: city }); });
+    }
+    function loadWeather() {
+        hhLastWx = Date.now();
+        let city = '武夷山';
+        try { city = localStorage.getItem('mimi_city') || '武夷山'; } catch (e) {}
+        try {
+            const cache = JSON.parse(localStorage.getItem('mimi_weather') || 'null');
+            if (cache && cache.cityKey === city && Date.now() - cache.t < 30 * 60 * 1000) {
+                renderWeather(cache); return;
+            }
+        } catch (e) {}
+        const coord = HH_CITY_COORDS[city];
+        if (coord) { fetchWx(coord[0], coord[1], city); return; }
+        hhXhrJson('https://geocoding-api.open-meteo.com/v1/search?count=1&language=zh&name=' + encodeURIComponent(city), function(g) {
+            if (!g.results || !g.results.length) { renderWeather({ fail: true, city: city }); return; }
+            const r = g.results[0];
+            fetchWx(r.latitude, r.longitude, r.name || city, city);
+        }, function() { renderWeather({ fail: true, city: city }); });
+    }
+    function openCityPanel() {
+        const grid = document.getElementById('cityGrid');
+        const input = document.getElementById('cityInput');
+        if (grid && !grid.dataset.built) {
+            grid.innerHTML = HH_CITIES.map(function(c) {
+                return '<button class="city-chip" data-c="' + c + '">' + c + '</button>';
+            }).join('');
+            grid.dataset.built = '1';
+            grid.onclick = function(ev) {
+                const c = ev.target && ev.target.dataset ? ev.target.dataset.c : null;
+                if (c) pickCity(c);
+            };
+        }
+        if (input) input.value = '';
+        const mask = document.getElementById('cityMask');
+        const panel = document.getElementById('cityPanel');
+        if (mask) mask.classList.remove('hidden');
+        if (panel) panel.classList.remove('hidden');
+    }
+    function closeCityPanel() {
+        const mask = document.getElementById('cityMask');
+        const panel = document.getElementById('cityPanel');
+        if (mask) mask.classList.add('hidden');
+        if (panel) panel.classList.add('hidden');
+    }
+    function pickCity(c) {
+        try {
+            localStorage.setItem('mimi_city', c);
+            localStorage.removeItem('mimi_weather');
+        } catch (e) {}
+        closeCityPanel();
+        hhLastWx = 0;
+        loadWeather();
+    }
+    function initHello() {
+        const cityEl = document.getElementById('hhWCity');
+        if (cityEl) {
+            cityEl.onclick = openCityPanel;
+            const wx = document.getElementById('hhWeather');
+            if (wx) wx.onclick = openCityPanel;
+        }
+        const mask = document.getElementById('cityMask');
+        if (mask) mask.onclick = closeCityPanel;
+        const ok = document.getElementById('cityOk');
+        if (ok) ok.onclick = function() {
+            const input = document.getElementById('cityInput');
+            const v = input ? input.value.trim() : '';
+            if (v) pickCity(v);
+        };
+        const input = document.getElementById('cityInput');
+        if (input) input.onkeydown = function(ev) { if (ev.key === 'Enter') { ok && ok.onclick(); } };
+        hhTick();
+        setInterval(hhTick, 30000);
+        loadQuote();
+    }
+    initHello();
+    </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:background="#f5f7fa" android:layout_width="match_parent" android:layout_height="match_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <androidx.appcompat.widget.Toolbar android:id="@id/toolbar" android:background="#1565c0" android:layout_width="match_parent" android:layout_height="?actionBarSize" android:elevation="4.0dp">
+        <TextView android:textSize="18.0sp" android:textStyle="bold" android:textColor="@android:color/white" android:layout_gravity="center" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="本周课表" />
+    </androidx.appcompat.widget.Toolbar>
+    <LinearLayout android:orientation="horizontal" android:background="#1565c0" android:paddingTop="12.0dp" android:paddingBottom="12.0dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:elevation="2.0dp">
+        <TextView android:textSize="13.0sp" android:textStyle="bold" android:textColor="#ffffff" android:gravity="center" android:layout_width="0.0dp" android:layout_height="wrap_content" android:text="周一" android:layout_weight="1.0" />
+        <TextView android:textSize="13.0sp" android:textStyle="bold" android:textColor="#ffffff" android:gravity="center" android:layout_width="0.0dp" android:layout_height="wrap_content" android:text="周二" android:layout_weight="1.0" />
+        <TextView android:textSize="13.0sp" android:textStyle="bold" android:textColor="#ffffff" android:gravity="center" android:layout_width="0.0dp" android:layout_height="wrap_content" android:text="周三" android:layout_weight="1.0" />
+        <TextView android:textSize="13.0sp" android:textStyle="bold" android:textColor="#ffffff" android:gravity="center" android:layout_width="0.0dp" android:layout_height="wrap_content" android:text="周四" android:layout_weight="1.0" />
+        <TextView android:textSize="13.0sp" android:textStyle="bold" android:textColor="#ffffff" android:gravity="center" android:layout_width="0.0dp" android:layout_height="wrap_content" android:text="周五" android:layout_weight="1.0" />
+        <TextView android:textSize="13.0sp" android:textStyle="bold" android:textColor="#ffffff" android:gravity="center" android:layout_width="0.0dp" android:layout_height="wrap_content" android:text="周六" android:layout_weight="1.0" />
+        <TextView android:textSize="13.0sp" android:textStyle="bold" android:textColor="#ffffff" android:gravity="center" android:layout_width="0.0dp" android:layout_height="wrap_content" android:text="周日" android:layout_weight="1.0" />
+    </LinearLayout>
+    <ScrollView android:padding="4.0dp" android:layout_width="match_parent" android:layout_height="match_parent">
+        <LinearLayout android:orientation="vertical" android:id="@id/table_content" android:layout_width="match_parent" android:layout_height="wrap_content" />
+    </ScrollView>
+</LinearLayout>

@@ -1,0 +1,69 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.wuyi.kebiao'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.mimi.kebiao"
+        minSdk 21
+        targetSdk 34
+        versionCode 17
+        versionName "3.1"
+
+        vectorDrawables {
+            useSupportLibrary false
+        }
+    }
+
+// 签名配置从 keystore.properties 读取，该文件已被 .gitignore 忽略，不会提交到仓库。
+// 首次使用：复制 keystore.properties.example 为 keystore.properties 并填入你自己的值。
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+signingConfigs {
+    release {
+        storeFile file(keystoreProperties.getProperty('storeFile', 'keystore/mimi.keystore'))
+        storePassword keystoreProperties.getProperty('storePassword', '')
+        keyAlias keystoreProperties.getProperty('keyAlias', '')
+        keyPassword keystoreProperties.getProperty('keyPassword', '')
+        v1SigningEnabled true
+        v2SigningEnabled true
+    }
+}
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.fragment:fragment:1.6.2'
+    implementation 'androidx.core:core:1.9.0'
+    implementation 'androidx.recyclerview:recyclerview:1.1.0'
+    implementation 'androidx.viewpager2:viewpager2:1.0.0'
+    implementation 'androidx.navigation:navigation-fragment:2.7.7'
+    implementation 'androidx.navigation:navigation-ui:2.7.7'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+}

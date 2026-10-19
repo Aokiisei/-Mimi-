@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="horizontal" android:paddingLeft="6.0dp" android:paddingTop="4.0dp" android:paddingRight="6.0dp" android:paddingBottom="4.0dp" android:layout_width="match_parent" android:layout_height="wrap_content"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout android:gravity="center" android:orientation="vertical" android:id="@id/cell_mon" android:padding="6.0dp" android:focusable="true" android:clickable="true" android:layout_width="0.0dp" android:layout_height="match_parent" android:layout_margin="2.0dp" android:foreground="?selectableItemBackground" android:minHeight="80.0dp" android:layout_weight="1.0">
+        <TextView android:textSize="12.0sp" android:textColor="#212121" android:ellipsize="end" android:gravity="center" android:id="@id/tv_mon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:maxLines="3" android:lineSpacingMultiplier="1.05" />
+    </LinearLayout>
+    <LinearLayout android:gravity="center" android:orientation="vertical" android:id="@id/cell_tue" android:padding="6.0dp" android:focusable="true" android:clickable="true" android:layout_width="0.0dp" android:layout_height="match_parent" android:layout_margin="2.0dp" android:foreground="?selectableItemBackground" android:minHeight="80.0dp" android:layout_weight="1.0">
+        <TextView android:textSize="12.0sp" android:textColor="#212121" android:ellipsize="end" android:gravity="center" android:id="@id/tv_tue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:maxLines="3" android:lineSpacingMultiplier="1.05" />
+    </LinearLayout>
+    <LinearLayout android:gravity="center" android:orientation="vertical" android:id="@id/cell_wed" android:padding="6.0dp" android:focusable="true" android:clickable="true" android:layout_width="0.0dp" android:layout_height="match_parent" android:layout_margin="2.0dp" android:foreground="?selectableItemBackground" android:minHeight="80.0dp" android:layout_weight="1.0">
+        <TextView android:textSize="12.0sp" android:textColor="#212121" android:ellipsize="end" android:gravity="center" android:id="@id/tv_wed" android:layout_width="wrap_content" android:layout_height="wrap_content" android:maxLines="3" android:lineSpacingMultiplier="1.05" />
+    </LinearLayout>
+    <LinearLayout android:gravity="center" android:orientation="vertical" android:id="@id/cell_thu" android:padding="6.0dp" android:focusable="true" android:clickable="true" android:layout_width="0.0dp" android:layout_height="match_parent" android:layout_margin="2.0dp" android:foreground="?selectableItemBackground" android:minHeight="80.0dp" android:layout_weight="1.0">
+        <TextView android:textSize="12.0sp" android:textColor="#212121" android:ellipsize="end" android:gravity="center" android:id="@id/tv_thu" android:layout_width="wrap_content" android:layout_height="wrap_content" android:maxLines="3" android:lineSpacingMultiplier="1.05" />
+    </LinearLayout>
+    <LinearLayout android:gravity="center" android:orientation="vertical" android:id="@id/cell_fri" android:padding="6.0dp" android:focusable="true" android:clickable="true" android:layout_width="0.0dp" android:layout_height="match_parent" android:layout_margin="2.0dp" android:foreground="?selectableItemBackground" android:minHeight="80.0dp" android:layout_weight="1.0">
+        <TextView android:textSize="12.0sp" android:textColor="#212121" android:ellipsize="end" android:gravity="center" android:id="@id/tv_fri" android:layout_width="wrap_content" android:layout_height="wrap_content" android:maxLines="3" android:lineSpacingMultiplier="1.05" />
+    </LinearLayout>
+    <LinearLayout android:gravity="center" android:orientation="vertical" android:id="@id/cell_sat" android:padding="6.0dp" android:focusable="true" android:clickable="true" android:layout_width="0.0dp" android:layout_height="match_parent" android:layout_margin="2.0dp" android:foreground="?selectableItemBackground" android:minHeight="80.0dp" android:layout_weight="1.0">
+        <TextView android:textSize="12.0sp" android:textColor="#212121" android:ellipsize="end" android:gravity="center" android:id="@id/tv_sat" android:layout_width="wrap_content" android:layout_height="wrap_content" android:maxLines="3" android:lineSpacingMultiplier="1.05" />
+    </LinearLayout>
+    <LinearLayout android:gravity="center" android:orientation="vertical" android:id="@id/cell_sun" android:padding="6.0dp" android:focusable="true" android:clickable="true" android:layout_width="0.0dp" android:layout_height="match_parent" android:layout_margin="2.0dp" android:foreground="?selectableItemBackground" android:minHeight="80.0dp" android:layout_weight="1.0">
+        <TextView android:textSize="12.0sp" android:textColor="#212121" android:ellipsize="end" android:gravity="center" android:id="@id/tv_sun" android:layout_width="wrap_content" android:layout_height="wrap_content" android:maxLines="3" android:lineSpacingMultiplier="1.05" />
+    </LinearLayout>
+</LinearLayout>

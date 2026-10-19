@@ -1,0 +1,45 @@
+# ========== Gradle / Android 构建产物 ==========
+.gradle/
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# ========== IDE ==========
+.idea/
+*.iml
+.DS_Store
+
+# ========== 本地配置 ==========
+# 包含本机的 SDK 路径，每台机器都不一样，不提交
+local.properties
+
+# ========== 签名密钥（严禁提交！） ==========
+# 真实密码文件
+keystore.properties
+# 密钥库本体
+*.keystore
+*.jks
+*.p12
+*.pem
+*.key
+
+# ========== 内置安卓 SDK ==========
+# 为了开箱即用 vendor 进来的完整 SDK，体积约 437M，不提交
+# 需要的人请自行安装 Android SDK，并在 local.properties 里配置 sdk.dir
+android-sdk/
+
+# ========== 其他本地资料 ==========
+# 历史版本快照、服务器部署包、反编译参考等，不进仓库
+历史版本/
+服务器部署包/
+源码-反编译/
+构建工具/
+参考/
+文档/
+.trae/
