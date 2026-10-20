@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>查询成绩</title>
+    <script>
+    (function(){
+        var g = '0';
+        try { if (window.Android && Android.getGlassUi) g = Android.getGlassUi() || '0'; } catch(e) {}
+        document.documentElement.setAttribute('data-glass', g === '1' ? '1' : '0');
+    })();
+    </script>
+    <style>
+        /* 内置中文衬线（思源宋体子集） */
+        @font-face {
+            font-family: 'Mi Serif';
+            src: url('../fonts/mi-serif.otf') format('opentype');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        :root{
+            --primary:#C96442;
+            --primary-soft:rgba(201,100,66,0.12);
+            --bg:#F5F4ED;
+            --card:#FAF9F5;
+            --text:#141413;
+            --sub:#87867F;
+            --input-bg:#FAF9F5;
+            --input-border:#E8E6DC;
+            --secondary:#5E5D59;--glass-hi:rgba(255,255,255,0);--glass-glow:rgba(255,255,255,0);--glass-g1:#F5F4ED;--glass-g2:#F5F4ED;--glass-g3:#F5F4ED;--glass-card:#FAF9F5;--glass-card-soft:#F5F4ED;--glass-border:#E8E6DC;--glass-shadow:rgba(20,20,19,0.08);
+            --bf: none;
+        }
+        /* 动态玻璃效果开关：默认关闭=纯实色普通UI；开启=强毛玻璃 */
+        html[data-glass="1"]{
+            --glass-hi:rgba(255,255,255,0.58);
+            --glass-glow:rgba(255,255,255,0.30);
+            --glass-g1:#F2EBDD;--glass-g2:#EFE8DC;--glass-g3:#E8E6DC;
+            --glass-card:rgba(255,255,255,0.20);
+            --glass-card-soft:rgba(255,255,255,0.13);
+            --glass-border:rgba(255,255,255,0.55);
+            --glass-shadow:rgba(20,20,19,0.14);
+            --bf: blur(22px) saturate(175%);
+        }
+        html[data-glass="0"] body::before { content: none; }
+        /* 液态玻璃动态背景（仅玻璃模式）：低饱和平滑渐变，缓慢连贯漂移 */
+        html[data-glass="1"] body::before {
+            background:
+                radial-gradient(120vmax 90vmax at 50% 118%, rgba(255,255,255,0.30), rgba(255,255,255,0) 62%),
+                linear-gradient(125deg, #F2EBDD 0%, #EFE8DC 26%, #E8E6DC 48%, #F0EAE0 72%, #F2EBDD 100%);
+            background-size: 100% 100%;
+            animation: lg-flow 40s ease-in-out infinite alternate;
+        }
+        @keyframes lg-flow {
+            0% { transform: translate3d(0,0,0); }
+            50% { transform: translate3d(-2.5vmax, 1.6vmax, 0); }
+            100% { transform: translate3d(1.6vmax, -2.5vmax, 0); }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* 待机态：无进度条、文字居中 */
+        .login-progress-track { display: none !important; }
+        .login-progress.idle .login-progress-text { flex: 1; text-align: center; }
+
+        body {
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+            background: var(--bg);
+            padding: 16px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            /* 内置衬线只有常规字重，笔画偏细：用文字描边补一点厚度 */
+            -webkit-text-stroke: 0.32px currentColor;
+        }
+        button, input, select, textarea { font-family: inherit; }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .card {
+            background: var(--card);
+            border: 1px solid #F0EEE6;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 0 0 1px rgba(201,100,66,0.13), rgba(0,0,0,0.05) 0 4px 24px;
+            margin-bottom: 16px;
+        }
+        h1 {
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+            font-size: 26px; font-weight: 400; letter-spacing: 0.3px; line-height: 1.3;
+            margin-bottom: 20px; text-align: center; color: var(--text);
+        }
+        .input-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            font-size: 14px;
+            color: var(--sub);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            font-size: 16px;
+            transition: 0.2s;
+            background: var(--glass-card-soft);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: inset 0 1px 0 var(--glass-hi);
+            color: var(--text);
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: var(--card);
+            box-shadow: 0 0 0 3px var(--primary-soft);
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: var(--glass-card-soft);
+            color: var(--text);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: 0 4px 14px var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+            transition: 0.2s;
+            margin-top: 8px;
+        }
+        button:active { opacity: 0.85; }
+        .btn-secondary {
+            background: var(--glass-card);
+            margin-top: 12px;
+        }
+        .tip {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            text-align: center;
+        }
+        .tip.ok { display: none; }
+        .tip.err { background: #FBEAEA; color: #B53333; }
+
+        .hidden { display: none; }
+        .course-list {
+            background: var(--input-bg);
+            color: var(--text);
+            padding: 16px;
+            border-radius: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+        }
+        /* 成绩卡片排版 */
+        #gradeContent {
+            background: transparent;
+            padding: 2px;
+            white-space: normal;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+        .term-head {
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.4px;
+            color: var(--sub);
+            margin: 18px 2px 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .term-head:first-child { margin-top: 2px; }
+        .term-head::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--input-border);
+        }
+        /* 学期统计栏（赤陶四项指标） */
+        .term-stats {
+            display: flex;
+            background: linear-gradient(135deg, #C96442, #A6512F);
+            border-radius: 12px;
+            padding: 13px 4px 11px;
+            margin: 14px 0 10px;
+            box-shadow: 0 4px 14px rgba(166,81,47,0.24);
+            cursor: pointer;
+        }
+        .term-stats:first-child { margin-top: 2px; }
+        .term-stats .ts-item {
+            flex: 1;
+            min-width: 0;
+            text-align: center;
+            color: #fff;
+        }
+        .term-stats .ts-item + .ts-item { border-left: 1px solid rgba(255,255,255,0.22); }
+        .term-stats .ts-num {
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Songti SC", serif;
+            font-size: 21px;
+            font-weight: 400;
+            line-height: 1.15;
+            letter-spacing: 0.2px;
+        }
+        .term-stats .ts-label {
+            font-size: 11px;
+            opacity: 0.88;
+            margin-top: 3px;
+        }
+        .gcard {
+            background: var(--card);
+            border: 1px solid var(--input-border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            box-shadow: 0 0 0 1px rgba(201,100,66,0.10), rgba(0,0,0,0.04) 0 2px 10px;
+        }
+        .g-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .g-name {
+            flex: 1;
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--text);
+        }
+        .g-score {
+            min-width: 50px;
+            text-align: center;
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Songti SC", serif;
+            font-size: 18px;
+            font-weight: 400;
+            padding: 4px 12px;
+            border-radius: 8px;
+            line-height: 1.3;
+        }
+        .g-s90 { color: #1b873f; background: rgba(27,135,63,0.13); }
+        .g-s80 { color: #A6512F; background: rgba(201,100,66,0.13); }
+        .g-s70 { color: #e07000; background: rgba(224,112,0,0.15); }
+        .g-s60 { color: #c89000; background: rgba(200,144,0,0.18); }
+        .g-sfail { color: #d32f2f; background: rgba(211,47,47,0.13); }
+        .g-sna { color: var(--sub); background: rgba(128,128,128,0.14); }
+        .g-meta {
+            font-size: 12px;
+            color: var(--sub);
+            margin-top: 6px;
+        }
+        .g-detail-toggle {
+            margin-top: 9px;
+            border-top: 1px dashed var(--input-border);
+            padding-top: 7px;
+            font-size: 12px;
+            color: var(--primary);
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .g-detail-toggle .arrow { display: inline-block; transition: transform .15s; }
+        .g-detail.open .g-detail-toggle .arrow { transform: rotate(90deg); }
+        .g-detail-body { display: none; margin-top: 4px; }
+        .g-detail.open .g-detail-body { display: block; }
+        .gd-row {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--sub);
+            padding: 2px 0;
+        }
+        .gd-name { flex: 1; color: var(--sub); }
+        .gd-row b { color: var(--text); font-size: 14px; }
+        .gd-pct { font-size: 12px; color: var(--sub); }
+        .gd-wait { font-size: 12px; color: var(--sub); padding: 2px 0; }
+        .g-empty { text-align: center; color: var(--sub); padding: 30px 10px; font-size: 14px; }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .btn .loading { display: none; }
+        button:disabled { opacity: 0.6; }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+        .checkbox-row label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            margin-bottom: 0;
+        }
+        .checkbox-row input {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+        }
+        .clear-btn {
+            background: none;
+            border: none;
+            color: var(--sub);
+            font-size: 12px;
+            padding: 4px 8px;
+            margin: 0;
+            width: auto;
+            cursor: pointer;
+        }
+        .clear-btn:active { opacity: 0.7; }
+        .pwd-wrap { position: relative; }
+        .pwd-wrap input { padding-right: 42px; }
+        .pwd-eye {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--sub);
+            opacity: 0.65;
+            user-select: none;
+            border-radius: 50%;
+            transition: opacity .15s, background .15s;
+        }
+        .pwd-eye:active { opacity: 1; background: rgba(128,128,128,0.14); }
+        .pwd-eye svg { display: block; }
+        .login-progress {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+        .login-progress.hidden { display: none; }
+        .login-progress-track {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(128,128,128,0.22);
+            overflow: hidden;
+        }
+        .login-progress-bar {
+            height: 100%;
+            width: 40%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #f44336, #ff9800, #ffeb3b, #4caf50);
+            animation: lp-slide 1.1s ease-in-out infinite;
+        }
+        @keyframes lp-slide {
+            0% { margin-left: -40%; }
+            100% { margin-left: 100%; }
+        }
+        .login-progress-text { font-size: 12px; color: #C96442; font-weight: 500; flex: 1 0 100%; text-align: center; line-height: 1.35; margin-top: 2px; }
+        .copy-log-link {
+            background: none;
+            border: none;
+            color: var(--sub);
+            font-size: 10px;
+            padding: 3px;
+            margin: 4px auto 0;
+            width: auto;
+            display: block;
+            opacity: 0.7;
+        }
+        .copy-log-link:active { opacity: 1; }
+        /* ===== 液态玻璃增强层（2.5.4：必须置于所有基础规则之后） ===== */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -12vmax; left: -12vmax; right: -12vmax; bottom: -12vmax;
+            z-index: -1;
+            background: linear-gradient(135deg, var(--glass-g1), var(--glass-g2), var(--glass-g3), var(--glass-g2), var(--glass-g1));
+            background-size: 400% 400%;
+        }
+        .card {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: 0 10px 34px var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 rgba(255,255,255,0.10);
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute; left: 0; right: 0; top: 0; height: 42%;
+            pointer-events: none;
+            background: linear-gradient(180deg, var(--glass-glow), rgba(255,255,255,0));
+        }
+        .gcard {
+            background: var(--glass-card-soft);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: inset 0 1px 0 var(--glass-hi);
+        }
+        .btn { box-shadow: inset 0 1px 0 rgba(255,255,255,0.28); }
+        /* 玻璃模式：按钮与内容区强化毛玻璃质感 */
+        html[data-glass="1"] button:not(.clear-btn):not(.copy-log-link) {
+            border-radius: 12px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.46), rgba(255,255,255,0.22));
+            box-shadow: 0 6px 18px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.62), inset 0 -1px 0 rgba(255,255,255,0.16);
+        }
+        html[data-glass="1"] .course-list:not(.wk) {
+            background: var(--glass-card-soft);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+        }
+        html[data-glass="1"] .card {
+            background: linear-gradient(165deg, rgba(255,255,255,0.48), rgba(255,255,255,0.24) 45%, rgba(255,255,255,0.34));
+            box-shadow: 0 12px 36px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.78), inset 0 -1px 0 rgba(255,255,255,0.18);
+        }
+        html[data-glass="1"] #loginBtn { border-radius: 12px; }
+        /* 主登录按钮：赤陶主色 */
+        #loginBtn { background: var(--primary); color: #fff; border-color: transparent; box-shadow: 0 4px 14px rgba(201,100,66,0.34), inset 0 1px 0 rgba(255,255,255,0.18); }
+        /* 返回主界面按钮：缩小并居中 */
+        #logoutBtn { width: auto; display: block; margin: 12px auto 0; padding: 9px 26px; font-size: 13.5px; border-radius: 12px; }
+        /* 玻璃模式：记住密码控件玻璃化 */
+        html[data-glass="1"] .checkbox-row {
+            background: linear-gradient(180deg, rgba(255,255,255,0.30), rgba(255,255,255,0.13));
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 9px 14px;
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            box-shadow: 0 6px 18px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.60);
+        }
+        /* 清空账号密码确认弹窗 */
+        .confirm-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(20,20,19,0.42); display: flex; align-items: center; justify-content: center; z-index: 999; }
+        .confirm-mask.hidden { display: none; }
+        .confirm-card { width: 78%; max-width: 320px; background: var(--card); border-radius: 16px; padding: 20px 18px 14px; border: 1px solid #F0EEE6; box-shadow: rgba(20,20,19,0.20) 0 12px 40px; text-align: center; }
+        .confirm-title { font-size: 15.5px; font-weight: 500; color: var(--text); margin-bottom: 8px; }
+        .confirm-text { font-size: 13.5px; color: var(--sub); margin-bottom: 18px; }
+        .confirm-btns { display: flex; gap: 10px; }
+        .confirm-btn { flex: 1; margin: 0; padding: 10px 0; font-size: 14px; font-weight: 500; border-radius: 10px; border: none; }
+        .confirm-btn.cancel { background: #EFEDE4; color: #4D4C48; }
+        .confirm-btn.ok { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(201,100,66,0.30), inset 0 1px 0 rgba(255,255,255,0.16); }
+        html[data-glass="1"] .confirm-card { background: linear-gradient(165deg, rgba(255,255,255,0.38), rgba(255,255,255,0.16) 45%, rgba(255,255,255,0.24)); border: 1px solid var(--glass-border); backdrop-filter: var(--bf); -webkit-backdrop-filter: var(--bf); box-shadow: 0 14px 44px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.75); }
+        html[data-glass="1"] .confirm-btn.cancel { background: rgba(255,255,255,0.28); }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+            .card, .gcard { background: var(--card); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card" id="login-page">
+        <h1>📊 查询成绩</h1>
+        <div class="input-group">
+            <label>学号</label>
+            <input type="text" id="username" placeholder="请输入学号" autocomplete="off">
+        </div>
+        <div class="input-group">
+            <label>密码</label>
+            <div class="pwd-wrap">
+                <input type="password" id="password" placeholder="请输入密码">
+                <span id="pwdEye" class="pwd-eye"></span>
+            </div>
+        </div>
+        <div class="checkbox-row">
+            <label>
+                <input type="checkbox" id="rememberCheckbox" checked>
+                <span style="font-size: 14px; color: var(--sub);">记住密码</span>
+            </label>
+            <button id="clearCredentialsBtn" class="clear-btn" style="display: none;">清空账号密码</button>
+        </div>
+        <button id="loginBtn" class="btn" data-label="登录并查询成绩">
+            <span class="txt">登录并查询成绩</span>
+            <span class="loading hidden"></span>
+        </button>
+        <div id="loginProgress" class="login-progress hidden">
+            <span class="login-progress-text" id="lpText">正在登录教务系统...</span>
+        </div>
+        <div id="tip" class="tip hidden"></div>
+    </div>
+
+    <div class="card hidden" id="timetable-page">
+        <h1>我的成绩</h1>
+        <div style="display:flex;gap:10px;margin-bottom:12px;">
+            <select id="termSelect" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--text);font-size:14px;">
+                <option value="">全部学期</option>
+            </select>
+            <button id="termQueryBtn" style="flex:1;margin:0;padding:10px;font-size:14px;">查询</button>
+        </div>
+        <div id="gradeProgress" class="login-progress hidden" style="margin:0 2px 12px;">
+            <span class="login-progress-text" id="gpText">正在重新查询成绩...</span>
+        </div>
+        <div id="gradeContent" class="course-list">加载中...</div>
+        <button id="logoutBtn" class="btn-secondary">返回主界面</button>
+    </div>
+
+    <button id="copyLogBtn" class="copy-log-link">复制运行日志（查不出来时点我）</button>
+</div>
+
+<div id="confirmMask" class="confirm-mask hidden">
+    <div class="confirm-card">
+        <div class="confirm-title">清空账号密码</div>
+        <div class="confirm-text">是否清空账号密码？</div>
+        <div class="confirm-btns">
+            <button id="confirmCancel" class="confirm-btn cancel">取消</button>
+            <button id="confirmOk" class="confirm-btn ok">确定</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 页面元素
+    const loginPage = document.getElementById('login-page');
+    const timetablePage = document.getElementById('timetable-page');
+    const tipDiv = document.getElementById('tip');
+    const loginBtn = document.getElementById('loginBtn');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const rememberCheckbox = document.getElementById('rememberCheckbox');
+    const clearCredentialsBtn = document.getElementById('clearCredentialsBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const gradeContent = document.getElementById('gradeContent');
+
+    // 运行日志：只后台收集完整版（供复制），界面状态统一显示在进度条小字里
+    const fullLogLines = [];
+    const lpBars = [document.getElementById('loginProgress'), document.getElementById('gradeProgress')];
+    const lpTexts = [document.getElementById('lpText'), document.getElementById('gpText')];
+    let lpHideTimer = null;
+    function showProgress(t) {
+        if (lpHideTimer) { clearTimeout(lpHideTimer); lpHideTimer = null; }
+        lpBars.forEach(function(el){ if (el) el.classList.remove('idle'); });
+        if (t) lpTexts.forEach(function(el){ if (el) el.textContent = t; });
+        lpBars.forEach(function(el){ if (el) el.classList.remove('hidden'); });
+    }
+    function hideProgress(delay) {
+        if (lpHideTimer) clearTimeout(lpHideTimer);
+        lpHideTimer = setTimeout(function() {
+            lpBars.forEach(function(el){ if (el) el.classList.add('hidden'); });
+        }, delay || 0);
+    }
+    // 待机态：只显示居中文字，不出进度条
+    function showIdle(t) {
+        if (lpHideTimer) { clearTimeout(lpHideTimer); lpHideTimer = null; }
+        lpBars.forEach(function(el){ if (el) el.classList.remove('hidden'); });
+        lpTexts.forEach(function(el){ if (el && t) el.textContent = t; });
+        if (lpBars[0]) lpBars[0].classList.add('idle');
+    }
+
+    function pad2(n) { return ('0' + n).slice(-2); }
+    function nowStamp() {
+        const d = new Date();
+        return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+    }
+
+    // 把内部消息翻译成大白话；返回 null 表示不显示
+    function simplifyMsg(msg) {
+        if (!msg) return null;
+        if (msg.indexOf('[page] ') === 0) {
+            const u = msg.substring(7);
+            if (u.indexOf('cjcx_frm') >= 0) return '已打开成绩查询页面';
+            if (u.indexOf('sso.') >= 0) return '正在统一身份认证登录...';
+            if (u.indexOf('xsMainV') >= 0) return '登录成功，已进入教务系统';
+            return null;
+        }
+        if (msg.indexOf('[A] 开始加载成绩页') === 0) return '正在打开成绩查询页面...';
+        if (msg.indexOf('[A] GRADE_JS 已注入') === 0) return '已连接成绩系统，开始读取数据';
+        if (msg.indexOf('[JS] 进入成绩页') === 0) return null;
+        if (msg.indexOf('[JS] 查询学期=') === 0) return '查询范围：' + (msg.indexOf('全部') >= 0 ? '全部学期' : msg.substring(9));
+        if (msg.indexOf('[JS] 已点击查询按钮') === 0) return '已提交查询，等待教务系统返回...';
+        if (msg.indexOf('[JS] 轮询') === 0) {
+            const m = msg.match(/轮询([0-9]+)/);
+            const sec = m ? Math.round(parseInt(m[1], 10) / 2) : 0;
+            return { waiting: '正在等待教务系统返回数据...（已等待约 ' + sec + ' 秒）' };
+        }
+        if (msg.indexOf('[JS] 首批') === 0) {
+            const m = msg.match(/总数([0-9]+)/);
+            return m ? ('教务系统共有 ' + m[1] + ' 条成绩，正在读取...') : '开始读取成绩数据...';
+        }
+        if (msg.indexOf('[JS] 已切一页1000条') === 0) return '成绩较多，正在加载完整列表...';
+        if (msg.indexOf('[JS] 解析到') === 0) {
+            const m = msg.match(/解析到([0-9]+)条/);
+            return m ? ('查询完成，共 ' + m[1] + ' 条成绩') : '查询完成';
+        }
+        if (msg.indexOf('[JS] 开始读取成绩构成') === 0) return '成绩列表完成，正在读取每门课的成绩构成...';
+        if (msg.indexOf('[JS] 成绩构成进度') === 0) {
+            const m = msg.match(/进度([0-9]+)\/([0-9]+)/);
+            return m ? { waiting: '正在读取成绩构成...（' + m[1] + '/' + m[2] + '）' } : null;
+        }
+        if (msg.indexOf('[JS] 成绩构成全部完成') === 0) {
+            try {
+                window.__gradeDetailsDone = true;
+                if (typeof gradeList !== 'undefined' && gradeList && gradeList.length) {
+                    gradeContent.innerHTML = renderGrades(gradeList);
+                }
+            } catch(e) {}
+            return '成绩构成读取完成';
+        }
+        if (msg.indexOf('[JS] detailSample=') === 0) return null;
+        if (msg.indexOf('[JS] 详情status=') === 0) return null;
+        if (msg.indexOf('[JS] detailHead=') === 0) return null;
+        if (msg.indexOf('[JS] bodyText=') === 0) return null;
+        if (msg.indexOf('[JS] arrHead=') === 0) return null;
+        if (msg.indexOf('[JS] frames=') === 0) return null;
+        if (msg.indexOf('[JS] 构成0结果=') === 0) return null;
+        if (msg.indexOf('[JS] 构成参数') === 0) return null;
+        if (msg.indexOf('[JS] 详情请求异常:') === 0) return null;
+        if (msg.indexOf('[JS] 教务返回无数据') === 0) return '该范围没有成绩数据';
+        if (msg.indexOf('[JS] 等待超时') === 0) return '【错误】等待数据超时，请重新点查询';
+        if (msg.indexOf('[JS] 未找到学期下拉') === 0) return '【错误】页面上没找到学期选择框';
+        if (msg.indexOf('[JS] 找不到查询按钮') === 0) return '【错误】页面上没找到查询按钮';
+        if (msg.indexOf('[JS] 指定学期') === 0) return '所选学期不存在，已自动改为查询全部学期';
+        if (msg.indexOf('[JS] 扩容失败') === 0) return '提示：成绩列表较长，可能只显示了部分';
+        if (msg.indexOf('[JS] 异常:') === 0) return '【错误】查询出错：' + msg.substring(7);
+        if (msg.indexOf('[页] ') === 0) {
+            const p = msg.substring(4);
+            if (p.indexOf('收到App消息:') === 0) return null;
+            if (p.indexOf('点击登录并查询成绩') === 0) return '开始登录并查询成绩...';
+            if (p.indexOf('查询学期=') === 0) return '切换查询：' + (p.indexOf('全部') >= 0 ? '全部学期' : p.substring(5));
+            if (p.indexOf('成绩页已加载') === 0) return null;
+            return p;
+        }
+        return msg;
+    }
+
+    window.gradeLog = function(msg) {
+        try {
+            fullLogLines.push(nowStamp() + ' ' + msg);
+            const s = simplifyMsg(msg);
+            if (s === null) return;
+            const text = (typeof s === 'object') ? s.waiting : s;
+            showProgress(text);
+            if (text === '成绩构成读取完成') {
+                hideProgress(900);
+            } else if (text.indexOf('【错误】') === 0 || text === '该范围没有成绩数据') {
+                hideProgress(2600);
+            }
+        } catch(e) {}
+    };
+
+    const copyBtn = document.getElementById('copyLogBtn');
+    copyBtn.onclick = function() {
+        const text = fullLogLines.join('\n') || '（暂无日志）';
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(ta);
+        const old = copyBtn.textContent;
+        copyBtn.textContent = ok ? '已复制，粘贴发给开发者即可' : '复制失败，请长按日志文字复制';
+        setTimeout(function() { copyBtn.textContent = old; }, 2000);
+    };
+
+    // 辅助函数
+    function showTip(msg, isErr = false) {
+        tipDiv.textContent = msg;
+        tipDiv.className = 'tip ' + (isErr ? 'err' : 'ok');
+        tipDiv.classList.remove('hidden');
+        setTimeout(() => {
+            if (tipDiv) tipDiv.classList.add('hidden');
+        }, 4000);
+    }
+
+    function setLoginBtnLoading(loading) {
+        const txt = loginBtn.querySelector('.txt');
+        const spin = loginBtn.querySelector('.loading');
+        if (loading) {
+            txt.textContent = '登录中...';
+            spin.classList.remove('hidden');
+            loginBtn.disabled = true;
+        } else {
+            txt.textContent = loginBtn.getAttribute('data-label') || '登录并查询成绩';
+            spin.classList.add('hidden');
+            loginBtn.disabled = false;
+        }
+    }
+
+    const pwdEye = document.getElementById('pwdEye');
+    // 平面UI小眼睛：图标表示「当前状态」——密码隐藏(密文)时显示闭眼斜杠，密码可见(明文)时显示睁眼
+    const EYE_OPEN = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.9"/></svg>';
+    const EYE_OFF = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.8 12 5.8c1.5 0 2.9.35 4.1.9M21.5 12S18 18.2 12 18.2c-1.5 0-2.9-.35-4.1-.9"/><path d="M4 4l16 16"/><path d="M9.9 9.9a2.9 2.9 0 1 0 4.1 4.1"/></svg>';
+    function setEyeIcon() {
+        pwdEye.innerHTML = passwordInput.type === 'password' ? EYE_OFF : EYE_OPEN;
+    }
+    pwdEye.onclick = function() {
+        passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+        setEyeIcon();
+    };
+    setEyeIcon();
+
+    // 渲染成绩（按学期分组）
+    let gradeList = [];
+    function esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    // 分数 -> 颜色档位
+    function scoreBand(s) {
+        s = String(s == null ? '' : s).trim();
+        if (!s || s === '-') return { cls: 'g-sna', text: '-' };
+        if (/^\d+(\.\d+)?$/.test(s)) {
+            const n = parseFloat(s);
+            if (n < 60) return { cls: 'g-sfail', text: s };
+            if (n < 70) return { cls: 'g-s60', text: s };
+            if (n < 80) return { cls: 'g-s70', text: s };
+            if (n < 90) return { cls: 'g-s80', text: s };
+            return { cls: 'g-s90', text: s };
+        }
+        if (/优秀/.test(s)) return { cls: 'g-s90', text: s };
+        if (/良好/.test(s)) return { cls: 'g-s80', text: s };
+        if (/中等/.test(s)) return { cls: 'g-s70', text: s };
+        if (/及格|合格/.test(s)) return { cls: 'g-s60', text: s };
+        if (/不及格|不合格|挂科|重修|补考/.test(s)) return { cls: 'g-sfail', text: s };
+        return { cls: 'g-sna', text: s };
+    }
+    // 把长长的成绩构成文本拆成简洁的一行行
+    function fmtDetail(raw) {
+        if (!raw) return '';
+        const parts = String(raw).split(/[；;\n]+/);
+        let out = '';
+        parts.forEach(function(p0) {
+            let p = p0.replace(/\s+/g, ' ').trim();
+            if (!p) return;
+            if (/^(序号|分项名称|操作|说明|备注|课程名称|课程)$/.test(p)) return;
+            const pct = p.match(/([\d.]+)\s*%/);
+            const nums = p.match(/[\d.]+/g) || [];
+            let score = null;
+            nums.forEach(function(n) {
+                if (score === null && (!pct || n !== pct[1])) score = n;
+            });
+            let label = p.replace(/[\d.]+\s*%?/g, '').replace(/[：:]/g, '').replace(/\s+/g, '').trim();
+            label = label.replace(/^(分项名称|序号|操作|说明|备注|课程名称|课程)/, '');
+            if (!label && score === null) { label = p; }
+            let row = '<span class="gd-name">' + esc(label || '成绩') + '</span>';
+            if (score !== null) row += '<b>' + esc(score) + '</b>';
+            if (pct) row += '<span class="gd-pct">占 ' + esc(pct[1]) + '%</span>';
+            out += '<div class="gd-row">' + row + '</div>';
+        });
+        return out;
+    }
+    // 全角转半角后提取第一个数字（兼容"94优秀"、"９４"等混合文本）
+    function numOf(s) {
+        var t = String(s == null ? '' : s)
+            .replace(/[０-９]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 65296); })
+            .replace(/[．]/g, '.').replace(/\s+/g, '');
+        var m = t.match(/-?\d+(?:\.\d+)?/);
+        return m ? parseFloat(m[0]) : NaN;
+    }
+    // 五级制/两级制成绩 → 绩点，严格按教务文件对照表：
+    // 优秀(A)4.5  良好(B)3.5  中等(C)2.5  及格(D)1.5  合格2.5  不及格(F)/不合格0
+    // 注意顺序：否定词必须排在肯定词之前（否则「不及格」会先命中「及格」→1.5，
+    //「不合格」会先命中「合格」→2.5，这是错的口径）
+    var GPA_TEXT = [['不及格', 0], ['不合格', 0], ['挂科', 0], ['优秀', 4.5], ['良好', 3.5], ['中等', 2.5], ['及格', 1.5], ['合格', 2.5]];
+    function textGpa(t) {
+        var x = String(t == null ? '' : t);
+        for (var i = 0; i < GPA_TEXT.length; i++) if (x.indexOf(GPA_TEXT[i][0]) >= 0) return GPA_TEXT[i][1];
+        return NaN;
+    }
+    // 绩点：优先取教务算好的绩点列；缺失时才按教务文件《关于成绩及绩点计算方法的说明》补算
+    //   补考及重修(因挂科)：≥60 记 1、<60 记 0（成绩文本带「重修/补考/重考」标记时按此规则）
+    //   百分制：绩点 = 总成绩÷10−5（<60 记 0）
+    //   五级制/两级制：查上面的对照表
+    //   无法识别（免修/缺考/空白等）：返回 NaN，表示「无有效绩点」，不计入任何统计（不臆造数值）
+    function realGpa(g) {
+        var p = numOf(g.gpa);
+        if (!isNaN(p)) return p;
+        var raw = String(g.score == null ? '' : g.score);
+        var s = numOf(raw);
+        if (!isNaN(s)) {
+            if (/重修|补考|重考/.test(raw)) return s >= 60 ? 1 : 0;
+            return s >= 60 ? s / 10 - 5 : 0;
+        }
+        var tv = textGpa(raw);
+        return isNaN(tv) ? NaN : tv;
+    }
+    // 等效百分制成绩：数字成绩直接用；等级制成绩（优秀/良好/中等/及格/合格）按 (绩点+5)×10 折算
+    // 教务文件规定 绩点 = 成绩÷10−5，故反推 成绩 = (绩点+5)×10（合格/绩点2.5 → 75 分）
+    // 绩点缺失且无法识别（免修/缺考/空白/不及格等）→ 返回 0，即不计入总学分与加权均分（不再折算成 50 分）
+    function realScore(g) {
+        var s = numOf(g.score);
+        if (!isNaN(s)) return s;
+        var p = realGpa(g);
+        return (!isNaN(p) && p > 0) ? (p + 5) * 10 : 0;
+    }
+    // 成绩统计：门课程 / 已修总学分 / 加权均分 / 平均绩点（教务口径）
+    // 门课程=全部条数；总学分=Σ学分(学分>0)；加权均分与总学分同范围（等级制且绩点>0 的成绩用等效分参与，
+    // 免修/缺考/空白/不及格等无法识别的成绩不计入）；平均绩点=Σ(绩点×学分)÷Σ学分，范围「学分>0 且 绩点>0」
+    function termStats(arr) {
+        var rows = arr || [];
+        var count = rows.length, creditSum = 0, weighted = 0, gpaSum = 0, gpaCredit = 0;
+        rows.forEach(function(g) {
+            var c = numOf(g.credit);
+            if (isNaN(c) || c <= 0) return;
+            var s = realScore(g);
+            if (s > 0) { creditSum += c; weighted += s * c; }
+            var p = realGpa(g);
+            if (p > 0) { gpaCredit += c; gpaSum += p * c; }
+        });
+        var t2 = function(v) { return (Math.round(v * 100) / 100).toFixed(2); };
+        return {
+            count: count,
+            credit: creditSum > 0 ? String(Math.round(creditSum * 10) / 10) : '-',
+            avg: creditSum > 0 ? t2(weighted / creditSum) : '-',
+            gpa: gpaCredit > 0 ? t2(gpaSum / gpaCredit) : '-'
+        };
+    }
+    function renderGrades(list) {
+        gradeList = list;
+        if (!list || list.length === 0) return '<div class="g-empty">没有查询到成绩数据，稍后再试或确认教务系统已出分</div>';
+        const byTerm = {};
+        const order = [];
+        list.forEach(function(g, idx) {
+            g._idx = idx;
+            const t = g.term || '未知学期';
+            if (!byTerm[t]) { byTerm[t] = []; order.push(t); }
+            byTerm[t].push(g);
+        });
+        let out = '';
+        // 全部学期综合（多学期时显示在最上方，标题在上、统计框在下）
+        if (order.length > 1) {
+            const ast = termStats(list);
+            out += '<div class="term-head">全部学期综合</div>';
+            out += '<div class="term-stats">'
+                + '<div class="ts-item"><div class="ts-num">' + ast.count + '</div><div class="ts-label">门课程</div></div>'
+                + '<div class="ts-item"><div class="ts-num">' + esc(ast.credit) + '</div><div class="ts-label">已修总学分</div></div>'
+                + '<div class="ts-item"><div class="ts-num">' + esc(ast.avg) + '</div><div class="ts-label">加权均分</div></div>'
+                + '<div class="ts-item"><div class="ts-num">' + esc(ast.gpa) + '</div><div class="ts-label">平均绩点</div></div>'
+                + '</div>';
+        }
+        order.forEach(function(t, ti) {
+            const st = termStats(byTerm[t]);
+            out += '<div class="term-head">' + esc(t) + '</div>';
+            out += '<div class="term-stats">'
+                + '<div class="ts-item"><div class="ts-num">' + st.count + '</div><div class="ts-label">门课程</div></div>'
+                + '<div class="ts-item"><div class="ts-num">' + esc(st.credit) + '</div><div class="ts-label">总学分</div></div>'
+                + '<div class="ts-item"><div class="ts-num">' + esc(st.avg) + '</div><div class="ts-label">加权均分</div></div>'
+                + '<div class="ts-item"><div class="ts-num">' + esc(st.gpa) + '</div><div class="ts-label">平均绩点</div></div>'
+                + '</div>';
+            byTerm[t].forEach(function(g) {
+                const band = scoreBand(g.score);
+                const meta = [];
+                if (g.credit && String(g.credit) !== '-') meta.push('学分 ' + esc(g.credit));
+                if (g.gpa && String(g.gpa) !== '-') meta.push('绩点 ' + esc(g.gpa));
+                let card = '<div class="gcard"><div class="g-top">'
+                    + '<div class="g-name">' + esc(g.name || '未知课程') + '</div>'
+                    + '<div class="g-score ' + band.cls + '">' + esc(band.text) + '</div>'
+                    + '</div>';
+                if (meta.length) card += '<div class="g-meta">' + meta.join(' · ') + '</div>';
+                const detailHtml = fmtDetail(g.detail);
+                if (detailHtml) {
+                    card += '<div class="g-detail"><div class="g-detail-toggle"><span class="arrow">&#9656;</span> 成绩构成</div><div class="g-detail-body">' + detailHtml + '</div></div>';
+                } else if (g.ckcj) {
+                    const waitText = window.__gradeDetailsDone ? '暂无详细构成数据' : '成绩构成读取中…';
+                    card += '<div class="gd-wait" style="margin-top:8px;border-top:1px dashed var(--input-border);padding-top:7px;">' + waitText + '</div>';
+                }
+                card += '</div>';
+                out += card;
+            });
+        });
+        return out;
+    }
+
+    // 接收来自 Android 的消息
+    window.receiveFromAndroid = function(type, data) {
+        console.log('收到 Android:', type);
+        gradeLog('[页] 收到App消息: ' + type + (type === 'grades' ? (' 长度' + (data||'').length) : ''));
+
+        if (type === 'grades') {
+            try {
+                const list = JSON.parse(data);
+                window.__gradeDetailsDone = false;
+                gradeContent.innerHTML = renderGrades(list);
+            } catch(e) {
+                gradeLog('[页] 成绩数据解析失败: ' + (e && e.message));
+                try {
+                    var pm = (e && e.message) ? String(e.message).match(/position (\d+)/) : null;
+                    var pos = pm ? parseInt(pm[1], 10) : 0;
+                    gradeLog('[页] 出错位置附近: ' + (data || '').substring(Math.max(0, pos - 30), pos + 30));
+                } catch(e2) {}
+                if (timetablePage.classList.contains('hidden')) {
+                    gradeContent.textContent = '成绩解析失败，请重试';
+                }
+            }
+            loginPage.classList.add('hidden');
+            timetablePage.classList.remove('hidden');
+            setLoginBtnLoading(false);
+            try {
+                if (rememberCheckbox.checked && usernameInput.value && passwordInput.value) {
+                    if (Android && Android.saveCredentials) Android.saveCredentials(usernameInput.value.trim(), passwordInput.value);
+                } else if (!rememberCheckbox.checked) {
+                    if (Android && Android.clearSavedCredentials) Android.clearSavedCredentials();
+                }
+            } catch(e) {}
+        } else if (type === 'error') {
+            showTip(data, true);
+            setLoginBtnLoading(false);
+            hideProgress(600);
+        } else if (type === 'grade_terms') {
+            try {
+                const opts = JSON.parse(data);
+                const sel = document.getElementById('termSelect');
+                const cur = sel.value;
+                sel.innerHTML = '<option value="">全部学期</option>';
+                let kept = 0;
+                opts.forEach(function(o) {
+                    const src = (o.t || '') + ' ' + (o.v || '');
+                    const m = src.match(/20[0-9]{2}/);
+                    if (m) {
+                        const y = parseInt(m[0], 10);
+                        if (y < 2023 || y > 2029) return;
+                    }
+                    const op = document.createElement('option');
+                    op.value = o.v;
+                    op.textContent = o.t;
+                    sel.appendChild(op);
+                    kept++;
+                });
+                let exists = false;
+                for (let i = 0; i < sel.options.length; i++) {
+                    if (sel.options[i].value === cur) { exists = true; break; }
+                }
+                sel.value = exists ? cur : '';
+                gradeLog('[页] 学期选项已更新: ' + kept + '个');
+            } catch(e) {
+                gradeLog('[页] 学期选项解析失败: ' + e);
+            }
+        } else if (type === 'saved_credentials') {
+            if (data && data !== 'null') {
+                try {
+                    const cred = JSON.parse(data);
+                    if (cred.username && cred.username !== 'null') {
+                        usernameInput.value = cred.username;
+                        if (cred.password && cred.password !== 'null') {
+                            passwordInput.value = cred.password;
+                        }
+                        rememberCheckbox.checked = true;
+                        clearCredentialsBtn.style.display = 'inline-block';
+                    }
+                } catch(e) {
+                    console.log('解析保存的账号失败:', e);
+                }
+            } else {
+                clearCredentialsBtn.style.display = 'none';
+            }
+        }
+    };
+
+    window.requestSavedCredentials = function() {
+        if (Android && Android.getSavedCredentials) {
+            Android.getSavedCredentials();
+        }
+    };
+
+    // 登录并查询成绩
+    loginBtn.onclick = function() {
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+        if (!username || !password) {
+            showTip('请填写完整的学号和密码', true);
+            return;
+        }
+        setLoginBtnLoading(true);
+        tipDiv.classList.add('hidden');
+        gradeLog('[页] 点击登录并查询成绩');
+        Android.login(username, password);
+    };
+
+    // 清空账号密码：先弹确认框，确认后才清空
+    const confirmMask = document.getElementById('confirmMask');
+    const closeConfirm = function() { confirmMask.classList.add('hidden'); };
+    clearCredentialsBtn.onclick = function() {
+        confirmMask.classList.remove('hidden');
+    };
+    document.getElementById('confirmCancel').onclick = closeConfirm;
+    confirmMask.addEventListener('click', function(e) { if (e.target === confirmMask) closeConfirm(); });
+    document.getElementById('confirmOk').onclick = function() {
+        closeConfirm();
+        try {
+            if (Android && Android.clearSavedCredentials) {
+                Android.clearSavedCredentials();
+                usernameInput.value = '';
+                passwordInput.value = '';
+                rememberCheckbox.checked = true;
+                clearCredentialsBtn.style.display = 'none';
+                showTip('已清空保存的账号密码', false);
+            }
+        } catch(e) {
+            showTip('清空失败：' + e.message, true);
+        }
+    };
+
+    document.getElementById('termQueryBtn').onclick = function() {
+        gradeContent.textContent = '加载中...';
+        const sel = document.getElementById('termSelect');
+        showProgress('正在重新查询成绩...');
+        gradeLog('[页] 查询学期=' + (sel.value === '' ? '全部' : sel.value));
+        if (window.Android && Android.queryGradesTerm) Android.queryGradesTerm(sel.value);
+    };
+
+    logoutBtn.onclick = function() {
+        // 返回主界面：不退出账号，不清理任何数据，仅回到登录页
+        loginPage.classList.remove('hidden');
+        timetablePage.classList.add('hidden');
+        setLoginBtnLoading(false);
+        showIdle('页面就绪，请登录');
+        tipDiv.classList.add('hidden');
+        setTimeout(() => {
+            window.requestSavedCredentials();
+        }, 500);
+    };
+
+    gradeContent.addEventListener('click', function(e) {
+        var t = e.target;
+        if (t && t.classList && t.classList.contains('g-detail-toggle')) {
+            var box = t.parentNode;
+            if (box && box.classList.contains('g-detail')) box.classList.toggle('open');
+            return;
+        }
+    });
+
+    window.addEventListener('DOMContentLoaded', function() {
+        gradeLog('[页] 成绩页已加载');
+        showIdle('页面就绪，请登录');
+        window.requestSavedCredentials();
+    });
+
+    </script>
+</body>
+</html>

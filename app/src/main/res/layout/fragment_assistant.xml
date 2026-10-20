@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView android:background="@color/cl_parchment" android:layout_width="match_parent" android:layout_height="match_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout android:orientation="vertical" android:padding="16.0dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+
+        <TextView android:id="@+id/tv_page_title" android:textSize="20.0sp" android:fontFamily="serif" android:textColor="@color/cl_ink" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="小助手" />
+        <TextView android:textSize="13.0sp" android:textColor="@color/cl_stone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:layout_marginBottom="20.0dp" android:text="常用校园工具，逐步上线" />
+
+        <LinearLayout android:orientation="vertical" android:background="@drawable/bg_cl_card" android:clipToOutline="true" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <LinearLayout android:orientation="horizontal" android:id="@+id/layout_bus_query" android:background="?selectableItemBackground" android:padding="16.0dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <ImageView android:background="@drawable/bg_icon_circle" android:padding="8.0dp" android:layout_width="36.0dp" android:layout_height="36.0dp" android:layout_marginEnd="12.0dp" android:layout_gravity="center_vertical" android:src="@drawable/ic_bus" />
+                <LinearLayout android:orientation="vertical" android:layout_width="0.0dp" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <TextView android:textSize="16.0sp" android:textColor="@color/cl_ink" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="武夷山公交查询" />
+                    <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:maxLines="1" android:ellipsize="end" android:text="查询公交线路与到站信息" />
+                </LinearLayout>
+                <ImageView android:layout_width="18.0dp" android:layout_height="18.0dp" android:layout_gravity="center_vertical" android:layout_marginStart="8.0dp" android:src="@drawable/ic_arrow_forward" android:tint="@color/cl_stone" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout android:orientation="vertical" android:background="@drawable/bg_cl_card" android:clipToOutline="true" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12.0dp">
+            <LinearLayout android:orientation="horizontal" android:padding="16.0dp" android:gravity="center_vertical" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <ImageView android:background="@drawable/bg_icon_circle" android:padding="8.0dp" android:layout_width="36.0dp" android:layout_height="36.0dp" android:layout_marginEnd="12.0dp" android:layout_gravity="center_vertical" android:src="@drawable/ic_tool" />
+                <LinearLayout android:orientation="vertical" android:layout_width="0.0dp" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <TextView android:textSize="16.0sp" android:textColor="@color/cl_ink" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="功能正在开发" />
+                    <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:maxLines="1" android:ellipsize="end" android:text="更多校园工具，将在后续版本上线" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView android:textSize="11.0sp" android:textColor="@color/cl_silver" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dp" android:text="线路信息整理自公交站牌，仅供参考" />
+    </LinearLayout>
+</ScrollView>

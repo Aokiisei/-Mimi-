@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>日程表</title>
+    <script>
+    (function(){
+        var g = '0';
+        try { if (window.Android && Android.getGlassUi) g = Android.getGlassUi() || '0'; } catch(e) {}
+        document.documentElement.setAttribute('data-glass', g === '1' ? '1' : '0');
+    })();
+    </script>
+    <style>
+        /* 内置中文衬线（思源宋体子集） */
+        @font-face {
+            font-family: 'Mi Serif';
+            src: url('../fonts/mi-serif.otf') format('opentype');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        :root{
+            --primary:#C96442;
+            --primary-soft:rgba(201,100,66,0.12);
+            --bg:#F5F4ED;
+            --card:#FAF9F5;
+            --text:#141413;
+            --sub:#87867F;
+            --input-bg:#FAF9F5;
+            --input-border:#E8E6DC;
+            --accent:#D97757;
+            --glass-card:#FAF9F5;--glass-card-soft:#F5F4ED;--glass-border:#E8E6DC;--glass-shadow:rgba(20,20,19,0.08);--glass-hi:rgba(255,255,255,0);
+            --bf: none;
+        }
+        html[data-glass="1"]{
+            --glass-hi:rgba(255,255,255,0.58);
+            --glass-card:rgba(250,249,245,0.52);
+            --glass-card-soft:rgba(250,249,245,0.40);
+            --glass-border:rgba(255,255,255,0.55);
+            --glass-shadow:rgba(20,20,19,0.12);
+            --bf: blur(22px) saturate(138%);
+        }
+        html[data-glass="0"] body::before { content: none; }
+        html[data-glass="1"] body::before {
+            background:
+                radial-gradient(120vmax 90vmax at 50% 118%, rgba(255,255,255,0.26), rgba(255,255,255,0) 62%),
+                radial-gradient(80vmax 80vmax at 12% -10%, rgba(201,100,66,0.10), rgba(201,100,66,0) 55%),
+                linear-gradient(125deg, #F3EBDF 0%, #EFE7DA 26%, #E9E5DA 48%, #F0E9DE 72%, #F3EBDF 100%);
+            background-size: 100% 100%;
+            animation: lg-flow 40s ease-in-out infinite alternate;
+            will-change: transform;
+        }
+        @keyframes lg-flow {
+            0% { transform: translate3d(0,0,0); }
+            50% { transform: translate3d(-2.5vmax, 1.6vmax, 0); }
+            100% { transform: translate3d(1.6vmax, -2.5vmax, 0); }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+            background: var(--bg);
+            padding: 16px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            /* 内置衬线只有常规字重，笔画偏细：用文字描边补一点厚度 */
+            -webkit-text-stroke: 0.32px currentColor;
+        }
+        button, input, select, textarea { font-family: inherit; }
+        body::before { content: ''; position: fixed; inset: 0; z-index: -1; }
+        /* Claude 排版：标题衬线 + 中等字重 */
+        .topbar h1, .cd-title, .cd-header h2, .sec-title, .sch-title, .dialog h3 {
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+            font-weight: 400;
+            letter-spacing: 0.3px;
+            line-height: 1.3;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        .topbar {
+            display: flex; align-items: center; margin-bottom: 14px;
+        }
+        .topbar h1 { font-size: 24px; color: var(--text); flex: 1; }
+        .add-btn {
+            padding: 9px 16px; border: none; border-radius: 12px;
+            background: var(--primary); color: #fff; font-size: 14px; font-weight: 500;
+            box-shadow: rgba(201,100,66,0.30) 0 4px 16px; cursor: pointer;
+        }
+        .group-title {
+            font-size: 13px; font-weight: 500; color: var(--sub);
+            letter-spacing: 0.4px;
+            margin: 18px 2px 8px;
+        }
+        .group-title.past { color: #B0AEA5; }
+        .sch-card {
+            background: var(--glass-card);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px; padding: 16px; margin-bottom: 10px;
+            box-shadow: 0 0 0 1px rgba(201,100,66,0.11), 0 2px 10px var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+            display: flex; gap: 12px;
+            touch-action: pan-y; transition: transform .18s ease, background .18s ease;
+        }
+        .sch-card.dragging { transition: none; }
+        .sch-bar { width: 3px; border-radius: 3px; background: var(--accent); flex: 0 0 3px; }
+        .sch-body { flex: 1; min-width: 0; }
+        .sch-title { font-size: 17px; color: var(--text); word-break: break-all; }
+        .sch-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+        .sch-meta span {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 12px; color: var(--sub);
+        }
+        .sch-meta svg { width: 13px; height: 13px; flex: 0 0 13px; }
+        .sch-note { margin-top: 6px; font-size: 12px; color: var(--sub); word-break: break-all; }
+        .sch-ops { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
+        .sch-ops button {
+            padding: 6px 12px; font-size: 12px; border-radius: 8px; cursor: pointer;
+            border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text);
+        }
+        .sch-ops .del { color: #D64545; border-color: rgba(214,69,69,0.3); background: rgba(214,69,69,0.06); }
+        .sch-card.past .sch-title, .sch-card.past .sch-meta span, .sch-card.past .sch-note { color: #B0AEA5; }
+        .sch-card.past .sch-bar { background: #D8D4C6; }
+        /* 已完成的日程：整框转灰 + 已完成标记（不会再出现在课表上） */
+        .sch-card.done {
+            background: #EFEDE6; border-color: #E2DFD5;
+            box-shadow: 0 0 0 1px rgba(160,157,148,0.14), inset 0 1px 0 rgba(255,255,255,0.5);
+        }
+        .sch-card.done .sch-bar { background: #C9C5B8; }
+        .sch-card.done .sch-title { color: #9A978C; text-decoration: line-through; }
+        .sch-card.done .sch-meta span, .sch-card.done .sch-note { color: #B0AEA5; }
+        .sch-done-badge {
+            display: inline-block; margin-left: 8px; padding: 1px 7px;
+            font-size: 10.5px; font-weight: 500; line-height: 1.6; vertical-align: 2px;
+            color: #8C897E; background: #E4E1D6; border-radius: 5px;
+            text-decoration: none;
+        }
+        .empty {
+            text-align: center; color: var(--sub); font-size: 14px;
+            padding: 60px 0;
+        }
+        /* 编辑弹窗 */
+        .mask {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            z-index: 70; display: flex; align-items: center; justify-content: center;
+        }
+        .hidden { display: none !important; }
+        .dialog {
+            background: var(--card); border-radius: 16px; padding: 22px;
+            width: 88%; max-width: 420px; max-height: 84vh; overflow-y: auto;
+            border: 1px solid #F0EEE6;
+            box-shadow: rgba(20,20,19,0.18) 0 10px 40px;
+        }
+        .dialog h3 { font-size: 17px; color: var(--text); margin-bottom: 14px; }
+        .field { margin-bottom: 12px; }
+        .field label { display: block; font-size: 13px; color: var(--sub); margin-bottom: 5px; font-weight: 500; }
+        .field input {
+            width: 100%; padding: 11px 14px; border: 1px solid var(--input-border);
+            border-radius: 12px; font-size: 15px; background: var(--input-bg); color: var(--text);
+        }
+        .field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+        .row { display: flex; gap: 10px; }
+        .row .field { flex: 1; }
+        .dlg-btns { display: flex; gap: 10px; margin-top: 16px; }
+        .dlg-btns button {
+            flex: 1; padding: 12px; border: none; border-radius: 10px;
+            font-size: 15px; font-weight: 500; cursor: pointer;
+        }
+        .btn-cancel { background: #EFEDE4; color: #4D4C48; }
+        .btn-save { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(201,100,66,0.30), inset 0 1px 0 rgba(255,255,255,0.16); }
+        .btn-danger { background: #B53333; color: #fff; }
+        .tip {
+            position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%);
+            background: rgba(48,48,46,0.94); color: #FAF9F5; font-size: 13px;
+            padding: 9px 18px; border-radius: 10px; z-index: 90;
+        }
+        /* ===== 倒计时倒计日 ===== */
+        .cd-section { margin-bottom: 8px; }
+        .cd-header { display: flex; align-items: center; margin-bottom: 8px; }
+        .cd-header h2 { font-size: 16px; color: var(--text); flex: 1; }
+        .cd-add-btn {
+            padding: 6px 14px; font-size: 13px; font-weight: 500;
+            border: none; border-radius: 10px; cursor: pointer;
+            background: var(--primary-soft); color: var(--primary);
+        }
+        .cd-card {
+            background: var(--glass-card);
+            backdrop-filter: var(--bf);
+            -webkit-backdrop-filter: var(--bf);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px; padding: 16px; margin-bottom: 10px;
+            box-shadow: 0 0 0 1px rgba(201,100,66,0.11), 0 2px 10px var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+            display: flex; align-items: center; gap: 12px; position: relative;
+        }
+        .cd-main { flex: 1; min-width: 0; }
+        .cd-title { font-size: 17px; font-weight: 400; color: var(--text); word-break: break-all; }
+        .cd-date { font-size: 12px; color: var(--sub); margin-top: 4px; }
+        .cd-num { flex: 0 0 auto; text-align: center; }
+        .cd-days {
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Songti SC", serif;
+            font-size: 30px; font-weight: 400; color: var(--primary); line-height: 1.05;
+        }
+        .cd-unit { font-size: 12px; color: var(--sub); margin-top: 3px; }
+        .cd-card.urgent .cd-days { color: #D64545; }
+        .cd-card.today .cd-days { color: #D97757; }
+        .cd-card.past .cd-days, .cd-card.past .cd-title, .cd-card.past .cd-date { color: #B0AEA5; }
+        .cd-del {
+            position: absolute; top: 4px; right: 6px;
+            width: 22px; height: 22px; border-radius: 50%; border: none;
+            background: rgba(0,0,0,0.06); color: var(--sub); font-size: 15px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .cd-del:active { background: rgba(214,69,69,0.15); color: #D64545; }
+        .cd-empty {
+            background: var(--glass-card); border: 1px dashed var(--glass-border);
+            border-radius: 14px; padding: 18px; text-align: center; color: var(--sub); font-size: 13px;
+        }
+        /* 倒计时添加弹窗里的预设标签 */
+        .cd-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .cd-preset {
+            padding: 7px 14px; font-size: 13px; border-radius: 10px; cursor: pointer;
+            border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text);
+        }
+        .cd-preset.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        /* 日程类型切换：时间段 / 单点提醒 */
+        .sch-mode { display: flex; gap: 8px; }
+        .sch-mode-btn {
+            flex: 1; padding: 9px; border-radius: 10px; font-size: 13px; font-weight: 500; margin: 0;
+            background: var(--input-bg); color: var(--sub);
+            border: 1.5px solid var(--input-border);
+        }
+        .sch-mode-btn.on { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+        .row .field.sch-hide { display: none; }
+        /* 日程颜色选择：一排可点色点，选中外描边 */
+        .sch-colors { display: flex; gap: 10px; flex-wrap: wrap; }
+        .sch-color-dot {
+            width: 28px; height: 28px; border-radius: 50%; padding: 0; margin: 0;
+            border: 2.5px solid transparent; box-sizing: border-box;
+            transition: transform .12s ease, border-color .12s ease;
+        }
+        .sch-color-dot.on { border-color: var(--text); transform: scale(1.12); }
+    </style>
+    <link rel="stylesheet" href="wheel.css">
+</head>
+<body>
+<div class="container">
+    <div class="topbar">
+        <h1>我的日程</h1>
+        <button class="add-btn" id="addBtn">＋ 新建</button>
+    </div>
+    <div id="cdSection" class="cd-section">
+        <div class="cd-header">
+            <h2>倒计日</h2>
+        </div>
+        <div id="cdList"></div>
+    </div>
+    <div id="listBox"></div>
+</div>
+
+<div id="editMask" class="mask hidden">
+    <div class="dialog">
+        <h3 id="dlgTitle">新建日程</h3>
+        <div class="field"><label>标题</label><input id="fTitle" type="text" placeholder="如：图书馆自习" autocomplete="off"></div>
+        <div class="field"><label>日期</label><input id="fDate" type="date"></div>
+        <div class="field"><label>类型</label>
+            <div class="sch-mode" id="fMode">
+                <button type="button" class="sch-mode-btn on" data-m="range">时间段</button>
+                <button type="button" class="sch-mode-btn" data-m="single">单点提醒</button>
+            </div>
+        </div>
+        <div class="row">
+            <div class="field"><label id="fStartLabel">开始时间</label><input id="fStart" type="text" readonly inputmode="none" placeholder="08:00"></div>
+            <div class="field" id="fEndField"><label>结束时间</label><input id="fEnd" type="text" readonly inputmode="none" placeholder="09:40"></div>
+        </div>
+        <div class="field"><label>地点（可选）</label><input id="fLoc" type="text" placeholder="如：同文2-404" autocomplete="off"></div>
+        <div class="field"><label>备注（可选）</label><input id="fNote" type="text" placeholder="备注" autocomplete="off"></div>
+        <div class="field"><label>颜色</label><div class="sch-colors" id="fColors"></div></div>
+        <div class="dlg-btns">
+            <button class="btn-cancel" id="btnCancel">取消</button>
+            <button class="btn-save" id="btnSave">保存</button>
+        </div>
+    </div>
+</div>
+
+<div id="delMask" class="mask hidden">
+    <div class="dialog">
+        <h3>删除日程</h3>
+        <div style="font-size:14px;color:var(--sub);" id="delText">确定删除该日程吗？</div>
+        <div class="dlg-btns">
+            <button class="btn-cancel" id="delCancel">取消</button>
+            <button class="btn-danger" id="delOk">删除</button>
+        </div>
+    </div>
+</div>
+
+<div id="tip" class="tip hidden"></div>
+
+<div id="chooseMask" class="mask hidden">
+    <div class="dialog" style="max-width:300px;">
+        <h3>选择新建类型</h3>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
+            <button type="button" id="chooseSchedule" style="width:100%;padding:16px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-size:16px;font-weight:500;box-shadow:0 2px 8px rgba(217,119,87,0.28);">📅 新建日程</button>
+            <button type="button" id="chooseCountdown" style="width:100%;padding:16px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:16px;font-weight:500;box-shadow:0 2px 8px rgba(201,100,66,0.28);">⏳ 添加倒计日</button>
+        </div>
+        <div class="dlg-btns" style="margin-top:16px;">
+            <button class="btn-cancel" id="chooseCancel">取消</button>
+        </div>
+    </div>
+</div>
+
+<div id="cdMask" class="mask hidden">
+    <div class="dialog">
+        <h3>添加倒计日</h3>
+        <div class="cd-presets" id="cdPresets">
+            <button type="button" class="cd-preset" data-title="英语四级考试">英语四级</button>
+            <button type="button" class="cd-preset" data-title="英语六级考试">英语六级</button>
+            <button type="button" class="cd-preset" data-title="普通话水平测试">普通话</button>
+            <button type="button" class="cd-preset" data-title="全国计算机二级">计算机二级</button>
+            <button type="button" class="cd-preset" data-title="硕士研究生招生考试">考研</button>
+            <button type="button" class="cd-preset" data-title="期末考试">期末考试</button>
+            <button type="button" class="cd-preset" data-title="">自定义</button>
+        </div>
+        <div class="field"><label>名称</label><input id="cdTitle" type="text" placeholder="自定义倒计时名称" autocomplete="off"></div>
+        <div class="field"><label>目标日期</label><input id="cdDate" type="date"></div>
+        <div class="dlg-btns">
+            <button class="btn-cancel" id="cdCancel">取消</button>
+            <button class="btn-save" id="cdSave">保存</button>
+        </div>
+    </div>
+</div>
+
+<script src="wheel.js"></script>
+<script>
+    const ICONS = {
+        clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+        pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 21s-7-5.1-7-11a7 7 0 1 1 14 0c0 5.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+        cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>'
+    };
+    const listBox = document.getElementById('listBox');
+    const editMask = document.getElementById('editMask');
+    const delMask = document.getElementById('delMask');
+    const tipDiv = document.getElementById('tip');
+    let schedules = [];
+    let editingId = null;
+    let deletingId = null;
+    let deleteTarget = 'schedule'; // 'schedule' | 'countdown'
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function isoOf(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+    function todayIso() { return isoOf(new Date()); }
+    function tomorrowIso() { const t = new Date(); t.setDate(t.getDate() + 1); return isoOf(t); }
+    // 本周日（今天所在周的周日）ISO
+    function thisSundayIso() {
+        const t = new Date();
+        const dow = t.getDay() === 0 ? 7 : t.getDay();
+        const sun = new Date(t);
+        sun.setDate(t.getDate() + (7 - dow));
+        return isoOf(sun);
+    }
+    const WEEK_NAMES = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    function weekdayOf(iso) {
+        try {
+            const p = iso.split('-');
+            const d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+            return WEEK_NAMES[d.getDay()];
+        } catch(e) { return ''; }
+    }
+    function fmtDate(iso) {
+        try {
+            const p = iso.split('-');
+            return parseInt(p[1], 10) + '月' + parseInt(p[2], 10) + '日 ' + weekdayOf(iso);
+        } catch(e) { return iso; }
+    }
+    function fmtTime(s) {
+        // 单点提醒只显示一个时间点，前缀「提醒」便于区分
+        if (s.single) return (s.start || '') ? '⏰ ' + s.start : '提醒';
+        const t = (s.start || '') + (s.end ? '~' + s.end : '');
+        return t || '全天';
+    }
+    function showTip(msg) {
+        tipDiv.textContent = msg;
+        tipDiv.classList.remove('hidden');
+        setTimeout(function() { tipDiv.classList.add('hidden'); }, 2000);
+    }
+
+    function loadSchedules() {
+        try {
+            const raw = (window.Android && Android.getSchedules) ? Android.getSchedules() : '[]';
+            schedules = JSON.parse(raw || '[]');
+            if (!Array.isArray(schedules)) schedules = [];
+        } catch(e) { schedules = []; }
+    }
+
+    // ===== 倒计时倒计日 =====
+    let countdowns = [];
+    const cdList = document.getElementById('cdList');
+    const cdSection = document.getElementById('cdSection');
+
+    function loadCountdowns() {
+        try {
+            const raw = (window.Android && Android.getCountdowns) ? Android.getCountdowns() : '[]';
+            countdowns = JSON.parse(raw || '[]');
+            if (!Array.isArray(countdowns)) countdowns = [];
+        } catch(e) { countdowns = []; }
+    }
+
+    // 计算距目标日期的天数（向上取整，今天=0，昨天=-1）
+    function daysUntil(iso) {
+        try {
+            const p = iso.split('-');
+            const target = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)).getTime();
+            const today = new Date();
+            const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+            return Math.round((target - t0) / 86400000);
+        } catch(e) { return 0; }
+    }
+
+    function cdCardHtml(c) {
+        const days = daysUntil(c.date);
+        let cls = '', daysText, unitText;
+        if (days > 0) {
+            daysText = days;
+            unitText = '天后';
+            if (days <= 7) cls = 'urgent';
+        } else if (days === 0) {
+            daysText = '今';
+            unitText = '天';
+            cls = 'today';
+        } else {
+            daysText = Math.abs(days);
+            unitText = '天前';
+            cls = 'past';
+        }
+        return '<div class="cd-card ' + cls + '">'
+            + '<div class="cd-main">'
+            + '<div class="cd-title">' + esc(c.title || '倒计时') + '</div>'
+            + '<div class="cd-date">' + esc(fmtDate(c.date)) + '</div>'
+            + '</div>'
+            + '<div class="cd-num"><div class="cd-days">' + daysText + '</div><div class="cd-unit">' + unitText + '</div></div>'
+            + '<button class="cd-del" onclick="askDeleteCd(\'' + c.id + '\')" title="删除">×</button>'
+            + '</div>';
+    }
+
+    function renderCountdowns() {
+        if (!countdowns.length) {
+            // 倒计日为空时整块隐藏，空状态提示统一由日程列表输出，避免两处重复提示
+            cdSection.style.display = 'none';
+            cdList.innerHTML = '';
+            return;
+        }
+        cdSection.style.display = '';
+        // 排序：未来的按日期升序（最近在前），已过的按日期降序（最近在前）
+        const future = countdowns.filter(function(c) { return daysUntil(c.date) >= 0; })
+            .sort(function(a, b) { return daysUntil(a.date) - daysUntil(b.date); });
+        const past = countdowns.filter(function(c) { return daysUntil(c.date) < 0; })
+            .sort(function(a, b) { return daysUntil(b.date) - daysUntil(a.date); });
+        let html = '';
+        future.forEach(function(c) { html += cdCardHtml(c); });
+        past.forEach(function(c) { html += cdCardHtml(c); });
+        cdList.innerHTML = html;
+    }
+
+    const cdMask = document.getElementById('cdMask');
+    const cdTitle = document.getElementById('cdTitle');
+    const cdDate = document.getElementById('cdDate');
+    const cdPresets = document.getElementById('cdPresets');
+
+    // 预设标签点击：填入标题（自定义则清空让用户输入）
+    cdPresets.addEventListener('click', function(e) {
+        const btn = e.target.closest('.cd-preset');
+        if (!btn) return;
+        cdPresets.querySelectorAll('.cd-preset').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        cdTitle.value = btn.getAttribute('data-title') || '';
+    });
+
+    function openCdDialog() {
+        cdPresets.querySelectorAll('.cd-preset').forEach(function(b) { b.classList.remove('active'); });
+        cdTitle.value = '';
+        cdDate.value = todayIso();
+        cdMask.classList.remove('hidden');
+    }
+    document.getElementById('cdCancel').onclick = function() { cdMask.classList.add('hidden'); };
+    cdMask.addEventListener('click', function(e) { if (e.target === cdMask) cdMask.classList.add('hidden'); });
+    document.getElementById('cdSave').onclick = function() {
+        const title = cdTitle.value.trim();
+        if (!title) { showTip('请输入倒计时名称'); return; }
+        if (!cdDate.value) { showTip('请选择目标日期'); return; }
+        try {
+            Android.saveCountdown(JSON.stringify({ title: title, date: cdDate.value }));
+            cdMask.classList.add('hidden');
+            showTip('倒计日已添加');
+            refreshCountdowns();
+        } catch(e) {
+            showTip('保存失败：' + e.message);
+        }
+    };
+
+    window.askDeleteCd = function(id) {
+        const item = countdowns.find(function(c) { return c.id === id; });
+        if (!item) return;
+        deleteTarget = 'countdown';
+        deletingId = id;
+        document.getElementById('delText').textContent = '确定删除倒计日「' + (item.title || '倒计时') + '」吗？';
+        delMask.classList.remove('hidden');
+    };
+
+    function refreshCountdowns() {
+        loadCountdowns();
+        renderCountdowns();
+    }
+
+    function groupOf(iso) {
+        const t = todayIso();
+        if (iso < t) return 'past';
+        if (iso === t) return 'today';
+        if (iso === tomorrowIso()) return 'tomorrow';
+        if (iso <= thisSundayIso()) return 'week';
+        return 'later';
+    }
+
+    function cardHtml(s, isPast) {
+        const barCol = s.color || 'var(--accent)';
+        const done = !!s.done;
+        return '<div class="sch-card' + (isPast ? ' past' : '') + (done ? ' done' : '') + '" data-id="' + esc(s.id) + '" style="--accent:' + barCol + '">'
+            + '<div class="sch-bar"></div>'
+            + '<div class="sch-body">'
+            + '<div class="sch-title">' + esc(s.title || '日程') + (done ? '<span class="sch-done-badge">已完成</span>' : '') + '</div>'
+            + '<div class="sch-meta">'
+            + '<span>' + ICONS.cal + esc(fmtDate(s.date)) + '</span>'
+            + '<span>' + ICONS.clock + esc(fmtTime(s)) + '</span>'
+            + (s.location ? '<span>' + ICONS.pin + esc(s.location) + '</span>' : '')
+            + '</div>'
+            + (s.note ? '<div class="sch-note">' + esc(s.note) + '</div>' : '')
+            + '</div>'
+            + '<div class="sch-ops">'
+            + (done
+                ? '<button onclick="toggleDone(\'' + s.id + '\')">恢复</button>'
+                : '<button onclick="openEdit(\'' + s.id + '\')">编辑</button>')
+            + '<button class="del" onclick="askDelete(\'' + s.id + '\')">删除</button>'
+            + '</div></div>';
+    }
+
+    // 完成 / 恢复日程：done 的日程不再出现在课表网格中
+    function toggleDone(id) {
+        const s = schedules.find(function(x) { return x.id === id; });
+        if (!s) return;
+        s.done = !s.done;
+        if (s.done) s.doneAt = Date.now(); else delete s.doneAt;
+        try {
+            Android.saveSchedule(JSON.stringify(s));
+        } catch(e) {
+            showTip('保存失败：' + e.message);
+            return;
+        }
+        showTip(s.done ? '已完成，已从课表移除' : '已恢复该日程');
+        render();
+    }
+    window.toggleDone = toggleDone;
+
+    // 左→右滑动手势：完成该日程；已完成再滑一次可恢复
+    let swipe = null;
+    listBox.addEventListener('pointerdown', function(e) {
+        if (!e.isPrimary) return;
+        const card = e.target.closest ? e.target.closest('.sch-card') : null;
+        if (!card || e.target.closest('.sch-ops')) return;
+        swipe = { card: card, id: card.getAttribute('data-id'), x: e.clientX, y: e.clientY, dx: 0 };
+        card.classList.add('dragging');
+        // 横滑卡片期间关闭父级左右翻页，避免翻页抢手势
+        try { if (window.Android && Android.setPagerSwipe) Android.setPagerSwipe(false); } catch (err) {}
+    });
+    listBox.addEventListener('pointermove', function(e) {
+        if (!swipe || !e.isPrimary) return;
+        const dx = e.clientX - swipe.x;
+        const dy = e.clientY - swipe.y;
+        if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) { // 判定为纵向滚动，放弃横滑
+            swipe.card.classList.remove('dragging');
+            swipe.card.style.transform = '';
+            swipe = null;
+            try { if (window.Android && Android.setPagerSwipe) Android.setPagerSwipe(true); } catch (err) {}
+            return;
+        }
+        if (dx <= 0) return;
+        swipe.dx = dx;
+        swipe.card.style.transform = 'translateX(' + Math.min(dx, 96) + 'px)';
+    });
+    function endSwipe() {
+        try { if (window.Android && Android.setPagerSwipe) Android.setPagerSwipe(true); } catch (err) {}
+        if (!swipe) return;
+        const card = swipe.card, id = swipe.id, dx = swipe.dx;
+        card.classList.remove('dragging');
+        card.style.transform = '';
+        swipe = null;
+        if (dx > 68 && id) toggleDone(id);
+    }
+    listBox.addEventListener('pointerup', endSwipe);
+    listBox.addEventListener('pointercancel', endSwipe);
+
+    function render() {
+        const groups = [
+            { key: 'today', name: '今天' },
+            { key: 'tomorrow', name: '明天' },
+            { key: 'week', name: '本周' },
+            { key: 'later', name: '更晚' },
+            { key: 'past', name: '已过期' }
+        ];
+        const sorted = schedules.slice().sort(function(a, b) {
+            const ka = (a.date || '') + (a.start || '99');
+            const kb = (b.date || '') + (b.start || '99');
+            return ka < kb ? -1 : (ka > kb ? 1 : 0);
+        });
+        let html = '', total = 0;
+        groups.forEach(function(g) {
+            const list = sorted.filter(function(s) { return groupOf(s.date) === g.key; });
+            if (!list.length) return;
+            total += list.length;
+            if (g.key === 'past') list.reverse(); // 过期的最近的排前面
+            html += '<div class="group-title' + (g.key === 'past' ? ' past' : '') + '">' + g.name + '（' + list.length + '）</div>';
+            list.forEach(function(s) { html += cardHtml(s, g.key === 'past'); });
+        });
+        if (total) {
+            listBox.innerHTML = html;
+        } else {
+            const emptyText = countdowns.length ? '暂无日程' : '暂无日程和倒计日';
+            listBox.innerHTML = '<div class="empty">' + emptyText + '，点右上角「＋ 新建」添加</div>';
+        }
+    }
+
+    window.refreshSchedules = function() {
+        loadSchedules();
+        render();
+    };
+    // 倒计时与日程都随页面刷新（回前台 / 增删后）
+    window.refreshCountdowns = refreshCountdowns;
+    window.refreshAll = function() {
+        refreshCountdowns();
+        window.refreshSchedules();
+    };
+
+    // ===== 新建 / 编辑 =====
+    const fTitle = document.getElementById('fTitle');
+    const fDate = document.getElementById('fDate');
+    const fStart = document.getElementById('fStart');
+    const fEnd = document.getElementById('fEnd');
+    const fLoc = document.getElementById('fLoc');
+    const fNote = document.getElementById('fNote');
+
+    // 时间字段改用滚轮选择器
+    function bindWheelTime(input, title) {
+        input.addEventListener('click', function() {
+            WheelPicker.open({
+                title: title,
+                value: input.value || fStart.value || '08:00',
+                onOk: function(v) { input.value = v; }
+            });
+        }, false);
+    }
+    bindWheelTime(fStart, '选择开始时间');
+    bindWheelTime(fEnd, '选择结束时间');
+
+    // 日程颜色：预设色板，与主界面添加弹窗一致
+    const SCH_COLORS = ['#D97757', '#C96442', '#2E7D32', '#E65100', '#6A1B9A', '#00838F', '#5D4037', '#37474F'];
+    let fColor = '#D97757';
+    function renderFColors() {
+        const box = document.getElementById('fColors');
+        box.innerHTML = SCH_COLORS.map(function(c) {
+            return '<button type="button" class="sch-color-dot' + (c === fColor ? ' on' : '') + '" data-c="' + c + '" style="background:' + c + '"></button>';
+        }).join('');
+        box.querySelectorAll('.sch-color-dot').forEach(function(b) {
+            b.onclick = function() { fColor = b.getAttribute('data-c'); renderFColors(); };
+        });
+    }
+
+    // 日程类型：时间段（默认）/ 单点提醒（只有一个时间点，课表里显示为一条直线）
+    let fSingle = false;
+    function setFMode(single) {
+        fSingle = !!single;
+        document.querySelectorAll('#fMode .sch-mode-btn').forEach(function(b) {
+            b.classList.toggle('on', b.getAttribute('data-m') === (fSingle ? 'single' : 'range'));
+        });
+        document.getElementById('fEndField').classList.toggle('sch-hide', fSingle);
+        document.getElementById('fStartLabel').textContent = fSingle ? '提醒时间' : '开始时间';
+    }
+    document.querySelectorAll('#fMode .sch-mode-btn').forEach(function(b) {
+        b.onclick = function() { setFMode(b.getAttribute('data-m') === 'single'); };
+    });
+    setFMode(false);
+
+    function openDialog(item) {
+        editingId = item ? item.id : null;
+        document.getElementById('dlgTitle').textContent = item ? '编辑日程' : '新建日程';
+        fTitle.value = item ? (item.title || '') : '';
+        fDate.value = item ? (item.date || todayIso()) : todayIso();
+        fStart.value = item ? (item.start || '08:00') : '08:00';
+        fEnd.value = item ? (item.end || '') : '';
+        fLoc.value = item ? (item.location || '') : '';
+        fNote.value = item ? (item.note || '') : '';
+        fColor = item ? (item.color || '#D97757') : '#D97757';
+        renderFColors();
+        setFMode(item ? !!item.single : false);
+        editMask.classList.remove('hidden');
+    }
+    window.openEdit = function(id) {
+        const item = schedules.find(function(s) { return s.id === id; });
+        if (item) openDialog(item);
+    };
+    const chooseMask = document.getElementById('chooseMask');
+    document.getElementById('addBtn').onclick = function() { chooseMask.classList.remove('hidden'); };
+    document.getElementById('chooseCancel').onclick = function() { chooseMask.classList.add('hidden'); };
+    chooseMask.addEventListener('click', function(e) { if (e.target === chooseMask) chooseMask.classList.add('hidden'); });
+    document.getElementById('chooseSchedule').onclick = function() { chooseMask.classList.add('hidden'); openDialog(null); };
+    document.getElementById('chooseCountdown').onclick = function() { chooseMask.classList.add('hidden'); openCdDialog(); };
+    document.getElementById('btnCancel').onclick = function() { editMask.classList.add('hidden'); };
+    editMask.addEventListener('click', function(e) { if (e.target === editMask) editMask.classList.add('hidden'); });
+    document.getElementById('btnSave').onclick = function() {
+        const title = fTitle.value.trim();
+        if (!title) { showTip('请输入日程标题'); return; }
+        if (!fDate.value) { showTip('请选择日期'); return; }
+        const item = {
+            title: title,
+            date: fDate.value,
+            start: fStart.value || '08:00',
+            end: fSingle ? '' : (fEnd.value || ''),
+            single: fSingle,
+            location: fLoc.value.trim(),
+            note: fNote.value.trim(),
+            color: fColor
+        };
+        if (editingId) {
+            item.id = editingId;
+            // 编辑不改变完成状态
+            const prev = schedules.find(function(x) { return x.id === editingId; });
+            if (prev && prev.done) {
+                item.done = true;
+                if (prev.doneAt) item.doneAt = prev.doneAt;
+            }
+        }
+        try {
+            Android.saveSchedule(JSON.stringify(item));
+            editMask.classList.add('hidden');
+            showTip('日程已保存');
+            window.refreshSchedules();
+        } catch(e) {
+            showTip('保存失败：' + e.message);
+        }
+    };
+
+    // ===== 删除 =====
+    window.askDelete = function(id) {
+        const item = schedules.find(function(s) { return s.id === id; });
+        if (!item) return;
+        deleteTarget = 'schedule';
+        deletingId = id;
+        document.getElementById('delText').textContent = '确定删除日程「' + (item.title || '未命名') + '」吗？';
+        delMask.classList.remove('hidden');
+    };
+    document.getElementById('delCancel').onclick = function() { delMask.classList.add('hidden'); };
+    delMask.addEventListener('click', function(e) { if (e.target === delMask) delMask.classList.add('hidden'); });
+    document.getElementById('delOk').onclick = function() {
+        try {
+            if (deleteTarget === 'countdown') {
+                Android.deleteCountdown(deletingId);
+                showTip('已删除');
+                refreshCountdowns();
+            } else {
+                Android.deleteSchedule(deletingId);
+                showTip('日程已删除');
+                window.refreshSchedules();
+            }
+        } catch(e) {
+            showTip('删除失败：' + e.message);
+        }
+        delMask.classList.add('hidden');
+        deletingId = null;
+    };
+
+    window.refreshCountdowns();
+    window.refreshSchedules();
+</script>
+</body>
+</html>

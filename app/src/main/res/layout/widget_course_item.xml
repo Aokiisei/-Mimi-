@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="#33FFFFFF"
+    android:padding="10dp"
+    android:gravity="center_vertical" >
+
+    <!-- 左侧色块 + 课程名 -->
+    <TextView
+        android:id="@+id/widget_item_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="保险科技概论"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+    <!-- 右侧信息 -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="end"
+        android:layout_marginStart="10dp" >
+
+        <TextView
+            android:id="@+id/widget_item_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="10:00~11:40"
+            android:textColor="#ECEFF1"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_item_location"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="瑞樟3-201"
+            android:textColor="#B0BEC5"
+            android:textSize="11sp"
+            android:layout_marginTop="2dp" />
+
+        <TextView
+            android:id="@+id/widget_item_teacher"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="周林毅、宋高雅"
+            android:textColor="#90A4AE"
+            android:textSize="10sp"
+            android:layout_marginTop="1dp" />
+    </LinearLayout>
+</LinearLayout>
