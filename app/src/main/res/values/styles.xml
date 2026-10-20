@@ -326,7 +326,21 @@
         <item name="android:windowMinWidthMinor">@dimen/abc_dialog_min_width_minor</item>
     </style>
     <style name="Base.Theme.MaterialComponents.Light.DialogWhenLarge" parent="@style/Theme.MaterialComponents.Light" />
-    <style name="Base.Theme.WuyiKebiao" parent="@style/Theme.Material3.DayNight.NoActionBar" />
+    <style name="Base.Theme.WuyiKebiao" parent="@style/Theme.Material3.DayNight.NoActionBar">
+        <!-- Claude 温暖纸张设计系统：统一 material 控件配色 -->
+        <item name="colorPrimary">@color/cl_terracotta</item>
+        <item name="colorOnPrimary">@color/cl_ivory</item>
+        <item name="colorSecondary">@color/cl_coral</item>
+        <item name="colorOnSecondary">@color/cl_ivory</item>
+        <item name="colorSurface">@color/cl_ivory</item>
+        <item name="colorOnSurface">@color/cl_ink</item>
+        <item name="colorOutline">@color/cl_border_warm</item>
+        <item name="android:colorBackground">@color/cl_parchment</item>
+        <item name="android:windowBackground">@color/cl_parchment</item>
+        <item name="android:statusBarColor">@color/cl_parchment</item>
+        <item name="android:navigationBarColor">@color/cl_parchment</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
     <style name="Base.ThemeOverlay.AppCompat" parent="@style/Platform.ThemeOverlay.AppCompat" />
     <style name="Base.ThemeOverlay.AppCompat.ActionBar" parent="@style/Base.ThemeOverlay.AppCompat">
         <item name="colorControlNormal">?android:textColorPrimary</item>

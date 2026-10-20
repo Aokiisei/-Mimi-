@@ -1,5 +1,11 @@
 package com.wuyi.kebiao;
 
+/**
+ * 本文件职责：
+ * 日志工具：同时写 Logcat 和 mimi_crash.log 文件，
+ * 附带机型与 SDK 版本，便于定位线上问题。
+ */
+
 import android.content.Context;
 import android.os.Build;
 import android.util.Log;
@@ -8,7 +14,6 @@ import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-/* JADX INFO: loaded from: classes.dex */
 public class CrashLogger {
     public static void event(Context context, String str) {
         try {

@@ -1,5 +1,13 @@
 package com.wuyi.kebiao;
 
+/**
+ * 本文件职责：
+ * 应用核心页面。
+ * 用 WebView 承载教务系统页面，通过注入 JS 完成课表与成绩抓取；
+ * 通过 FrontBridge / BackBridge 与页面 JS 双向通信；
+ * 负责登录态与会话超时判定、课表缓存、天气与每日一句展示。
+ */
+
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -26,7 +34,6 @@ import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import com.google.gson.Gson;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -35,15 +42,10 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
-import okhttp3.Call;
-import okhttp3.Callback;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
-import okhttp3.Response;
-import org.json.JSONObject;
 import com.wuyi.kebiao.widget.CourseWidgetService;
 
-/* JADX INFO: loaded from: classes.dex */
 public class HomeFragment extends Fragment {
     private static final String KEY_COOKIES = "saved_cookies";
     private static final String KEY_PASSWORD = "saved_password";
@@ -79,16 +81,11 @@ public class HomeFragment extends Fragment {
     private long bgFlagSetTime = 0L;
     private View customView;
     private WebChromeClient.CustomViewCallback customViewCallback;
+    // 主界面视图缓存：切走再切回时复用，避免 WebView 重新加载导致卡顿/闪白/字体闪现
+    private View cachedView;
+    // 页面是否已加载：五个标签页常驻，未显示的页面等真正滑到时再加载，降低启动开销
+    private boolean pageLoaded;
 
-    static /* synthetic */ void access$1700(HomeFragment homeFragment, WebView webView) {
-        if (homeFragment.isGradeMode()) {
-            homeFragment.startGradeCrawl();
-        } else {
-            homeFragment.injectParser(webView);
-        }
-    }
-
-    /* JADX INFO: Access modifiers changed from: private */
     public void dismissLoginProgress() {
         ProgressDialog progressDialog = this.loginProgress;
         if (progressDialog != null) {
@@ -103,7 +100,6 @@ public class HomeFragment extends Fragment {
     private void fetchWeather() {
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void injectGradeParser() {
         WebView webView = this.crawlerView;
         if (webView == null) {
@@ -117,14 +113,12 @@ public class HomeFragment extends Fragment {
         notifyGradeLog("[A] GRADE_JS 已注入成绩页");
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void loadCrawlerEntry() {
         this.crawlerView.stopLoading();
         this.crawlerView.clearHistory();
         this.crawlerView.loadUrl("https://jwxt.wuyiu.edu.cn/jsxsd/framework/xsMainV_new.htmlx?t1=1");
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void notifyFrontGrades(String str) {
         String strReplace = str.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("'", "\\'");
         WebView webView = this.webView;
@@ -134,7 +128,6 @@ public class HomeFragment extends Fragment {
         webView.evaluateJavascript("window.receiveFromAndroid('grades', '" + strReplace + "');", null);
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void notifyGradeLog(String str) {
         String strReplace = str.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("'", "\\'");
         WebView webView = this.webView;
@@ -144,7 +137,6 @@ public class HomeFragment extends Fragment {
         webView.evaluateJavascript("window.gradeLog&&gradeLog('" + strReplace + "');", null);
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void notifyGradeTerms(String str) {
         String strReplace = str.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("'", "\\'");
         WebView webView = this.webView;
@@ -154,7 +146,6 @@ public class HomeFragment extends Fragment {
         webView.evaluateJavascript("window.receiveFromAndroid('grade_terms', '" + strReplace + "');", null);
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void notifyTimetableLog(String str) {
         String strReplace = str.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("'", "\\'");
         WebView webView = this.webView;
@@ -164,7 +155,6 @@ public class HomeFragment extends Fragment {
         webView.evaluateJavascript("window.timetableLog&&timetableLog('" + strReplace + "');", null);
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void startGradeCrawl() {
         this.isCrawling = true;
         WebView webView = this.crawlerView;
@@ -193,25 +183,35 @@ public class HomeFragment extends Fragment {
         this.gradeTermValue = str;
     }
 
-    static /* synthetic */ int access$1008(HomeFragment homeFragment) {
-        int i = homeFragment.retryCount;
-        homeFragment.retryCount = i + 1;
-        return i;
-    }
-
-    @Override // androidx.fragment.app.Fragment
+    @Override
     public View onCreateView(LayoutInflater layoutInflater, ViewGroup viewGroup, Bundle bundle) {
         this.isCrawling = false;
         this.hasInjectedLogin = false;
         this.retryCount = 0;
         this.pendingUser = null;
         this.pendingPass = null;
+        // 切回主界面时复用上次的视图，避免 WebView 重新加载造成卡顿、闪烁与字体闪现
+        if (this.cachedView != null) {
+            ViewGroup oldParent = (ViewGroup) this.cachedView.getParent();
+            if (oldParent != null) {
+                oldParent.removeView(this.cachedView);
+            }
+            // 抓取用的隐藏 WebView 随上个视图销毁了，这里重新创建一个
+            WebView crawler = new WebView(requireContext());
+            crawler.setLayoutParams(new ViewGroup.LayoutParams(0, 0));
+            crawler.setVisibility(8);
+            ((ViewGroup) this.cachedView).addView(crawler);
+            this.crawlerView = crawler;
+            setupCrawlerView();
+            return this.cachedView;
+        }
         View viewInflate = layoutInflater.inflate(R.layout.fragment_home, viewGroup, false);
         this.prefs = requireActivity().getSharedPreferences(PREFS_NAME, 0);
         this.client = new OkHttpClient();
         // 进程被杀后重进：读取上次驻留后台的时间戳，判断教务会话是否可能已超时
         checkBackgroundTimeout();
         this.webView = (WebView) viewInflate.findViewById(R.id.webView);
+        this.webView.setBackgroundColor(0xFFF5F4ED);
         initHomeUI(viewInflate);
         ((View) this.tvGreeting.getParent()).setBackgroundColor(ThemeH.primary);
         WebView webView = new WebView(requireContext());
@@ -220,21 +220,33 @@ public class HomeFragment extends Fragment {
         this.crawlerView.setVisibility(8);
         ((ViewGroup) viewInflate).addView(this.crawlerView);
         setupWebView(this.webView);
-        this.webView.loadUrl(isGradeMode() ? "file:///android_asset/www/grade.html" : "file:///android_asset/www/index.html");
+        loadPageOnce();
         setupCrawlerView();
+        this.cachedView = viewInflate;
         return viewInflate;
     }
 
-    @Override // androidx.fragment.app.Fragment
+    /** 首次可见时才加载页面；之后切回不再重复加载 */
+    private void loadPageOnce() {
+        if (this.pageLoaded || this.webView == null) {
+            return;
+        }
+        this.pageLoaded = true;
+        this.webView.loadUrl(isGradeMode() ? "file:///android_asset/www/grade.html" : "file:///android_asset/www/index.html");
+    }
+
+    @Override
     public void onPause() {
         super.onPause();
+        // 离开课表页时停止多页卡片自动轮播，节省资源
+        try { if (this.webView != null) this.webView.evaluateJavascript("window.stopCarousel&&window.stopCarousel();", null); } catch (Throwable th) {}
         // 记录离开前台的时间戳并持久化：进程被杀后重进也能判断后台驻留时长
         if (this.prefs != null) {
             this.prefs.edit().putLong(BG_AT_KEY, System.currentTimeMillis()).apply();
         }
     }
 
-    @Override // androidx.fragment.app.Fragment
+    @Override
     public void onStop() {
         super.onStop();
         if (this.prefs != null) {
@@ -242,14 +254,19 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    @Override // androidx.fragment.app.Fragment
+    @Override
     public void onResume() {
         super.onResume();
+        // 滑到本页时才真正加载网页（首屏即当前页时无延迟）
+        loadPageOnce();
+        // 回到课表页时按最新设置恢复自动轮播
+        try { if (this.webView != null) this.webView.evaluateJavascript("window.applyCarousel&&window.applyCarousel();", null); } catch (Throwable th) {}
+        // 日程页可能把日程标记为已完成，回到课表时重新载入并按当前视图刷新，避免已完成的日程残留
+        try { if (this.webView != null) this.webView.evaluateJavascript("window.refreshSchedules&&window.refreshSchedules();", null); } catch (Throwable th) {}
         // 进程存活时回到前台：若后台驻留超过阈值，标记"会话可能已超时"
         checkBackgroundTimeout();
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     // 后台驻留超过该时长即视为教务会话可能已超时（毫秒）
     static final long BG_TIMEOUT_MS = 10 * 60 * 1000L;
     static final String BG_AT_KEY = "mimi_bg_at";
@@ -270,7 +287,6 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public boolean isOnLoginPage() {
         try {
             String url = this.crawlerView != null ? this.crawlerView.getUrl() : null;
@@ -282,7 +298,6 @@ public class HomeFragment extends Fragment {
         return false;
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     // 用于"页面文本"的账密错误判定：比 onError 的判定更严格，
     // 不含「验证码」等登录页常态文案，避免把会话超时误判成账密错误
     private static boolean isCredentialErrorInPage(String str) {
@@ -295,7 +310,6 @@ public class HomeFragment extends Fragment {
                 || str.contains("账号不存在") || str.contains("用户不存在");
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public static boolean isCredentialError(String str) {
         if (str == null) {
             return false;
@@ -315,16 +329,15 @@ public class HomeFragment extends Fragment {
         updateGreeting();
         fetchWeather();
         fetchMotivation();
-        this.layoutWeather.setOnClickListener(new View.OnClickListener() { // from class: com.wuyi.kebiao.HomeFragment$$ExternalSyntheticLambda1
-            @Override // android.view.View.OnClickListener
+        this.layoutWeather.setOnClickListener(new View.OnClickListener() {
+            @Override
             public final void onClick(View view2) {
-                m310lambda$initHomeUI$0$comwuyikebiaoHomeFragment(view2);
+                onWeatherClicked(view2);
             }
         });
     }
 
-    /* JADX INFO: renamed from: lambda$initHomeUI$0$com-wuyi-kebiao-HomeFragment, reason: not valid java name */
-    /* synthetic */ void m310lambda$initHomeUI$0$comwuyikebiaoHomeFragment(View view) {
+    void onWeatherClicked(View view) {
         fetchWeather();
     }
 
@@ -345,71 +358,6 @@ public class HomeFragment extends Fragment {
         this.tvGreeting.setText(str);
     }
 
-    /* JADX INFO: renamed from: com.wuyi.kebiao.HomeFragment$1, reason: invalid class name */
-    class AnonymousClass1 implements Callback {
-        AnonymousClass1() {
-        }
-
-        @Override // okhttp3.Callback
-        public void onFailure(Call call, IOException iOException) {
-            HomeFragment.this.requireActivity().runOnUiThread(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$1$$ExternalSyntheticLambda2
-                @Override // java.lang.Runnable
-                public final void run() {
-                    m317lambda$onFailure$0$comwuyikebiaoHomeFragment$1();
-                }
-            });
-        }
-
-        /* JADX INFO: renamed from: lambda$onFailure$0$com-wuyi-kebiao-HomeFragment$1, reason: not valid java name */
-        /* synthetic */ void m317lambda$onFailure$0$comwuyikebiaoHomeFragment$1() {
-            HomeFragment.this.tvWeather.setText("天气获取失败");
-            HomeFragment.this.ivWeatherIcon.setImageResource(R.drawable.ic_weather_default);
-        }
-
-        @Override // okhttp3.Callback
-        public void onResponse(Call call, Response response) throws IOException {
-            final int i;
-            try {
-                JSONObject jSONObject = new JSONObject(response.body().string());
-                String strOptString = jSONObject.optString("weather", "未知");
-                String strOptString2 = jSONObject.optString("temp", HttpUrl.FRAGMENT_ENCODE_SET);
-                String strOptString3 = jSONObject.optString("city", HttpUrl.FRAGMENT_ENCODE_SET);
-                if (strOptString.contains("晴")) {
-                    i = R.drawable.ic_weather_sunny;
-                } else {
-                    i = strOptString.contains("雨") ? R.drawable.ic_weather_rainy : R.drawable.ic_weather_default;
-                }
-                final String str = strOptString3 + " " + strOptString + " " + strOptString2;
-                HomeFragment.this.requireActivity().runOnUiThread(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$1$$ExternalSyntheticLambda0
-                    @Override // java.lang.Runnable
-                    public final void run() {
-                        m318lambda$onResponse$1$comwuyikebiaoHomeFragment$1(str, i);
-                    }
-                });
-                HomeFragment.this.updateCharacterImage(strOptString);
-            } catch (Exception unused) {
-                HomeFragment.this.requireActivity().runOnUiThread(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$1$$ExternalSyntheticLambda1
-                    @Override // java.lang.Runnable
-                    public final void run() {
-                        m319lambda$onResponse$2$comwuyikebiaoHomeFragment$1();
-                    }
-                });
-            }
-        }
-
-        /* JADX INFO: renamed from: lambda$onResponse$1$com-wuyi-kebiao-HomeFragment$1, reason: not valid java name */
-        /* synthetic */ void m318lambda$onResponse$1$comwuyikebiaoHomeFragment$1(String str, int i) {
-            HomeFragment.this.tvWeather.setText(str.trim());
-            HomeFragment.this.ivWeatherIcon.setImageResource(i);
-        }
-
-        /* JADX INFO: renamed from: lambda$onResponse$2$com-wuyi-kebiao-HomeFragment$1, reason: not valid java name */
-        /* synthetic */ void m319lambda$onResponse$2$comwuyikebiaoHomeFragment$1() {
-            HomeFragment.this.tvWeather.setText("天气解析失败");
-        }
-    }
-
-    /* JADX INFO: Access modifiers changed from: private */
     public void updateCharacterImage(String str) {
         final int i;
         if (str.contains("晴")) {
@@ -421,68 +369,16 @@ public class HomeFragment extends Fragment {
         } else {
             i = R.drawable.character_default;
         }
-        requireActivity().runOnUiThread(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$$ExternalSyntheticLambda2
-            @Override // java.lang.Runnable
+        requireActivity().runOnUiThread(new Runnable() {
+            @Override
             public final void run() {
-                m316lambda$updateCharacterImage$1$comwuyikebiaoHomeFragment(i);
+                setCharacterImage(i);
             }
         });
     }
 
-    /* JADX INFO: renamed from: lambda$updateCharacterImage$1$com-wuyi-kebiao-HomeFragment, reason: not valid java name */
-    /* synthetic */ void m316lambda$updateCharacterImage$1$comwuyikebiaoHomeFragment(int i) {
+    void setCharacterImage(int i) {
         this.ivCharacter.setImageResource(i);
-    }
-
-    /* JADX INFO: renamed from: com.wuyi.kebiao.HomeFragment$2, reason: invalid class name */
-    class AnonymousClass2 implements Callback {
-        AnonymousClass2() {
-        }
-
-        /* JADX INFO: renamed from: lambda$onFailure$0$com-wuyi-kebiao-HomeFragment$2, reason: not valid java name */
-        /* synthetic */ void m320lambda$onFailure$0$comwuyikebiaoHomeFragment$2() {
-            HomeFragment.this.tvMotivation.setText("今天也要加油哦~");
-        }
-
-        @Override // okhttp3.Callback
-        public void onFailure(Call call, IOException iOException) {
-            HomeFragment.this.requireActivity().runOnUiThread(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$2$$ExternalSyntheticLambda2
-                @Override // java.lang.Runnable
-                public final void run() {
-                    m320lambda$onFailure$0$comwuyikebiaoHomeFragment$2();
-                }
-            });
-        }
-
-        @Override // okhttp3.Callback
-        public void onResponse(Call call, Response response) throws IOException {
-            try {
-                final String strOptString = new JSONObject(response.body().string()).optString("sentence", "今天也要加油哦~");
-                HomeFragment.this.requireActivity().runOnUiThread(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$2$$ExternalSyntheticLambda0
-                    @Override // java.lang.Runnable
-                    public final void run() {
-                        m321lambda$onResponse$1$comwuyikebiaoHomeFragment$2(strOptString);
-                    }
-                });
-            } catch (Exception unused) {
-                HomeFragment.this.requireActivity().runOnUiThread(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$2$$ExternalSyntheticLambda1
-                    @Override // java.lang.Runnable
-                    public final void run() {
-                        m322lambda$onResponse$2$comwuyikebiaoHomeFragment$2();
-                    }
-                });
-            }
-        }
-
-        /* JADX INFO: renamed from: lambda$onResponse$1$com-wuyi-kebiao-HomeFragment$2, reason: not valid java name */
-        /* synthetic */ void m321lambda$onResponse$1$comwuyikebiaoHomeFragment$2(String str) {
-            HomeFragment.this.tvMotivation.setText(str);
-        }
-
-        /* JADX INFO: renamed from: lambda$onResponse$2$com-wuyi-kebiao-HomeFragment$2, reason: not valid java name */
-        /* synthetic */ void m322lambda$onResponse$2$comwuyikebiaoHomeFragment$2() {
-            HomeFragment.this.tvMotivation.setText("今天也要加油哦~");
-        }
     }
 
     private void setupWebView(WebView webView) {
@@ -525,14 +421,14 @@ public class HomeFragment extends Fragment {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setCacheMode(2);
-        this.crawlerView.setWebChromeClient(new WebChromeClient() { // from class: com.wuyi.kebiao.HomeFragment.3
-            @Override // android.webkit.WebChromeClient
+        this.crawlerView.setWebChromeClient(new WebChromeClient() {
+            @Override
             public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
                 Log.d(HomeFragment.TAG, "WebView Console: " + consoleMessage.message());
                 return true;
             }
         });
-        this.crawlerView.setWebViewClient(new CrawlerClient(this, null));
+        this.crawlerView.setWebViewClient(new CrawlerClient());
         this.crawlerView.addJavascriptInterface(new BackBridge(), "AndroidBack");
     }
 
@@ -546,16 +442,15 @@ public class HomeFragment extends Fragment {
         if (string == null || string2 == null || string.isEmpty() || string2.isEmpty()) {
             return;
         }
-        this.webView.postDelayed(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$$ExternalSyntheticLambda5
-            @Override // java.lang.Runnable
+        this.webView.postDelayed(new Runnable() {
+            @Override
             public final void run() {
-                m309x11623b3b(string, string2);
+                doAutoLogin(string, string2);
             }
         }, 1000L);
     }
 
-    /* JADX INFO: renamed from: lambda$autoLoginIfCredentialsExist$2$com-wuyi-kebiao-HomeFragment, reason: not valid java name */
-    /* synthetic */ void m309x11623b3b(String str, String str2) {
+    void doAutoLogin(String str, String str2) {
         this.pendingUser = str;
         this.pendingPass = str2;
         startCrawl();
@@ -565,6 +460,12 @@ public class HomeFragment extends Fragment {
         @JavascriptInterface
         public String getGlassUi() {
             String str = ThemeH.glass;
+            return str != null ? str : "0";
+        }
+
+        @JavascriptInterface
+        public String getAutoCarousel() {
+            String str = ThemeH.autoCarousel;
             return str != null ? str : "0";
         }
 
@@ -634,17 +535,12 @@ public class HomeFragment extends Fragment {
             Log.d(HomeFragment.TAG, "前台请求登录: " + str);
             HomeFragment.this.pendingUser = str;
             HomeFragment.this.pendingPass = str2;
-            HomeFragment.this.mainHandler.post(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$FrontBridge$$ExternalSyntheticLambda2
-                @Override // java.lang.Runnable
+            HomeFragment.this.mainHandler.post(new Runnable() {
+                @Override
                 public final void run() {
-                    m331lambda$login$0$comwuyikebiaoHomeFragment$FrontBridge();
+                    HomeFragment.this.startCrawl();
                 }
             });
-        }
-
-        /* JADX INFO: renamed from: lambda$login$0$com-wuyi-kebiao-HomeFragment$FrontBridge, reason: not valid java name */
-        /* synthetic */ void m331lambda$login$0$comwuyikebiaoHomeFragment$FrontBridge() {
-            HomeFragment.this.startCrawl();
         }
 
         @JavascriptInterface
@@ -658,34 +554,24 @@ public class HomeFragment extends Fragment {
             if (str == null) {
                 homeFragment3.notifyFrontError("请先输入账号密码登录");
             } else {
-                homeFragment3.mainHandler.post(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$FrontBridge$$ExternalSyntheticLambda3
-                    @Override // java.lang.Runnable
+                homeFragment3.mainHandler.post(new Runnable() {
+                    @Override
                     public final void run() {
-                        m332lambda$refresh$1$comwuyikebiaoHomeFragment$FrontBridge();
+                        HomeFragment.this.startCrawl();
                     }
                 });
             }
         }
 
-        /* JADX INFO: renamed from: lambda$refresh$1$com-wuyi-kebiao-HomeFragment$FrontBridge, reason: not valid java name */
-        /* synthetic */ void m332lambda$refresh$1$comwuyikebiaoHomeFragment$FrontBridge() {
-            HomeFragment.this.startCrawl();
-        }
-
         @JavascriptInterface
         public void relogin() {
-            HomeFragment.this.mainHandler.post(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$FrontBridge$$ExternalSyntheticLambda4
-                @Override // java.lang.Runnable
+            HomeFragment.this.mainHandler.post(new Runnable() {
+                @Override
                 public final void run() {
-                    m333lambda$relogin$2$comwuyikebiaoHomeFragment$FrontBridge();
+                    HomeFragment.this.clearAllData();
+                    HomeFragment.this.webView.loadUrl(HomeFragment.this.isGradeMode() ? "file:///android_asset/www/grade.html" : "file:///android_asset/www/index.html");
                 }
             });
-        }
-
-        /* JADX INFO: renamed from: lambda$relogin$2$com-wuyi-kebiao-HomeFragment$FrontBridge, reason: not valid java name */
-        /* synthetic */ void m333lambda$relogin$2$comwuyikebiaoHomeFragment$FrontBridge() {
-            HomeFragment.this.clearAllData();
-            HomeFragment.this.webView.loadUrl(HomeFragment.this.isGradeMode() ? "file:///android_asset/www/grade.html" : "file:///android_asset/www/index.html");
         }
 
         @JavascriptInterface
@@ -699,10 +585,10 @@ public class HomeFragment extends Fragment {
             String string = HomeFragment.this.prefs.getString(HomeFragment.KEY_USERNAME, null);
             String string2 = HomeFragment.this.prefs.getString(HomeFragment.KEY_PASSWORD, null);
             if (string == null || string.isEmpty()) {
-                HomeFragment.this.mainHandler.post(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$FrontBridge$$ExternalSyntheticLambda1
-                    @Override // java.lang.Runnable
+                HomeFragment.this.mainHandler.post(new Runnable() {
+                    @Override
                     public final void run() {
-                        m330x1466d86e();
+                        deliverNoSavedCredentials();
                     }
                 });
                 return;
@@ -716,22 +602,35 @@ public class HomeFragment extends Fragment {
             sb.append(string2);
             sb.append("\"}");
             final String string3 = sb.toString();
-            HomeFragment.this.mainHandler.post(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$FrontBridge$$ExternalSyntheticLambda0
-                @Override // java.lang.Runnable
+            HomeFragment.this.mainHandler.post(new Runnable() {
+                @Override
                 public final void run() {
-                    m329xd01a34f(string3);
+                    deliverSavedCredentials(string3);
                 }
             });
         }
 
-        /* JADX INFO: renamed from: lambda$getSavedCredentials$3$com-wuyi-kebiao-HomeFragment$FrontBridge, reason: not valid java name */
-        /* synthetic */ void m329xd01a34f(String str) {
+        void deliverSavedCredentials(String str) {
             HomeFragment.this.webView.evaluateJavascript("window.receiveFromAndroid('saved_credentials', '" + str + "');", null);
         }
 
-        /* JADX INFO: renamed from: lambda$getSavedCredentials$4$com-wuyi-kebiao-HomeFragment$FrontBridge, reason: not valid java name */
-        /* synthetic */ void m330x1466d86e() {
+        void deliverNoSavedCredentials() {
             HomeFragment.this.webView.evaluateJavascript("window.receiveFromAndroid('saved_credentials', 'null');", null);
+        }
+
+        @JavascriptInterface
+        public String getSchedules() {
+            return ScheduleStore.loadJson(HomeFragment.this.requireContext());
+        }
+
+        @JavascriptInterface
+        public void saveSchedule(String str) {
+            ScheduleStore.save(HomeFragment.this.requireContext(), str);
+        }
+
+        @JavascriptInterface
+        public void deleteSchedule(String str) {
+            ScheduleStore.delete(HomeFragment.this.requireContext(), str);
         }
 
         @JavascriptInterface
@@ -742,7 +641,6 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void startCrawl() {
         if (this.isCrawling) {
             return;
@@ -763,10 +661,10 @@ public class HomeFragment extends Fragment {
         if (runnable != null) {
             this.mainHandler.removeCallbacks(runnable);
         }
-        Runnable runnable2 = new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$$ExternalSyntheticLambda0
-            @Override // java.lang.Runnable
+        Runnable runnable2 = new Runnable() {
+            @Override
             public final void run() {
-                m315lambda$startCrawl$4$comwuyikebiaoHomeFragment();
+                onLoginTimeout();
             }
         };
         this.timeoutRunnable = runnable2;
@@ -778,8 +676,7 @@ public class HomeFragment extends Fragment {
         this.mainHandler.postDelayed(new StartLoadRunnable(this), 300L);
     }
 
-    /* JADX INFO: renamed from: lambda$startCrawl$4$com-wuyi-kebiao-HomeFragment, reason: not valid java name */
-    /* synthetic */ void m315lambda$startCrawl$4$comwuyikebiaoHomeFragment() {
+    void onLoginTimeout() {
         if (this.isCrawling) {
             Log.e(TAG, "登录超时，终止登录");
             this.isCrawling = false;
@@ -827,7 +724,6 @@ public class HomeFragment extends Fragment {
                 .replace("\\u003c", "<").replace("\\u003e", ">").replace("\\u0026", "&");
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     // 登录收尾：按"页面是否真有账密错误提示 / 是否长时间后台"决定提示文案
     public void finishLoginFailure(String pageText, boolean wasInBg) {
         boolean credErr = isCredentialErrorInPage(pageText);
@@ -855,7 +751,7 @@ public class HomeFragment extends Fragment {
         try {
             Context context = getContext();
             if (context != null) {
-                AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                MimiDialogBuilder builder = new MimiDialogBuilder(context);
                 builder.setTitle(dlgTitle);
                 builder.setMessage(tipText);
                 builder.setPositiveButton("好的", (DialogInterface.OnClickListener) null);
@@ -865,9 +761,7 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
-    /* JADX INFO: renamed from: retryCrawl, reason: merged with bridge method [inline-methods] and merged with bridge method [inline-methods] */
-    public void m314lambda$startCrawl$3$comwuyikebiaoHomeFragment() {
+    public void retryCrawl() {
         Log.d(TAG, "执行重试，当前重试次数: " + this.retryCount);
         this.isCrawling = true;
         this.hasInjectedLogin = false;
@@ -877,16 +771,11 @@ public class HomeFragment extends Fragment {
         this.mainHandler.postDelayed(new StartLoadRunnable(this), 300L);
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     class CrawlerClient extends WebViewClient {
         private CrawlerClient() {
         }
 
-        /* synthetic */ CrawlerClient(HomeFragment homeFragment, AnonymousClass1 anonymousClass1) {
-            this();
-        }
-
-        @Override // android.webkit.WebViewClient
+        @Override
         public void onPageFinished(final WebView webView, String str) {
             super.onPageFinished(webView, str);
             Log.d(HomeFragment.TAG, "后台页面完成: " + str);
@@ -902,10 +791,10 @@ public class HomeFragment extends Fragment {
                     Log.d(str2, "后台检测到登录页，启动自动登录...");
                     HomeFragment.this.notifyTimetableLog("[A] 检测到统一登录页，正在自动登录...");
                     HomeFragment.this.hasInjectedLogin = true;
-                    webView.postDelayed(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$CrawlerClient$$ExternalSyntheticLambda0
-                        @Override // java.lang.Runnable
+                    webView.postDelayed(new Runnable() {
+                        @Override
                         public final void run() {
-                            m327x88835030(webView);
+                            HomeFragment.this.injectAutoLogin(webView);
                         }
                     }, 1000L);
                     return;
@@ -920,33 +809,26 @@ public class HomeFragment extends Fragment {
                 }
                 Log.d(str2, "后台到达课表页，准备提取...");
                 HomeFragment.this.notifyTimetableLog("[A] 已进入教务系统，正在读取课表...");
-                webView.postDelayed(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$CrawlerClient$$ExternalSyntheticLambda1
-                    @Override // java.lang.Runnable
+                webView.postDelayed(new Runnable() {
+                    @Override
                     public final void run() {
-                        m328x4b6fb98f(webView);
+                        if (HomeFragment.this.isGradeMode()) {
+                            HomeFragment.this.startGradeCrawl();
+                        } else {
+                            HomeFragment.this.injectParser(webView);
+                        }
                     }
                 }, 1500L);
             }
         }
 
-        /* JADX INFO: renamed from: lambda$onPageFinished$0$com-wuyi-kebiao-HomeFragment$CrawlerClient, reason: not valid java name */
-        /* synthetic */ void m327x88835030(WebView webView) {
-            HomeFragment.this.injectAutoLogin(webView);
-        }
-
-        /* JADX INFO: renamed from: lambda$onPageFinished$1$com-wuyi-kebiao-HomeFragment$CrawlerClient, reason: not valid java name */
-        /* synthetic */ void m328x4b6fb98f(WebView webView) {
-            HomeFragment.access$1700(HomeFragment.this, webView);
-        }
-
-        @Override // android.webkit.WebViewClient
+        @Override
         public boolean shouldOverrideUrlLoading(WebView webView, String str) {
             Log.d(HomeFragment.TAG, "shouldOverrideUrlLoading: " + str);
             return false;
         }
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public boolean isLoginPage(String str) {
         if (str.contains("sso.wuyiu.edu.cn")) {
             return str.contains("/linkid/") || str.contains("/login") || str.contains("统一认证");
@@ -954,7 +836,6 @@ public class HomeFragment extends Fragment {
         return false;
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void injectAutoLogin(WebView webView) {
         String str = this.pendingUser;
         if (str == null || this.pendingPass == null) {
@@ -964,18 +845,17 @@ public class HomeFragment extends Fragment {
     }
 
     private void injectParser(WebView webView) {
-        this.mainHandler.postDelayed(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$$ExternalSyntheticLambda6
-            @Override // java.lang.Runnable
+        this.mainHandler.postDelayed(new Runnable() {
+            @Override
             public final void run() {
-                m312lambda$injectParser$6$comwuyikebiaoHomeFragment();
+                onParseTimeout();
             }
         }, 10000L);
         webView.evaluateJavascript("(function(){try{function dwk(doc){try{var re=/第\\s*(\\d{1,2})\\s*周(?!\\s*[-—~至])/;var i,m,t;var ss=doc.querySelectorAll('select');for(i=0;i<ss.length;i++){var so=ss[i].options[ss[i].selectedIndex];t=so?(so.text||''):'';m=t.match(re);if(m)return{n:parseInt(m[1],10),src:'select'};}var els=doc.querySelectorAll('button,span,div,a,li,td,th');for(i=0;i<els.length;i++){try{var cl=String(els[i].className||'');if(!/(cur|active|select|value|now|text|title)/i.test(cl))continue;t=(els[i].innerText||'').replace(/\\s+/g,'');if(t.length<2||t.length>8)continue;m=t.match(/^第(\\d{1,2})周$/);if(m)return{n:parseInt(m[1],10),src:'curcls'};}catch(_){}}for(i=0;i<els.length;i++){try{t=(els[i].innerText||'').replace(/\\s+/g,'');if(t.length<2||t.length>8)continue;m=t.match(/^第(\\d{1,2})周$/);if(!m)continue;var p=els[i].parentElement;var bad=0;for(var g=0;g<2&&p;g++){var pt=p.innerText||'';var re2=/第\\s*\\d{1,2}\\s*周/g;var c=0;while(re2.exec(pt)!==null)c++;if(c>=3){bad=1;break;}p=p.parentElement;}if(bad)continue;return{n:parseInt(m[1],10),src:'leaf'};}catch(_){}}var bt=(doc.body&&doc.body.innerText)||'';m=re.exec(bt);if(m)return{n:parseInt(m[1],10),src:'body'};}catch(_){}return null;}var n=0;var f=function(){var r=null;try{var docs=[document];var fr=document.getElementById(\"person\");if(!fr){var fl=document.querySelectorAll(\"iframe,frame\");if(fl&&fl.length){fr=fl[0];}}try{if(fr&&fr.contentDocument&&fr.contentDocument.body){docs.push(fr.contentDocument);}}catch(_){}for(var i=0;i<docs.length&&r===null;i++){r=dwk(docs[i]);}}catch(_){}if(r!==null){try{AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 首页周次检测: 第'+r.n+'周 ('+r.src+')');}catch(_){}try{AndroidBack.onWeekNo(String(r.n));}catch(_){}}else if(++n<10){setTimeout(f,600);}};f();}catch(_){}})();", null);
         webView.evaluateJavascript("(function() { try { AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 开始读取课表页面...'); var parseTable = function(doc, table) { if (false && !table) { AndroidBack.onError('未找到课表表格'); return; }var courses = [];var headers = [];var ths = table.querySelectorAll('thead tr th.qz-weeklyTable-th');for (var i = 1; i < ths.length; i++) {    var spans = ths[i].querySelectorAll('span');    if (spans.length >= 2) {        headers.push({day: spans[0].textContent.trim(), date: spans[1].textContent.trim()});    }}var rows = table.querySelectorAll('tbody tr.qz-weeklyTable-tr');rows.forEach(function(row) {    var tds = row.querySelectorAll('td.qz-weeklyTable-td');    if (tds.length === 0) return;    var timeSlot = '';    var titleDiv = tds[0].querySelector('div.index-title');    if (titleDiv) timeSlot = titleDiv.textContent.trim();    for (var dayIdx = 1; dayIdx < tds.length && dayIdx <= headers.length; dayIdx++) {        var td = tds[dayIdx];        var ul = td.querySelector('ul.courselists');        if (!ul) continue;        var items = ul.querySelectorAll('li.courselists-item');        items.forEach(function(item) {            var nameDiv = item.querySelector('div.qz-hasCourse-title');            var name = nameDiv ? nameDiv.textContent.trim() : '未知课程';            var tooltip = td.querySelector('div.qz-tooltip');            var teacher = '', location = '', weekRange = '', sections = '';            if (tooltip && tooltip.classList.contains('qz-tooltip')) {                var details = tooltip.querySelectorAll('div.qz-tooltipContent-detailitem');                details.forEach(function(div) {                    var text = div.textContent.trim();                    if (text.startsWith('教师：')) teacher = text.replace('教师：', '');                    else if (text.startsWith('上课地点：')) location = text.replace('上课地点：', '');                    else if (text.startsWith('周次：')) weekRange = text.replace('周次：', '');                    else if (text.startsWith('节次：')) sections = text.replace('节次：', '');                });            }            if (!teacher || !location) {                var details2 = item.querySelectorAll('div.qz-hasCourse-detailitem');                details2.forEach(function(div) {                    var text = div.textContent.trim();                    if (text.startsWith('教师：') && !teacher) teacher = text.replace('教师：', '');                    else if (text.startsWith('节次：') && !sections) sections = text.replace('节次：', '');                    else if (text.startsWith('周次：') && !weekRange) weekRange = text.replace('周次：', '');                    else if (!text.endsWith('小节') && !text.startsWith('[') && !location) location = text;                });            }            var bl = weekRange.indexOf('['); var br2 = weekRange.indexOf(']'); if (bl >= 0 && br2 > bl) weekRange = weekRange.slice(bl, br2 + 1); courses.push({                name: name,                teacher: teacher || '未知教师',                location: location || '未知地点',                weekRange: weekRange,                dayOfWeek: headers[dayIdx - 1].day,                dayDate: headers[dayIdx - 1].date,                timeSlot: timeSlot,                sections: sections || timeSlot            });        });    }});AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 课表解析完成，共 '+courses.length+' 门课程，正在回传');AndroidBack.onCourses(JSON.stringify(courses)); }; var findTarget = function() { var table = document.querySelector('table.qz-weeklyTable'); if (table) return { doc: document, table: table }; var fr = document.getElementById('person'); if (!fr) fr = document.querySelector('iframe'); if (fr && fr.contentDocument) { fr.style.display = 'block'; var t2 = fr.contentDocument.querySelector('table.qz-weeklyTable'); if (t2) return { doc: fr.contentDocument, table: t2 }; } return null; }; var start = Date.now(); var run = function() { var target = findTarget(); if (target) { AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 已找到课表表格，开始解析');try{function dwk(doc){try{var re=/第\\s*(\\d{1,2})\\s*周(?!\\s*[-—~至])/;var i,m,t;var ss=doc.querySelectorAll('select');for(i=0;i<ss.length;i++){var so=ss[i].options[ss[i].selectedIndex];t=so?(so.text||''):'';m=t.match(re);if(m)return{n:parseInt(m[1],10),src:'select'};}var els=doc.querySelectorAll('button,span,div,a,li,td,th');for(i=0;i<els.length;i++){try{var cl=String(els[i].className||'');if(!/(cur|active|select|value|now|text|title)/i.test(cl))continue;t=(els[i].innerText||'').replace(/\\s+/g,'');if(t.length<2||t.length>8)continue;m=t.match(/^第(\\d{1,2})周$/);if(m)return{n:parseInt(m[1],10),src:'curcls'};}catch(_){}}for(i=0;i<els.length;i++){try{t=(els[i].innerText||'').replace(/\\s+/g,'');if(t.length<2||t.length>8)continue;m=t.match(/^第(\\d{1,2})周$/);if(!m)continue;var p=els[i].parentElement;var bad=0;for(var g=0;g<2&&p;g++){var pt=p.innerText||'';var re2=/第\\s*\\d{1,2}\\s*周/g;var c=0;while(re2.exec(pt)!==null)c++;if(c>=3){bad=1;break;}p=p.parentElement;}if(bad)continue;return{n:parseInt(m[1],10),src:'leaf'};}catch(_){}}var bt=(doc.body&&doc.body.innerText)||'';m=re.exec(bt);if(m)return{n:parseInt(m[1],10),src:'body'};}catch(_){}return null;}var wr=dwk(target.doc);if(wr){AndroidBack.onWeekNo(String(wr.n));AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 课表页周次检测: 第'+wr.n+'周 ('+wr.src+')');}else{AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 课表页未检测到周次');}}catch(_){}parseTable(target.doc, target.table); return; } if (Date.now() - start < 8000) setTimeout(run, 400); else { AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 8秒内未找到课表表格');AndroidBack.onError('未找到课表表格'); } }; run(); } catch(e) { AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 课表解析异常: '+e.message);AndroidBack.onError(e.message); }})();", null);
     }
 
-    /* JADX INFO: renamed from: lambda$injectParser$6$com-wuyi-kebiao-HomeFragment, reason: not valid java name */
-    /* synthetic */ void m312lambda$injectParser$6$comwuyikebiaoHomeFragment() {
+    void onParseTimeout() {
         if (this.isCrawling) {
             Log.e(TAG, "解析超时");
             int i = this.retryCount;
@@ -984,10 +864,10 @@ public class HomeFragment extends Fragment {
                 Log.w(TAG, "解析超时，第 " + this.retryCount + " 次重试...");
                 this.isCrawling = false;
                 this.hasInjectedLogin = false;
-                this.mainHandler.postDelayed(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$$ExternalSyntheticLambda7
-                    @Override // java.lang.Runnable
+                this.mainHandler.postDelayed(new Runnable() {
+                    @Override
                     public final void run() {
-                        m314lambda$startCrawl$3$comwuyikebiaoHomeFragment();
+                        retryCrawl();
                     }
                 }, 2000L);
                 return;
@@ -1070,34 +950,28 @@ public class HomeFragment extends Fragment {
                 new Thread(new StatsReporter(HomeFragment.this.requireContext(), "timetable")).start();
                 // 保存课表数据并刷新桌面小组件
                 HomeFragment.this.saveWidgetData(str);
-                HomeFragment.this.mainHandler.post(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$BackBridge$$ExternalSyntheticLambda1
-                    @Override // java.lang.Runnable
+                HomeFragment.this.mainHandler.post(new Runnable() {
+                    @Override
                     public final void run() {
-                        m324lambda$onCourses$1$comwuyikebiaoHomeFragment$BackBridge(str, z);
+                        deliverCourses(str, z);
                     }
                 });
                 return;
             }
-            HomeFragment.access$1008(HomeFragment.this);
+            HomeFragment.this.retryCount++;
             Log.w(HomeFragment.TAG, "解析到空课表，第 " + HomeFragment.this.retryCount + " 次重试...");
             HomeFragment.this.notifyFrontError("获取课表为空，正在重试...");
             HomeFragment.this.isCrawling = false;
             HomeFragment.this.hasInjectedLogin = false;
-            HomeFragment.this.mainHandler.postDelayed(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$BackBridge$$ExternalSyntheticLambda0
-                @Override // java.lang.Runnable
+            HomeFragment.this.mainHandler.postDelayed(new Runnable() {
+                @Override
                 public final void run() {
-                    m323lambda$onCourses$0$comwuyikebiaoHomeFragment$BackBridge();
+                    HomeFragment.this.retryCrawl();
                 }
             }, 2000L);
         }
 
-        /* JADX INFO: renamed from: lambda$onCourses$0$com-wuyi-kebiao-HomeFragment$BackBridge, reason: not valid java name */
-        /* synthetic */ void m323lambda$onCourses$0$comwuyikebiaoHomeFragment$BackBridge() {
-            HomeFragment.this.m314lambda$startCrawl$3$comwuyikebiaoHomeFragment();
-        }
-
-        /* JADX INFO: renamed from: lambda$onCourses$1$com-wuyi-kebiao-HomeFragment$BackBridge, reason: not valid java name */
-        /* synthetic */ void m324lambda$onCourses$1$comwuyikebiaoHomeFragment$BackBridge(String str, boolean z) {
+        void deliverCourses(String str, boolean z) {
             HomeFragment.this.dismissLoginProgress();
             String strReplace = str.replace("'", "\\'");
             HomeFragment.this.webView.evaluateJavascript("window.receiveFromAndroid('courses', '" + strReplace + "');", null);
@@ -1124,7 +998,7 @@ public class HomeFragment extends Fragment {
                 HomeFragment.this.mainHandler.post(new Runnable() {
                     @Override
                     public final void run() {
-                        m326lambda$onError$3$comwuyikebiaoHomeFragment$BackBridge(str);
+                        deliverError(str);
                     }
                 });
                 return;
@@ -1132,7 +1006,7 @@ public class HomeFragment extends Fragment {
             // 非账密错误且未重试过 → 自动重试一次
             int i = HomeFragment.this.retryCount;
             if (i < 1) {
-                HomeFragment.access$1008(homeFragment);
+                homeFragment.retryCount++;
                 Log.w(HomeFragment.TAG, "解析错误，第 " + HomeFragment.this.retryCount + " 次重试...");
                 HomeFragment.this.notifyFrontError("获取失败，正在重试...");
                 HomeFragment.this.isCrawling = false;
@@ -1140,7 +1014,7 @@ public class HomeFragment extends Fragment {
                 HomeFragment.this.mainHandler.postDelayed(new Runnable() {
                     @Override
                     public final void run() {
-                        m325lambda$onError$2$comwuyikebiaoHomeFragment$BackBridge();
+                        HomeFragment.this.retryCrawl();
                     }
                 }, 2000L);
                 return;
@@ -1155,18 +1029,12 @@ public class HomeFragment extends Fragment {
             HomeFragment.this.mainHandler.post(new Runnable() {
                 @Override
                 public final void run() {
-                    m326lambda$onError$3$comwuyikebiaoHomeFragment$BackBridge(str);
+                    deliverError(str);
                 }
             });
         }
 
-        /* JADX INFO: renamed from: lambda$onError$2$com-wuyi-kebiao-HomeFragment$BackBridge, reason: not valid java name */
-        /* synthetic */ void m325lambda$onError$2$comwuyikebiaoHomeFragment$BackBridge() {
-            HomeFragment.this.m314lambda$startCrawl$3$comwuyikebiaoHomeFragment();
-        }
-
-        /* JADX INFO: renamed from: lambda$onError$3$com-wuyi-kebiao-HomeFragment$BackBridge, reason: not valid java name */
-        /* synthetic */ void m326lambda$onError$3$comwuyikebiaoHomeFragment$BackBridge(String str) {
+        void deliverError(String str) {
             HomeFragment.this.dismissLoginProgress();
             String strReplace = str.replace("'", "\\'");
             HomeFragment.this.webView.evaluateJavascript("window.receiveFromAndroid('error', '" + strReplace + "');", null);
@@ -1179,23 +1047,20 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void notifyFrontError(final String str) {
-        this.mainHandler.post(new Runnable() { // from class: com.wuyi.kebiao.HomeFragment$$ExternalSyntheticLambda3
-            @Override // java.lang.Runnable
+        this.mainHandler.post(new Runnable() {
+            @Override
             public final void run() {
-                m313lambda$notifyFrontError$7$comwuyikebiaoHomeFragment(str);
+                showFrontError(str);
             }
         });
     }
 
-    /* JADX INFO: renamed from: lambda$notifyFrontError$7$com-wuyi-kebiao-HomeFragment, reason: not valid java name */
-    /* synthetic */ void m313lambda$notifyFrontError$7$comwuyikebiaoHomeFragment(String str) {
+    void showFrontError(String str) {
         String strReplace = str.replace("'", "\\'");
         this.webView.evaluateJavascript("var tip=document.getElementById('tip');if(tip){tip.className='tip err';tip.textContent='" + strReplace + "';}var lb=document.getElementById('loginBtn');var btn=document.querySelector('.btn .txt');if(btn)btn.textContent=(lb&&lb.getAttribute('data-label'))?lb.getAttribute('data-label'):'登录教务系统';var spin=document.querySelector('.btn .loading');if(spin)spin.classList.add('hidden');if(lb)lb.disabled=false;var lp=document.getElementById('loginProgress');if(lp)lp.classList.add('hidden');", null);
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     // 把前端解析好的课表 JSON 转交给桌面小组件（原样保存全量数据，渲染时再按当天过滤）
     public void saveWidgetData(String coursesJson) {
         try {
@@ -1235,7 +1100,6 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void saveCookies() {
         CookieManager cookieManager = CookieManager.getInstance();
         String cookie = cookieManager.getCookie("https://jwxt.wuyiu.edu.cn");
@@ -1285,7 +1149,6 @@ public class HomeFragment extends Fragment {
         cookieManager.flush();
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
     public void clearAllData() {
         this.prefs.edit().remove(KEY_COOKIES).remove(KEY_USERNAME).remove(KEY_PASSWORD).apply();
         CookieManager.getInstance().removeAllCookies(null);
@@ -1294,7 +1157,18 @@ public class HomeFragment extends Fragment {
         this.retryCount = 0;
     }
 
-    @Override // androidx.fragment.app.Fragment
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        // 页面彻底销毁时释放缓存的视图与 WebView，避免内存泄漏
+        this.cachedView = null;
+        if (this.webView != null) {
+            this.webView.destroy();
+            this.webView = null;
+        }
+    }
+
+    @Override
     public void onDestroyView() {
         dismissLoginProgress();
         super.onDestroyView();
@@ -1311,8 +1185,6 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
-    /* loaded from: classes.dex */
     public static class StatsReporter implements Runnable {
         private final String action;
         private final Context ctx;
@@ -1322,7 +1194,7 @@ public class HomeFragment extends Fragment {
             this.action = str;
         }
 
-        @Override // java.lang.Runnable
+        @Override
         public void run() {
             try {
                 SharedPreferences sharedPreferences = this.ctx.getSharedPreferences("WuyiKebiaoPrefs", 0);

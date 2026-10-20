@@ -244,6 +244,7 @@
     <id name="layout_announcement" />
     <id name="layout_creator" />
     <id name="layout_feedback" />
+    <id name="layout_thanks" />
     <id name="layout_version" />
     <id name="layout_weather" />
     <id name="left" />
@@ -320,6 +321,7 @@
     <id name="nav_graph" />
     <id name="nav_host_fragment" />
     <id name="nav_host_fragment_container" />
+    <id name="pager" />
     <id name="navigation_bar_item_active_indicator_view" />
     <id name="navigation_bar_item_icon_container" />
     <id name="navigation_bar_item_icon_view" />
@@ -539,5 +541,7 @@
     <id name="x_right" />
     <id name="layout_sponsor" />
     <id name="navigation_grade" />
+    <id name="navigation_schedule" />
+    <id name="navigation_assistant" />
     <id name="layout_more" />
 </resources>

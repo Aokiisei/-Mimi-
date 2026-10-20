@@ -1,5 +1,12 @@
 package com.wuyi.kebiao.widget;
 
+/**
+ * 本文件职责：
+ * 桌面小组件的数据与渲染实现。
+ * 从 SharedPreferences 读出 App 保存的课表 JSON，
+ * 按当天星期过滤后填充 RemoteViews 列表，并计算当前教学周。
+ */
+
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -36,9 +43,18 @@ public class CourseWidgetService extends RemoteViewsService {
 
     private static final String[] DOW_NAMES = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
 
-    /** 今天中文星期名，如"周一" */
-    static String todayDowName() {
-        int dow = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
+    /** 是否已过晚上 9 点：过后小组件自动展示第二天课程 */
+    static boolean isAfterNinePm() {
+        return Calendar.getInstance().get(Calendar.HOUR_OF_DAY) >= 21;
+    }
+
+    /** 小组件展示日的中文星期名：晚 9 点前为今天，之后为明天 */
+    static String displayDowName() {
+        Calendar cal = Calendar.getInstance();
+        if (isAfterNinePm()) {
+            cal.add(Calendar.DAY_OF_MONTH, 1);
+        }
+        int dow = cal.get(Calendar.DAY_OF_WEEK);
         int n = dow == Calendar.SUNDAY ? 7 : dow - 1;
         return DOW_NAMES[n - 1];
     }
@@ -100,15 +116,19 @@ public class CourseWidgetService extends RemoteViewsService {
         boolean hasData = coursesJson != null && coursesJson.length() > 2;
 
         Calendar cal = Calendar.getInstance();
+        boolean showTomorrow = isAfterNinePm();
+        if (showTomorrow) {
+            cal.add(Calendar.DAY_OF_MONTH, 1);
+        }
         String dateInfo = (cal.get(Calendar.MONTH) + 1) + "月" + cal.get(Calendar.DAY_OF_MONTH)
-                + "日  今天" + todayDowName();
+                + "日  " + (showTomorrow ? "明天" : "今天") + displayDowName();
         String weekInfo = weekNo > 0 ? "第" + weekNo + "/" + totalWeek + "周" : "";
 
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_course);
         views.setTextViewText(R.id.widget_date_info, dateInfo);
         views.setTextViewText(R.id.widget_week_info, weekInfo);
         views.setTextViewText(R.id.widget_empty,
-                hasData ? "今天没有课程" : "请先打开 Mimi课表 同步一次课表");
+                hasData ? (showTomorrow ? "明天没有课程" : "今天没有课程") : "请先打开 Mimi课表 同步一次课表");
 
         Intent intent = new Intent(context, CourseWidgetService.class);
         intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
@@ -149,7 +169,8 @@ public class CourseWidgetService extends RemoteViewsService {
             todayCourses.clear();
             try {
                 SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                String today = todayDowName();
+                // 晚 9 点后展示日自动切换为明天
+                String day = displayDowName();
                 JSONArray arr = new JSONArray(prefs.getString(KEY_COURSES, "[]"));
                 for (int i = 0; i < arr.length(); i++) {
                     JSONObject c = arr.optJSONObject(i);
@@ -157,7 +178,7 @@ public class CourseWidgetService extends RemoteViewsService {
                         continue;
                     }
                     // 前端课程对象的星期字段为中文名（周一~周日）
-                    if (!today.equals(c.optString("dayOfWeek", "").trim())) {
+                    if (!day.equals(c.optString("dayOfWeek", "").trim())) {
                         continue;
                     }
                     todayCourses.add(c);

@@ -1,12 +1,17 @@
 package com.wuyi.kebiao;
 
+/**
+ * 本文件职责：
+ * 后台线程拉取服务器公告（announcement.txt）。
+ * 取不到时用兜底文案，再切回主线程交给 AnnouncementShowRunnable 显示。
+ */
+
 import android.os.Handler;
 import android.os.Looper;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Scanner;
 
-/* JADX INFO: loaded from: classes.dex */
 public class AnnouncementFetcher implements Runnable {
     private ProfileFragment frag;
 
@@ -14,7 +19,7 @@ public class AnnouncementFetcher implements Runnable {
         this.frag = profileFragment;
     }
 
-    @Override // java.lang.Runnable
+    @Override
     public void run() {
         String str = "暂未获取到公告，请检查网络后重试，或访问 https://aokiisei.vxni.ink/ 查看";
         try {

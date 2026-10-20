@@ -1,6 +1,10 @@
 package com.wuyi.kebiao;
 
-/* JADX INFO: loaded from: classes.dex */
+/**
+ * 本文件职责：
+ * 主线程回调：把公告文本交给 ProfileFragment 弹窗显示。
+ */
+
 public class AnnouncementShowRunnable implements Runnable {
     private ProfileFragment frag;
     private String msg;
@@ -10,7 +14,7 @@ public class AnnouncementShowRunnable implements Runnable {
         this.msg = str;
     }
 
-    @Override // java.lang.Runnable
+    @Override
     public void run() {
         this.frag.notifyAnnouncement(this.msg);
     }

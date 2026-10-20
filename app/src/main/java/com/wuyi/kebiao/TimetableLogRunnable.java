@@ -1,6 +1,10 @@
 package com.wuyi.kebiao;
 
-/* JADX INFO: loaded from: classes.dex */
+/**
+ * 本文件职责：
+ * 主线程回调：把课表抓取过程的日志文本传给 HomeFragment。
+ */
+
 public class TimetableLogRunnable implements Runnable {
     private HomeFragment frag;
     private String msg;
@@ -10,7 +14,7 @@ public class TimetableLogRunnable implements Runnable {
         this.msg = str;
     }
 
-    @Override // java.lang.Runnable
+    @Override
     public void run() {
         this.frag.notifyTimetableLog(this.msg);
     }

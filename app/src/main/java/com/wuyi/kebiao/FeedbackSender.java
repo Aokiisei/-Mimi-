@@ -1,5 +1,11 @@
 package com.wuyi.kebiao;
 
+/**
+ * 本文件职责：
+ * 子线程把用户反馈 POST 到服务器 feedback.php，
+ * 附带机型与 SDK 版本，结果用 Toast 提示。
+ */
+
 import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
@@ -9,7 +15,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 
-/* JADX INFO: loaded from: classes.dex */
 public class FeedbackSender implements Runnable {
     private final String content;
     private final Context ctx;
@@ -19,7 +24,7 @@ public class FeedbackSender implements Runnable {
         this.content = str;
     }
 
-    @Override // java.lang.Runnable
+    @Override
     public void run() {
         String str;
         try {

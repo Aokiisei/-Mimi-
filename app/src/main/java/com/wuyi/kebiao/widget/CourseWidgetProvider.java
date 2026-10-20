@@ -1,5 +1,11 @@
 package com.wuyi.kebiao.widget;
 
+/**
+ * 本文件职责：
+ * 桌面小组件的生命周期入口（AppWidgetProvider）。
+ * 收到系统更新广播或尺寸变化时，逐个转调 CourseWidgetService 重绘。
+ */
+
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.Context;

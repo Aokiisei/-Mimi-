@@ -1,6 +1,11 @@
 package com.wuyi.kebiao;
 
-/* JADX INFO: loaded from: classes.dex */
+/**
+ * 本文件职责：
+ * 主线程回调：向 WebView 执行 JS，
+ * 把数据透传给页面里的 window.receiveFromAndroid(type, payload)。
+ */
+
 public class ForwardMsgRunnable implements Runnable {
     private HomeFragment frag;
     private String payload;
@@ -12,7 +17,7 @@ public class ForwardMsgRunnable implements Runnable {
         this.payload = str2;
     }
 
-    @Override // java.lang.Runnable
+    @Override
     public void run() {
         try {
             this.frag.webView.evaluateJavascript("window.receiveFromAndroid('" + this.type + "', '" + this.payload + "');", null);

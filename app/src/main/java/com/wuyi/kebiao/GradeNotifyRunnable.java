@@ -1,6 +1,10 @@
 package com.wuyi.kebiao;
 
-/* JADX INFO: loaded from: classes.dex */
+/**
+ * 本文件职责：
+ * 主线程回调：把抓取到的成绩 JSON 传给 HomeFragment。
+ */
+
 public class GradeNotifyRunnable implements Runnable {
     private HomeFragment frag;
     private String json;
@@ -10,7 +14,7 @@ public class GradeNotifyRunnable implements Runnable {
         this.json = str;
     }
 
-    @Override // java.lang.Runnable
+    @Override
     public void run() {
         this.frag.notifyFrontGrades(this.json);
     }

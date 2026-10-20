@@ -331,4 +331,21 @@
     <color name="tooltip_background_dark">#e6616161</color>
     <color name="tooltip_background_light">#e6ffffff</color>
     <color name="white">#ffffffff</color>
+
+    <!-- Claude 温暖纸张设计系统（design-md/claude）语义色 -->
+    <color name="cl_parchment">#FFF5F4ED</color>
+    <color name="cl_ivory">#FFFAF9F5</color>
+    <color name="cl_sand">#FFE8E6DC</color>
+    <color name="cl_border_cream">#FFF0EEE6</color>
+    <color name="cl_border_warm">#FFE8E6DC</color>
+    <color name="cl_ink">#FF141413</color>
+    <color name="cl_charcoal">#FF4D4C48</color>
+    <color name="cl_olive">#FF5E5D59</color>
+    <color name="cl_stone">#FF87867F</color>
+    <color name="cl_silver">#FFB0AEA5</color>
+    <color name="cl_terracotta">#FFC96442</color>
+    <color name="cl_coral">#FFD97757</color>
+    <color name="cl_focus">#FF3898EC</color>
+    <color name="cl_dark_surface">#FF30302E</color>
+    <color name="cl_error">#FFB53333</color>
 </resources>

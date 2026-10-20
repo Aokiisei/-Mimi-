@@ -1,11 +1,15 @@
 package com.wuyi.kebiao;
 
+/**
+ * 本文件职责：
+ * 反馈对话框「提交」按钮：校验内容非空后启动 FeedbackSender。
+ */
+
 import android.content.Context;
 import android.content.DialogInterface;
 import android.widget.EditText;
 import android.widget.Toast;
 
-/* JADX INFO: loaded from: classes.dex */
 public class FeedbackSubmitListener implements DialogInterface.OnClickListener {
     private final Context ctx;
     private final EditText et;
@@ -15,7 +19,7 @@ public class FeedbackSubmitListener implements DialogInterface.OnClickListener {
         this.et = editText;
     }
 
-    @Override // android.content.DialogInterface.OnClickListener
+    @Override
     public void onClick(DialogInterface dialogInterface, int i) {
         try {
             String strTrim = String.valueOf(this.et.getText()).trim();

@@ -1,8 +1,13 @@
 package com.wuyi.kebiao;
 
+/**
+ * 本文件职责：
+ * 全局未捕获异常处理器。
+ * 崩溃时先写本地日志，再交还给系统默认处理，避免静默吞掉崩溃。
+ */
+
 import android.content.Context;
 
-/* JADX INFO: loaded from: classes.dex */
 public class CrashHandler implements Thread.UncaughtExceptionHandler {
     private final Context ctx;
     private final Thread.UncaughtExceptionHandler prev = Thread.getDefaultUncaughtExceptionHandler();
@@ -19,7 +24,7 @@ public class CrashHandler implements Thread.UncaughtExceptionHandler {
         }
     }
 
-    @Override // java.lang.Thread.UncaughtExceptionHandler
+    @Override
     public void uncaughtException(Thread thread, Throwable th) {
         try {
             CrashLogger.log(this.ctx, "UNCAUGHT thread=" + thread.getName(), th);

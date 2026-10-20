@@ -1,0 +1,58 @@
+/* 滚动时间选择器（小时/分钟双列滚轮）—— index.html 与 schedule.html 共用 */
+.wheel-mask {
+    position: fixed; inset: 0; z-index: 120;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex; align-items: flex-end; justify-content: center;
+}
+.wheel-mask.hidden { display: none !important; }
+.wheel-sheet {
+    width: 100%; max-width: 600px; box-sizing: border-box;
+    background: #FFFFFF;
+    border-radius: 20px 20px 0 0;
+    padding: 6px 16px 16px;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.16);
+}
+.wheel-head { display: flex; align-items: center; height: 48px; }
+.wheel-head h3 {
+    flex: 1; margin: 0; text-align: center;
+    font-size: 16px; font-weight: 600; color: #141413;
+}
+.wheel-head button {
+    width: auto; margin: 0; padding: 8px 12px;
+    border: none; background: none; box-shadow: none;
+    font-size: 15px; font-weight: 500;
+}
+.wheel-head button:active { opacity: 0.7; }
+.wheel-cancel { color: #87867F; }
+.wheel-ok { color: #C96442; font-weight: 700; }
+.wheel-body {
+    position: relative; height: 220px;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+}
+.wheel-hi {
+    position: absolute; left: 8px; right: 8px; top: 88px; height: 44px;
+    background: rgba(11, 107, 203, 0.10);
+    border-top: 1px solid rgba(11, 107, 203, 0.18);
+    border-bottom: 1px solid rgba(11, 107, 203, 0.18);
+    border-radius: 8px; pointer-events: none; z-index: 0;
+}
+.wheel-col {
+    position: relative; z-index: 1;
+    flex: 0 0 88px; height: 220px;
+    overflow-y: scroll; -webkit-overflow-scrolling: touch;
+    padding: 88px 0; box-sizing: border-box;
+    text-align: center; scrollbar-width: none;
+}
+.wheel-col::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.wheel-item {
+    height: 44px; line-height: 44px;
+    font-size: 18px; color: #b0bac5;
+    transition: color 0.12s, font-size 0.12s;
+}
+.wheel-item.active { color: #141413; font-weight: 700; font-size: 20px; }
+.wheel-sep {
+    position: relative; z-index: 1;
+    font-size: 20px; font-weight: 700; color: #141413;
+    padding: 0 2px;
+}

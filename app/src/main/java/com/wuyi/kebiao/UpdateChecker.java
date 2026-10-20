@@ -1,5 +1,11 @@
 package com.wuyi.kebiao;
 
+/**
+ * 本文件职责：
+ * 版本更新模块。
+ * 检查服务器版本号、弹出更新对话框、下载 APK 并显示进度，完成后引导安装。
+ */
+
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -23,7 +29,6 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.json.JSONObject;
 
-/* JADX INFO: loaded from: classes.dex */
 public class UpdateChecker {
 
     public static class CheckCallback implements Callback {
@@ -39,14 +44,14 @@ public class UpdateChecker {
             new Handler(Looper.getMainLooper()).post(new ToastRunnable(this.a, str));
         }
 
-        @Override // okhttp3.Callback
+        @Override
         public void onFailure(Call call, IOException iOException) {
             if (this.b) {
                 a("检查更新失败，请检查网络");
             }
         }
 
-        @Override // okhttp3.Callback
+        @Override
         public void onResponse(Call call, Response response) {
             try {
                 ResponseBody responseBodyBody = response.body();
@@ -85,7 +90,7 @@ public class UpdateChecker {
             this.a = progressDialog;
         }
 
-        @Override // java.lang.Runnable
+        @Override
         public void run() {
             try {
                 this.a.dismiss();
@@ -107,13 +112,13 @@ public class UpdateChecker {
             new Handler(Looper.getMainLooper()).post(runnable);
         }
 
-        @Override // okhttp3.Callback
+        @Override
         public void onFailure(Call call, IOException iOException) {
             a(new DismissRunnable(this.b));
             a(new ToastRunnable(this.a, "下载失败，请检查网络后重试"));
         }
 
-        @Override // okhttp3.Callback
+        @Override
         public void onResponse(Call call, Response response) {
             int i;
             try {
@@ -162,7 +167,7 @@ public class UpdateChecker {
             this.b = str;
         }
 
-        @Override // android.content.DialogInterface.OnClickListener
+        @Override
         public void onClick(DialogInterface dialogInterface, int i) {
             try {
                 this.a.startActivity(new Intent("android.intent.action.VIEW", Uri.parse(this.b)));
@@ -183,7 +188,7 @@ public class UpdateChecker {
             this.c = file;
         }
 
-        @Override // java.lang.Runnable
+        @Override
         public void run() {
             try {
                 this.b.dismiss();
@@ -202,7 +207,7 @@ public class UpdateChecker {
             this.b = i;
         }
 
-        @Override // java.lang.Runnable
+        @Override
         public void run() {
             this.a.setProgress(this.b);
         }
@@ -217,7 +222,7 @@ public class UpdateChecker {
             this.b = str;
         }
 
-        @Override // java.lang.Runnable
+        @Override
         public void run() {
             Toast.makeText(this.a, this.b, 1).show();
         }
@@ -236,10 +241,10 @@ public class UpdateChecker {
             this.d = str3;
         }
 
-        @Override // java.lang.Runnable
+        @Override
         public void run() {
             try {
-                AlertDialog.Builder builder = new AlertDialog.Builder(this.a);
+                MimiSystemDialogBuilder builder = new MimiSystemDialogBuilder(this.a);
                 builder.setTitle("发现新版本 " + this.b);
                 builder.setMessage(this.c);
                 builder.setPositiveButton("去浏览器下载", new DownloadClickListener(this.a, this.d));
@@ -277,6 +282,9 @@ public class UpdateChecker {
         progressDialog.setMax(100);
         progressDialog.setCancelable(false);
         progressDialog.show();
+        if (progressDialog.getWindow() != null) {
+            ThemeH.applySerifFont(progressDialog.getWindow().getDecorView());
+        }
         new OkHttpClient().newCall(new Request.Builder().url(str).build()).enqueue(new DownloadCallback(context, progressDialog));
     }
 }

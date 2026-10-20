@@ -1,5 +1,11 @@
 package com.wuyi.kebiao;
 
+/**
+ * 本文件职责：
+ * 在子线程请求教务系统首页判断连通性，
+ * 再把结果（HTTP 状态码或失败原因）用 Toast 提示出来。
+ */
+
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
@@ -7,7 +13,6 @@ import android.widget.Toast;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-/* JADX INFO: loaded from: classes.dex */
 public class ConnectionTester implements Runnable {
     private static Context ctx;
     private static int mode;
@@ -20,7 +25,7 @@ public class ConnectionTester implements Runnable {
         new Thread(new ConnectionTester()).start();
     }
 
-    @Override // java.lang.Runnable
+    @Override
     public void run() {
         if (mode != 0) {
             Toast.makeText(ctx, result, 1).show();

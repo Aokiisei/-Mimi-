@@ -1,6 +1,10 @@
 package com.wuyi.kebiao;
 
-/* JADX INFO: loaded from: classes.dex */
+/**
+ * 本文件职责：
+ * 主线程回调：触发 HomeFragment 注入成绩解析脚本。
+ */
+
 public class InjectGradeRunnable implements Runnable {
     private HomeFragment frag;
 
@@ -8,7 +12,7 @@ public class InjectGradeRunnable implements Runnable {
         this.frag = homeFragment;
     }
 
-    @Override // java.lang.Runnable
+    @Override
     public void run() {
         this.frag.injectGradeParser();
     }

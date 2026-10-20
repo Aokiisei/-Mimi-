@@ -1,5 +1,11 @@
 package com.wuyi.kebiao;
 
+/**
+ * 本文件职责：
+ * 液态玻璃背景动画。
+ * 用 ValueAnimator 在四组色值间循环插值，生成渐变 GradientDrawable 贴到背景上。
+ */
+
 import android.animation.ValueAnimator;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -7,7 +13,6 @@ import android.view.View;
 import android.view.animation.LinearInterpolator;
 import java.lang.ref.WeakReference;
 
-/* JADX INFO: loaded from: classes.dex */
 public class GlassBgAnim implements ValueAnimator.AnimatorUpdateListener {
     private static boolean applied;
     private static ValueAnimator current;
@@ -19,7 +24,8 @@ public class GlassBgAnim implements ValueAnimator.AnimatorUpdateListener {
     }
 
     private static Drawable build(int i, int i2, float f) {
-        int[] iArr = {-2758667, -2101785, -1054245, -1972493};
+        // 暖色纸张色组（F3EBDF / EFE7DA / E9E5DA / F0E9DE），与 Web 端玻璃背景保持一致
+        int[] iArr = {0xFFF3EBDF, 0xFFEFE7DA, 0xFFE9E5DA, 0xFFF0E9DE};
         float f2 = f * 4.0f;
         int iSample = sample(iArr, f2);
         float f3 = f2 + 1.0f;
@@ -67,7 +73,7 @@ public class GlassBgAnim implements ValueAnimator.AnimatorUpdateListener {
         valueAnimatorOfFloat.start();
     }
 
-    @Override // android.animation.ValueAnimator.AnimatorUpdateListener
+    @Override
     public void onAnimationUpdate(ValueAnimator valueAnimator) {
         View view;
         WeakReference weakReference = this.viewRef;
