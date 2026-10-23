@@ -40,6 +40,68 @@
 
 课程表与成绩页面通过 WebView 承载教务系统（`jwxt.wuyiu.edu.cn`），Java 层负责登录态维持、会话超时判断、数据缓存与桌面小组件刷新。
 
+## 架构
+
+教务系统没有开放接口，整条链路是自己打通的：模拟登录拿到会话 → WebView 带会话取页面 → 解析成结构化数据 → 落本地缓存。
+
+```mermaid
+flowchart LR
+    subgraph Edu["武夷学院教务系统"]
+        A["jwxt.wuyiu.edu.cn<br/>课表 / 成绩页面"]
+    end
+
+    subgraph App["Mimi 课表"]
+        B["OkHttp<br/>模拟登录 · 维持会话"]
+        C["WebView<br/>带 Cookie 渲染页面"]
+        D["Java 解析层<br/>HTML → 结构化数据"]
+        E["SharedPreferences<br/>本地缓存"]
+        F["原生 UI"]
+        G["桌面小组件<br/>AppWidgetProvider"]
+    end
+
+    A -->|"HTML / JSON"| B
+    B -->|"Cookie 注入"| C
+    C -->|"页面源码"| D
+    D -->|"课程 · 成绩对象"| E
+    E --> F
+    E --> G
+```
+
+会话过期是这类工具最容易翻车的地方（自动跳回登录页就什么都查不了了），所以做了主动判断与无感续期：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant A as 本应用
+    participant N as OkHttp
+    participant S as 教务系统
+
+    U->>A: 打开课表
+    A->>A: 读取本地 Cookie
+    alt Cookie 有效
+        A->>N: 携带 Cookie 请求
+        N->>S: GET 课表页面
+        S-->>N: 200 返回 HTML
+        N-->>A: 页面源码
+        A->>A: 解析 → 缓存 → 刷新界面
+    else Cookie 已过期
+        A->>N: 携带过期 Cookie 请求
+        N->>S: GET 课表页面
+        S-->>N: 302 跳回登录页
+        N-->>A: 检测到登录页特征
+        A->>N: 自动重新登录（已存凭据）
+        N->>S: POST 账号密码
+        S-->>N: 下发新 Cookie
+        N-->>A: 更新会话
+        A->>N: 重放原请求
+        N->>S: GET 课表页面
+        S-->>N: 200 返回 HTML
+        A->>A: 解析 → 缓存 → 刷新界面
+    end
+    A-->>U: 展示本周课程
+```
+
 ## 构建
 
 ```bash
