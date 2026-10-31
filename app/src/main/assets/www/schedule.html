@@ -246,6 +246,7 @@
     <div class="topbar">
         <h1>我的日程</h1>
         <button class="add-btn" id="addBtn">＋ 新建</button>
+        <button class="add-btn" id="exportBtn" style="background:#87867F;box-shadow:0 2px 8px rgba(135,134,127,0.28);">导出</button>
     </div>
     <div id="cdSection" class="cd-section">
         <div class="cd-header">
@@ -303,6 +304,20 @@
         </div>
         <div class="dlg-btns" style="margin-top:16px;">
             <button class="btn-cancel" id="chooseCancel">取消</button>
+        </div>
+    </div>
+</div>
+
+<div id="exportMask" class="mask hidden">
+    <div class="dialog" style="max-width:320px;">
+        <h3>导出日程与倒计日</h3>
+        <p style="font-size:13px;color:var(--sub);line-height:1.7;margin-top:8px;">
+            将把当前 <b id="exportCount">0 条日程、0 个倒计日</b> 导出为 JSON 文件，保存到手机「下载」目录，文件名形如 <code style="font-size:11px;">mimi-schedule-时间戳.json</code>。<br>
+            导出不会删除原数据，仅生成一份副本。
+        </p>
+        <div class="dlg-btns" style="margin-top:16px;display:flex;gap:10px;">
+            <button class="btn-cancel" id="exportCancel" style="flex:1;">取消</button>
+            <button class="btn-cancel" id="exportOk" style="flex:1;background:var(--accent);color:#fff;border:none;">确认导出</button>
         </div>
     </div>
 </div>
@@ -712,6 +727,38 @@
     chooseMask.addEventListener('click', function(e) { if (e.target === chooseMask) chooseMask.classList.add('hidden'); });
     document.getElementById('chooseSchedule').onclick = function() { chooseMask.classList.add('hidden'); openDialog(null); };
     document.getElementById('chooseCountdown').onclick = function() { chooseMask.classList.add('hidden'); openCdDialog(); };
+    // 导出确认弹窗
+    const exportMask = document.getElementById('exportMask');
+    document.getElementById('exportBtn').onclick = function() {
+        const cnt = document.getElementById('exportCount');
+        if (cnt) cnt.textContent = (schedules.length || 0) + ' 条日程、' + (countdowns.length || 0) + ' 个倒计日';
+        exportMask.classList.remove('hidden');
+    };
+    document.getElementById('exportCancel').onclick = function() { exportMask.classList.add('hidden'); };
+    exportMask.addEventListener('click', function(e) { if (e.target === exportMask) exportMask.classList.add('hidden'); });
+    document.getElementById('exportOk').onclick = function() {
+        exportMask.classList.add('hidden');
+        try {
+            const payload = {
+                exportAt: new Date().toISOString(),
+                schedules: schedules || [],
+                countdowns: countdowns || []
+            };
+            const json = JSON.stringify(payload, null, 2);
+            if (window.Android && Android.exportData) {
+                const path = Android.exportData(json, 'mimi-schedule');
+                if (path && path.indexOf('失败') === -1) {
+                    showTip('已导出到 ' + path);
+                } else {
+                    showTip(path || '导出失败');
+                }
+            } else {
+                showTip('当前环境不支持导出');
+            }
+        } catch (e) {
+            showTip('导出出错：' + e.message);
+        }
+    };
     document.getElementById('btnCancel').onclick = function() { editMask.classList.add('hidden'); };
     editMask.addEventListener('click', function(e) { if (e.target === editMask) editMask.classList.add('hidden'); });
     document.getElementById('btnSave').onclick = function() {

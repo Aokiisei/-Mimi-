@@ -7,7 +7,10 @@ package com.wuyi.kebiao;
  * 回到本页时自动刷新日程列表（同步主界面课表页或清理设置带来的变化）。
  */
 
+import android.content.Context;
 import android.os.Bundle;
+import android.os.Environment;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,6 +19,13 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.fragment.app.Fragment;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class ScheduleFragment extends Fragment {
     private WebView webView;
@@ -45,7 +55,6 @@ public class ScheduleFragment extends Fragment {
     public class ScheduleBridge {
         @JavascriptInterface
         public void setPagerSwipe(boolean enabled) {
-            // 日程卡片横滑完成时临时关闭翻页，避免手势被左右翻页抢走
             if (getActivity() instanceof MainActivity) {
                 ((MainActivity) getActivity()).setPagerSwipe(enabled);
             }
@@ -85,6 +94,37 @@ public class ScheduleFragment extends Fragment {
         public String getGlassUi() {
             String str = ThemeH.glass;
             return str != null ? str : "0";
+        }
+
+        /**
+         * 导出日程与倒计日数据到文件（不清理任何缓存，数据保留原样）。
+         * @param json  待导出的完整 JSON 字符串
+         * @param hint  文件名提示（不含扩展名）
+         * @return      成功返回绝对路径，失败返回错误信息
+         */
+        @JavascriptInterface
+        public String exportData(String json, String hint) {
+            Context ctx = ScheduleFragment.this.getContext();
+            if (ctx == null || TextUtils.isEmpty(json)) return "导出失败：上下文不可用";
+            try {
+                String name = TextUtils.isEmpty(hint) ? "mimi-schedule" : hint.replaceAll("[^a-zA-Z0-9_-]", "_");
+                String ts = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+                String filename = name + "-" + ts + ".json";
+                File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                if (dir == null || !dir.exists() && !dir.mkdirs()) {
+                    dir = ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                }
+                if (dir == null) dir = ctx.getFilesDir();
+                File f = new File(dir, filename);
+                try (FileOutputStream fos = new FileOutputStream(f)) {
+                    fos.write(json.getBytes("UTF-8"));
+                }
+                return f.getAbsolutePath();
+            } catch (IOException e) {
+                return "导出失败：" + e.getMessage();
+            } catch (Exception e) {
+                return "导出失败：" + e.getMessage();
+            }
         }
     }
 }

@@ -501,6 +501,23 @@ public class HomeFragment extends Fragment {
             Log.d(HomeFragment.TAG, "已保存成绩页账号密码");
         }
 
+        // 课表页点跨格日程 → 切到日程页
+        @JavascriptInterface
+        public void openScheduleTab() {
+            try {
+                if (getActivity() instanceof MainActivity) {
+                    ((MainActivity) getActivity()).runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                ((MainActivity) getActivity()).pager.setCurrentItem(1, true);
+                            } catch (Throwable ignore) {}
+                        }
+                    });
+                }
+            } catch (Throwable ignore) {}
+        }
+
         // 前端算出当前教学周后回传，供桌面小组件显示"第X/18周"
         @JavascriptInterface
         public void setWidgetWeek(String str) {
@@ -576,8 +593,20 @@ public class HomeFragment extends Fragment {
 
         @JavascriptInterface
         public void clearSavedCredentials() {
-            HomeFragment.this.prefs.edit().remove(HomeFragment.KEY_USERNAME).remove(HomeFragment.KEY_PASSWORD).apply();
-            Log.d(HomeFragment.TAG, "已清除保存的账号密码");
+            // 除了账号密码，还要清掉已保存的 Cookie，否则教务仍是登录态，下次打开会「没输密码就进去了」
+            HomeFragment.this.prefs.edit()
+                    .remove(HomeFragment.KEY_USERNAME)
+                    .remove(HomeFragment.KEY_PASSWORD)
+                    .remove(HomeFragment.KEY_COOKIES)
+                    .apply();
+            try {
+                CookieManager cookieManager = CookieManager.getInstance();
+                cookieManager.removeAllCookies(null);
+                cookieManager.flush();
+            } catch (Exception e) {
+                Log.e(HomeFragment.TAG, "清除登录 Cookie 失败: " + e.getMessage());
+            }
+            Log.d(HomeFragment.TAG, "已清除保存的账号密码与登录状态");
         }
 
         @JavascriptInterface
@@ -852,7 +881,35 @@ public class HomeFragment extends Fragment {
             }
         }, 10000L);
         webView.evaluateJavascript("(function(){try{function dwk(doc){try{var re=/第\\s*(\\d{1,2})\\s*周(?!\\s*[-—~至])/;var i,m,t;var ss=doc.querySelectorAll('select');for(i=0;i<ss.length;i++){var so=ss[i].options[ss[i].selectedIndex];t=so?(so.text||''):'';m=t.match(re);if(m)return{n:parseInt(m[1],10),src:'select'};}var els=doc.querySelectorAll('button,span,div,a,li,td,th');for(i=0;i<els.length;i++){try{var cl=String(els[i].className||'');if(!/(cur|active|select|value|now|text|title)/i.test(cl))continue;t=(els[i].innerText||'').replace(/\\s+/g,'');if(t.length<2||t.length>8)continue;m=t.match(/^第(\\d{1,2})周$/);if(m)return{n:parseInt(m[1],10),src:'curcls'};}catch(_){}}for(i=0;i<els.length;i++){try{t=(els[i].innerText||'').replace(/\\s+/g,'');if(t.length<2||t.length>8)continue;m=t.match(/^第(\\d{1,2})周$/);if(!m)continue;var p=els[i].parentElement;var bad=0;for(var g=0;g<2&&p;g++){var pt=p.innerText||'';var re2=/第\\s*\\d{1,2}\\s*周/g;var c=0;while(re2.exec(pt)!==null)c++;if(c>=3){bad=1;break;}p=p.parentElement;}if(bad)continue;return{n:parseInt(m[1],10),src:'leaf'};}catch(_){}}var bt=(doc.body&&doc.body.innerText)||'';m=re.exec(bt);if(m)return{n:parseInt(m[1],10),src:'body'};}catch(_){}return null;}var n=0;var f=function(){var r=null;try{var docs=[document];var fr=document.getElementById(\"person\");if(!fr){var fl=document.querySelectorAll(\"iframe,frame\");if(fl&&fl.length){fr=fl[0];}}try{if(fr&&fr.contentDocument&&fr.contentDocument.body){docs.push(fr.contentDocument);}}catch(_){}for(var i=0;i<docs.length&&r===null;i++){r=dwk(docs[i]);}}catch(_){}if(r!==null){try{AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 首页周次检测: 第'+r.n+'周 ('+r.src+')');}catch(_){}try{AndroidBack.onWeekNo(String(r.n));}catch(_){}}else if(++n<10){setTimeout(f,600);}};f();}catch(_){}})();", null);
-        webView.evaluateJavascript("(function() { try { AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 开始读取课表页面...'); var parseTable = function(doc, table) { if (false && !table) { AndroidBack.onError('未找到课表表格'); return; }var courses = [];var headers = [];var ths = table.querySelectorAll('thead tr th.qz-weeklyTable-th');for (var i = 1; i < ths.length; i++) {    var spans = ths[i].querySelectorAll('span');    if (spans.length >= 2) {        headers.push({day: spans[0].textContent.trim(), date: spans[1].textContent.trim()});    }}var rows = table.querySelectorAll('tbody tr.qz-weeklyTable-tr');rows.forEach(function(row) {    var tds = row.querySelectorAll('td.qz-weeklyTable-td');    if (tds.length === 0) return;    var timeSlot = '';    var titleDiv = tds[0].querySelector('div.index-title');    if (titleDiv) timeSlot = titleDiv.textContent.trim();    for (var dayIdx = 1; dayIdx < tds.length && dayIdx <= headers.length; dayIdx++) {        var td = tds[dayIdx];        var ul = td.querySelector('ul.courselists');        if (!ul) continue;        var items = ul.querySelectorAll('li.courselists-item');        items.forEach(function(item) {            var nameDiv = item.querySelector('div.qz-hasCourse-title');            var name = nameDiv ? nameDiv.textContent.trim() : '未知课程';            var tooltip = td.querySelector('div.qz-tooltip');            var teacher = '', location = '', weekRange = '', sections = '';            if (tooltip && tooltip.classList.contains('qz-tooltip')) {                var details = tooltip.querySelectorAll('div.qz-tooltipContent-detailitem');                details.forEach(function(div) {                    var text = div.textContent.trim();                    if (text.startsWith('教师：')) teacher = text.replace('教师：', '');                    else if (text.startsWith('上课地点：')) location = text.replace('上课地点：', '');                    else if (text.startsWith('周次：')) weekRange = text.replace('周次：', '');                    else if (text.startsWith('节次：')) sections = text.replace('节次：', '');                });            }            if (!teacher || !location) {                var details2 = item.querySelectorAll('div.qz-hasCourse-detailitem');                details2.forEach(function(div) {                    var text = div.textContent.trim();                    if (text.startsWith('教师：') && !teacher) teacher = text.replace('教师：', '');                    else if (text.startsWith('节次：') && !sections) sections = text.replace('节次：', '');                    else if (text.startsWith('周次：') && !weekRange) weekRange = text.replace('周次：', '');                    else if (!text.endsWith('小节') && !text.startsWith('[') && !location) location = text;                });            }            var bl = weekRange.indexOf('['); var br2 = weekRange.indexOf(']'); if (bl >= 0 && br2 > bl) weekRange = weekRange.slice(bl, br2 + 1); courses.push({                name: name,                teacher: teacher || '未知教师',                location: location || '未知地点',                weekRange: weekRange,                dayOfWeek: headers[dayIdx - 1].day,                dayDate: headers[dayIdx - 1].date,                timeSlot: timeSlot,                sections: sections || timeSlot            });        });    }});AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 课表解析完成，共 '+courses.length+' 门课程，正在回传');AndroidBack.onCourses(JSON.stringify(courses)); }; var findTarget = function() { var table = document.querySelector('table.qz-weeklyTable'); if (table) return { doc: document, table: table }; var fr = document.getElementById('person'); if (!fr) fr = document.querySelector('iframe'); if (fr && fr.contentDocument) { fr.style.display = 'block'; var t2 = fr.contentDocument.querySelector('table.qz-weeklyTable'); if (t2) return { doc: fr.contentDocument, table: t2 }; } return null; }; var start = Date.now(); var run = function() { var target = findTarget(); if (target) { AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 已找到课表表格，开始解析');try{function dwk(doc){try{var re=/第\\s*(\\d{1,2})\\s*周(?!\\s*[-—~至])/;var i,m,t;var ss=doc.querySelectorAll('select');for(i=0;i<ss.length;i++){var so=ss[i].options[ss[i].selectedIndex];t=so?(so.text||''):'';m=t.match(re);if(m)return{n:parseInt(m[1],10),src:'select'};}var els=doc.querySelectorAll('button,span,div,a,li,td,th');for(i=0;i<els.length;i++){try{var cl=String(els[i].className||'');if(!/(cur|active|select|value|now|text|title)/i.test(cl))continue;t=(els[i].innerText||'').replace(/\\s+/g,'');if(t.length<2||t.length>8)continue;m=t.match(/^第(\\d{1,2})周$/);if(m)return{n:parseInt(m[1],10),src:'curcls'};}catch(_){}}for(i=0;i<els.length;i++){try{t=(els[i].innerText||'').replace(/\\s+/g,'');if(t.length<2||t.length>8)continue;m=t.match(/^第(\\d{1,2})周$/);if(!m)continue;var p=els[i].parentElement;var bad=0;for(var g=0;g<2&&p;g++){var pt=p.innerText||'';var re2=/第\\s*\\d{1,2}\\s*周/g;var c=0;while(re2.exec(pt)!==null)c++;if(c>=3){bad=1;break;}p=p.parentElement;}if(bad)continue;return{n:parseInt(m[1],10),src:'leaf'};}catch(_){}}var bt=(doc.body&&doc.body.innerText)||'';m=re.exec(bt);if(m)return{n:parseInt(m[1],10),src:'body'};}catch(_){}return null;}var wr=dwk(target.doc);if(wr){AndroidBack.onWeekNo(String(wr.n));AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 课表页周次检测: 第'+wr.n+'周 ('+wr.src+')');}else{AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 课表页未检测到周次');}}catch(_){}parseTable(target.doc, target.table); return; } if (Date.now() - start < 8000) setTimeout(run, 400); else { AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 8秒内未找到课表表格');AndroidBack.onError('未找到课表表格'); } }; run(); } catch(e) { AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 课表解析异常: '+e.message);AndroidBack.onError(e.message); }})();", null);
+        String parserJs = readAsset("www/timetable_parser.js");
+        if (parserJs.length() == 0) {
+            notifyFrontError("解析脚本读取失败");
+            return;
+        }
+        webView.evaluateJavascript(parserJs, null);
+    }
+
+    /** 从 assets 读取静态脚本：避免把大段 JS 塞进 Java 字符串，便于维护与排查 */
+    private String readAsset(String path) {
+        java.io.InputStream in = null;
+        try {
+            in = getContext().getAssets().open(path);
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                out.write(buf, 0, n);
+            }
+            return out.toString("UTF-8");
+        } catch (Exception e) {
+            Log.e(TAG, "读取静态脚本失败: " + path + " " + e.getMessage());
+            return "";
+        } finally {
+            try {
+                if (in != null) in.close();
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     void onParseTimeout() {
@@ -1123,6 +1180,13 @@ public class HomeFragment extends Fragment {
     private void restoreCookies() {
         String str;
         String str2;
+        // 没有保存的账号密码时不再恢复登录 Cookie：否则清空账号后依然会「免密」进入教务
+        String savedUser = this.prefs.getString(KEY_USERNAME, null);
+        String savedPass = this.prefs.getString(KEY_PASSWORD, null);
+        if (savedUser == null || savedUser.isEmpty() || savedPass == null || savedPass.isEmpty()) {
+            this.prefs.edit().remove(KEY_COOKIES).apply();
+            return;
+        }
         String string = this.prefs.getString(KEY_COOKIES, null);
         if (string == null || string.isEmpty()) {
             return;

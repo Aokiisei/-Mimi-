@@ -5,11 +5,15 @@
     var PAD = 88; // 首页/末页留白，使首尾项也能居中
 
     var built = false;
-    var mask, hourCol, minCol, titleEl;
+    var mask, hourCol, minCol, sepEl, titleEl;
     var onOk = null;
     var hours = [], mins = [];
     for (var h = 0; h < 24; h++) hours.push((h < 10 ? '0' : '') + h);
     for (var m = 0; m < 60; m++) mins.push((m < 10 ? '0' : '') + m);
+    // 单列模式（如选周）：hide 分钟列，第一列使用自定义值集
+    var singleMode = false;
+    var valsA = hours;   // 第一列当前渲染的值集
+    var hourCur = null;  // hourCol 当前已渲染的值集（避免重复重建）
 
     function build() {
         if (built) return;
@@ -35,14 +39,25 @@
         titleEl = wrap.querySelector('#wheelTitle');
         hourCol = wrap.querySelector('#wheelHourCol');
         minCol = wrap.querySelector('#wheelMinCol');
+        sepEl = wrap.querySelector('.wheel-sep');
         buildCol(hourCol, hours);
         buildCol(minCol, mins);
+        hourCur = hours;
 
         wrap.querySelector('.wheel-cancel').addEventListener('click', close, false);
         wrap.querySelector('.wheel-ok').addEventListener('click', confirm, false);
         wrap.addEventListener('click', function (e) {
             if (e.target === wrap) close();
         }, false);
+        // 弹层打开时，滚轮列以外的滑动一律不穿透到背景页面
+        wrap.addEventListener('touchmove', function (e) {
+            var inCol = false, n = e.target;
+            while (n && n !== wrap) {
+                if (n.classList && n.classList.contains('wheel-col')) { inCol = true; break; }
+                n = n.parentNode;
+            }
+            if (!inCol) e.preventDefault();
+        }, { passive: false });
     }
 
     function buildCol(col, vals) {
@@ -91,6 +106,14 @@
         highlight(col);
     }
 
+    function setColVals(col, vals) {
+        var html = '';
+        for (var i = 0; i < vals.length; i++) {
+            html += '<div class="wheel-item" data-i="' + i + '">' + vals[i] + '</div>';
+        }
+        col.innerHTML = html;
+    }
+
     function setCol(col, val) {
         var idx = 0;
         for (var i = 0; i < col.children.length; i++) {
@@ -103,18 +126,34 @@
     function open(opts) {
         build();
         opts = opts || {};
-        titleEl.textContent = opts.title || '选择时间';
+        singleMode = !!opts.values;
+        titleEl.textContent = opts.title || (singleMode ? '请选择' : '选择时间');
+        if (singleMode) {
+            valsA = opts.values;
+            setColVals(hourCol, valsA);
+            hourCur = valsA;
+            minCol.style.display = 'none';
+            sepEl.style.display = 'none';
+        } else {
+            valsA = hours;
+            if (hourCur !== hours) { setColVals(hourCol, hours); hourCur = hours; }
+            minCol.style.display = '';
+            sepEl.style.display = '';
+        }
         mask.classList.remove('hidden');
-        var parts = String(opts.value || '08:00').split(':');
-        setCol(hourCol, parts[0] || '08');
-        setCol(minCol, parts[1] || '00');
         onOk = opts.onOk || null;
+        var applyInit = function () {
+            if (singleMode) {
+                setCol(hourCol, String(opts.value != null ? opts.value : valsA[0]));
+            } else {
+                var parts = String(opts.value || '08:00').split(':');
+                setCol(hourCol, parts[0] || '08');
+                setCol(minCol, parts[1] || '00');
+            }
+        };
+        applyInit();
         // 显示后再次校正（隐藏状态下设置 scrollTop 在部分 WebView 不生效）
-        setTimeout(function () {
-            var p2 = String(opts.value || '08:00').split(':');
-            setCol(hourCol, p2[0] || '08');
-            setCol(minCol, p2[1] || '00');
-        }, 30);
+        setTimeout(applyInit, 30);
     }
 
     function close() {
@@ -123,11 +162,15 @@
     }
 
     function confirm() {
-        var hh = hours[indexOfCol(hourCol)];
-        var mm = mins[indexOfCol(minCol)];
         var cb = onOk;
+        var result;
+        if (singleMode) {
+            result = valsA[indexOfCol(hourCol)];
+        } else {
+            result = hours[indexOfCol(hourCol)] + ':' + mins[indexOfCol(minCol)];
+        }
         close();
-        if (cb) cb(hh + ':' + mm);
+        if (cb) cb(result);
     }
 
     window.WheelPicker = {

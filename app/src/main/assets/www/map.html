@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>校园地图标注</title>
+<style>
+        @font-face {
+            font-family: 'Mi Serif';
+            src: url('../fonts/mi-serif.otf') format('opentype');
+            font-display: block;
+        }
+        :root {
+            --primary: #C96442; --bg: #F5F4ED; --card: #FAF9F5; --ink: #141413;
+            --sub: #87867F; --border: #E8E6DC; --accent: #D97757; --soft: #FDF1EC;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; height: 100%; background: transparent; }
+        body {
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+            -webkit-text-stroke: 0.32px currentColor;
+            color: var(--ink);
+        }
+        .sheet {
+            height: calc(100% - 16px); margin: 8px; overflow: hidden;
+            display: flex; flex-direction: column;
+            background: var(--card); border-radius: 18px;
+            box-shadow: 0 0 0 1px rgba(201,100,66,0.14), 0 12px 40px rgba(20,20,19,0.20), inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+        .head { display: flex; align-items: flex-start; padding: 14px 16px 0; }
+        .head-txt { min-width: 0; }
+        .title { font-size: 18px; font-weight: 500; letter-spacing: .2px; }
+        .sub { margin-top: 4px; font-size: 11.5px; color: var(--sub); }
+        .close {
+            flex: 0 0 auto; margin-left: auto; width: 28px; height: 28px; border-radius: 50%;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--sub);
+            font-size: 15px; line-height: 26px; text-align: center; padding: 0; font-family: inherit;
+        }
+        .bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px 10px; }
+        .bar .cnt { flex: 1; min-width: 0; font-size: 11.5px; color: var(--sub); }
+        .bar .cnt b { color: var(--ink); font-weight: 500; }
+        .keybtn {
+            flex: 0 0 auto; height: 26px; padding: 0 10px; border-radius: 7px;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--sub);
+            font-family: inherit; font-size: 11.5px;
+        }
+        .mapwrap { position: relative; flex: 1 1 auto; margin: 0 12px; border-radius: 13px; overflow: hidden; background: #EFEEE2; border: 1px solid var(--border); }
+        #map { position: absolute; inset: 0; background: #ECEAE1; }
+        .mask {
+            position: absolute; inset: 0; display: none; padding: 18px;
+            align-items: flex-start; justify-content: center;
+            background: rgba(250,249,245,0.97);
+            z-index: 60; overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        .mask.on { display: flex; }
+        .mask-box { width: 100%; max-width: 340px; margin: auto 0; }
+        .mask-box h3 { margin: 0 0 6px; font-size: 15px; font-weight: 500; }
+        .mask-box p { margin: 0 0 12px; font-size: 11.5px; color: var(--sub); line-height: 1.55; }
+        .mask-box label { display: block; margin: 0 0 4px; font-size: 11px; color: var(--sub); }
+        .mask-box input {
+            width: 100%; height: 36px; padding: 0 10px; margin-bottom: 10px;
+            border: 1px solid var(--border); border-radius: 9px; background: #FFFFFF;
+            font-family: inherit; font-size: 13px; color: var(--ink);
+        }
+        .mask-box input::placeholder { color: #B4B1A8; }
+        .btn-main {
+            width: 100%; height: 38px; border: none; border-radius: 9px;
+            background: var(--primary); color: #FFFFFF; font-family: inherit; font-size: 13.5px;
+        }
+        .btn-main:disabled { opacity: .6; }
+        .btn-ghost {
+            width: 100%; height: 34px; margin-top: 8px; border: 1px solid var(--border);
+            border-radius: 9px; background: #FFFFFF; color: var(--sub); font-family: inherit; font-size: 12.5px;
+        }
+        .tip { margin-top: 8px; font-size: 10.5px; color: var(--sub); line-height: 1.5; }
+        /* 搜索地标 */
+        .results { max-height: 236px; overflow-y: auto; -webkit-overflow-scrolling: touch; margin-bottom: 10px; }
+        .rrow {
+            display: flex; align-items: center; gap: 8px; padding: 9px 10px; margin-bottom: 7px;
+            border: 1px solid var(--border); border-radius: 9px; background: #FFFFFF;
+            font-family: inherit; font-size: 12.5px; color: var(--ink); width: 100%; text-align: left;
+        }
+        .rrow .rname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rrow .rmeta { flex: 0 0 auto; color: var(--sub); font-size: 10.5px; }
+        .rempty { padding: 10px 2px 14px; font-size: 11.5px; color: var(--sub); text-align: center; }
+        /* 底部编辑 / 查看浮层 */
+        .panel {
+            position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 14px 14px;
+            background: rgba(250,249,245,0.98); border-top: 1px solid var(--border);
+            transform: translateY(105%); transition: transform .22s ease;
+            border-radius: 13px 13px 0 0; box-shadow: 0 -6px 20px rgba(20,20,19,0.10);
+            z-index: 10;
+        }
+        .panel.on { transform: translateY(0); }
+        .panel .ptitle { font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+        .panel .ptime { font-size: 10.5px; color: var(--sub); }
+        .panel .pdesc { font-size: 12px; color: var(--ink); line-height: 1.5; margin-top: 4px; word-break: break-word; }
+        .panel .coord { font-size: 10.5px; color: var(--sub); margin: 2px 0 8px; }
+        .panel input {
+            width: 100%; height: 34px; padding: 0 10px; margin-bottom: 8px;
+            border: 1px solid var(--border); border-radius: 9px; background: #FFFFFF;
+            font-family: inherit; font-size: 12.5px; color: var(--ink);
+        }
+        .panel input::placeholder { color: #B4B1A8; }
+        .prow { display: flex; gap: 8px; }
+        .prow .btn-main, .prow .btn-ghost, .prow .btn-danger {
+            width: auto; flex: 1 1 0; min-width: 0; margin: 0; height: 36px;
+            white-space: nowrap; padding: 0 8px;
+        }
+        .btn-danger {
+            flex: 1; height: 36px; border: 1px solid rgba(180,85,58,0.45); border-radius: 9px;
+            background: #FDF3F0; color: #B4553A; font-family: inherit; font-size: 12.5px;
+        }
+        .btn-danger[disabled], .btn-ghost[disabled] { opacity: .45; }
+        .foot { padding: 9px 16px 12px; font-size: 10.5px; color: var(--sub); }
+        .toast {
+            position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%) translateY(6px);
+            max-width: 82%; padding: 8px 14px; border-radius: 9px;
+            background: rgba(20,20,19,0.86); color: #F5F4ED; font-size: 12px; line-height: 1.4;
+            opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; text-align: center;
+            z-index: 80;
+        }
+        .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+        /* 地图上的地标样式 */
+        .pin {
+            min-width: 20px; max-width: 150px; padding: 3px 8px; border-radius: 8px;
+            background: #FFFFFF; border: 1px solid rgba(201,100,66,0.55);
+            color: var(--primary); font-family: "Mi Serif", serif; font-size: 11px;
+            line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            box-shadow: 0 2px 6px rgba(20,20,19,0.16); position: relative; top: -2px;
+        }
+        .pin::after {
+            content: ''; position: absolute; left: 50%; bottom: -4px; width: 6px; height: 6px;
+            margin-left: -3px; background: #FFFFFF; border-right: 1px solid rgba(201,100,66,0.55);
+            border-bottom: 1px solid rgba(201,100,66,0.55); transform: rotate(45deg);
+        }
+        .pin.draft { border-style: dashed; background: var(--soft); }
+        /* 缩小时地标收成小圆点 */
+        .dot {
+            width: 9px; height: 9px; border-radius: 50%;
+            background: var(--primary); border: 1.5px solid #FFFFFF;
+            box-shadow: 0 1px 3px rgba(20,20,19,0.26);
+            position: relative; top: 5px;
+        }
+        .amap-logo, .amap-copyright { opacity: .55; }
+        /* 右下角缩放按钮 */
+        .zoombar {
+            position: absolute; right: 10px; bottom: 12px; z-index: 20;
+            display: flex; flex-direction: column; gap: 8px;
+            transition: bottom .22s ease;
+        }
+        .zoombar.lift { bottom: 156px; }
+        .zoombar button {
+            width: 36px; height: 36px; padding: 0; border-radius: 10px;
+            border: 1px solid var(--border); background: rgba(255,255,255,0.96); color: var(--ink);
+            font-family: inherit; font-size: 17px; line-height: 34px; text-align: center;
+            box-shadow: 0 2px 6px rgba(20,20,19,0.14);
+        }
+        .zoombar button:active { background: var(--soft); color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="sheet">
+    <div class="head">
+        <div class="head-txt">
+            <div class="title">校园地图标注</div>
+            <div class="sub">点地图上的位置，写下这里是什么</div>
+        </div>
+        <button class="close" onclick="closeSheet()">✕</button>
+    </div>
+
+    <div class="bar">
+        <div class="cnt" id="cnt">正在连接地图服务…</div>
+        <button class="keybtn" onclick="openSearch()">搜索</button>
+        <button class="keybtn" id="keyBtn" onclick="openSetup()">地图 Key</button>
+    </div>
+
+    <div class="mapwrap">
+        <div id="map"></div>
+
+        <div class="mask on" id="setup">
+            <div class="mask-box">
+                <h3>接入高德地图</h3>
+                <p>需要你自己的高德开放平台 Key。选择「Web端（JS API）」类型创建，把 Key 填在下面即可。</p>
+                <label>JS API Key</label>
+                <input id="inpKey" type="text" placeholder="例如 3f7a…（32 位）" autocomplete="off" spellcheck="false">
+                <label>安全密钥 jscode（选填）</label>
+                <input id="inpCode" type="text" placeholder="2021 年后新建的 Key 通常需要填写" autocomplete="off" spellcheck="false">
+                <button class="btn-main" id="saveKey" onclick="saveKey()">保存并加载地图</button>
+                <button class="btn-ghost" onclick="clearKey()">清除已保存的 Key</button>
+                <div class="tip" id="setupTip">Key 只保存在本机，不会上传到服务器。</div>
+            </div>
+        </div>
+
+        <div class="zoombar" id="zoombar">
+            <button type="button" onclick="locateMe()" aria-label="定位">◎</button>
+            <button type="button" onclick="zoomBy(1)">＋</button>
+            <button type="button" onclick="zoomBy(-1)">－</button>
+        </div>
+
+        <div class="mask" id="searchPanel">
+            <div class="mask-box">
+                <h3>搜索地标</h3>
+                <p>输入名称关键词，从同学们加过的地标里找</p>
+                <input id="searchInput" type="text" placeholder="例如 教学楼 / 快递 / 食堂" autocomplete="off" oninput="runSearch()">
+                <div class="results" id="searchResults"></div>
+                <button class="btn-ghost" onclick="closeSearch()">关闭</button>
+            </div>
+        </div>
+
+        <div class="mask" id="naviPanel">
+            <div class="mask-box">
+                <h3>使用高德地图导航？</h3>
+                <p id="naviName">将跳转到高德地图进行路线规划，可选择驾车、步行或骑行。</p>
+                <div class="prow">
+                    <button class="btn-ghost" onclick="cancelNavi()">取消</button>
+                    <button class="btn-main" onclick="confirmNavi()">打开高德</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="mask" id="maskErr">
+            <div class="mask-box">
+                <h3>地图没能加载</h3>
+                <p id="errMsg">请检查网络、Key 是否正确，以及该 Key 是否已开启「Web端（JS API）」。修改后可重试。</p>
+                <button class="btn-main" onclick="openSetup()">重新填写 Key</button>
+                <button class="btn-ghost" onclick="bootMap()">再试一次</button>
+            </div>
+        </div>
+
+        <div class="panel" id="editPanel">
+            <div class="ptitle">添加地标</div>
+            <div class="coord" id="editCoord"></div>
+            <input id="editName" type="text" placeholder="这里是什么？例如 三号教学楼 / 快递驿站" maxlength="40" autocomplete="off">
+            <input id="editDesc" type="text" placeholder="补充说明（选填）" maxlength="200" autocomplete="off">
+            <div class="prow">
+                <button class="btn-ghost" onclick="cancelEdit()">取消</button>
+                <button class="btn-main" id="editSave" onclick="submitMarker()">添加</button>
+            </div>
+        </div>
+
+        <div class="panel" id="viewPanel">
+            <div class="prow" style="align-items:center;">
+                <div style="flex:1;min-width:0;">
+                    <div class="ptitle" id="viewName"></div>
+                    <div class="ptime" id="viewMeta"></div>
+                </div>
+                <button class="keybtn" onclick="closeView()">收起</button>
+            </div>
+            <div class="pdesc" id="viewDesc"></div>
+            <div class="prow" style="margin-top:10px;">
+                <button class="btn-main" onclick="naviToMarker()">导航到这里</button>
+            </div>
+            <div class="prow" style="margin-top:8px;">
+                <button class="btn-ghost" id="btnMove" onclick="startMove()">移动位置</button>
+                <button class="btn-danger" id="btnDelete" onclick="deleteMarker()">删除我的标注</button>
+            </div>
+            <button class="btn-ghost" id="btnVote" style="margin-top:8px;" onclick="voteMarker()">举报此标注</button>
+            <div class="ptime" id="viewTip" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="panel" id="movePanel">
+            <div class="ptitle">调整位置</div>
+            <div class="coord" id="moveCoord"></div>
+            <div class="ptime" id="moveHint">拖动标记微调，或直接点地图重新选点</div>
+            <div class="prow" style="margin-top:10px;">
+                <button class="btn-ghost" onclick="cancelMove()">取消</button>
+                <button class="btn-main" id="moveSave" onclick="saveMove()">保存位置</button>
+            </div>
+        </div>
+
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <div class="foot">地标由同学们共同标注，仅供参考；如标注有误欢迎在「问题反馈」里告知。</div>
+</div>
+
+<script>
+    const MARKER_URL = 'https://aokiisei.vxni.ink/mimi/map_markers.php';
+    const DEFAULT_CENTER = [118.00326, 27.72698];
+    const DEFAULT_ZOOM = 16;
+    const VOTE_LIMIT = 5;
+
+    var map = null;
+    var amapReady = false;
+    var markers = [];
+    var markerObjs = [];
+    var draft = null;
+    var currentItem = null;
+    var suppressMapClick = false;
+    var busy = false;
+
+    function $(id) { return document.getElementById(id); }
+
+    // 右下角缩放按钮
+    function zoomBy(dir) {
+        if (!map) { toast('地图还没加载好'); return; }
+        if (dir > 0) { map.zoomIn(); } else { map.zoomOut(); }
+    }
+
+    var locating = false;
+
+    // 当前定位：定位成功后把地图移到自身位置
+    function locateMe() {
+        if (!map) { toast('地图还没加载好'); return; }
+        if (locating) return;
+        if (!window.AMap || !AMap.Geolocation) { toast('定位组件没加载成功，请重开地图试试'); return; }
+        locating = true;
+        toast('正在定位…');
+        const geo = new AMap.Geolocation({
+            enableHighAccuracy: true,
+            timeout: 12000,
+            showButton: false,
+            showMarker: false,
+            showCircle: false,
+            panToLocation: false,
+            zoomToAccuracy: false
+        });
+        geo.getCurrentPosition(function (status, result) {
+            locating = false;
+            if (status === 'complete' && result && result.position) {
+                map.setZoomAndCenter(17, [result.position.lng, result.position.lat]);
+                toast('已定位到当前位置');
+            } else {
+                toast('定位失败，请在系统设置中允许本应用使用定位');
+            }
+        });
+    }
+
+    // 底部弹出面板会挡住右下角按钮，面板打开时把按钮上移
+    function syncZoomBar() {
+        const zp = $('zoombar');
+        if (!zp) return;
+        const open = $('editPanel').classList.contains('on') ||
+                     $('viewPanel').classList.contains('on') ||
+                     $('movePanel').classList.contains('on');
+        zp.classList.toggle('lift', open);
+    }
+
+    function bridge() { return window.MimiBridge || null; }
+
+    // 本机标识：优先用原生生成的持久 ID，取不到时退化为 localStorage
+    // 只用于「删自己的点」和「同一人只举报一次」，不含任何个人信息
+    function localId() {
+        try {
+            let id = localStorage.getItem('mimi_device_id');
+            if (!id || id.length < 8) {
+                id = 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+                localStorage.setItem('mimi_device_id', id);
+            }
+            return id;
+        } catch (e) {
+            return 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        }
+    }
+
+    function deviceId() {
+        let id = '';
+        try {
+            const b = bridge();
+            if (b && b.getDeviceId) id = String(b.getDeviceId() || '');
+        } catch (e) { id = ''; }
+        return (id && id.length >= 8) ? id : localId();
+    }
+
+    function closeSheet() {
+        if (bridge() && bridge().close) bridge().close();
+    }
+
+    function toast(msg) {
+        const t = $('toast');
+        t.textContent = msg;
+        t.classList.add('on');
+        clearTimeout(t._timer);
+        t._timer = setTimeout(function () { t.classList.remove('on'); }, 2200);
+    }
+
+    function setCount(txt) { $('cnt').textContent = txt; }
+
+    function showMask(id) {
+        $('setup').classList.toggle('on', id === 'setup');
+        $('maskErr').classList.toggle('on', id === 'error');
+        $('searchPanel').classList.remove('on');
+        $('naviPanel').classList.remove('on');
+    }
+    function hideMasks() {
+        $('setup').classList.remove('on');
+        $('maskErr').classList.remove('on');
+        $('searchPanel').classList.remove('on');
+        $('naviPanel').classList.remove('on');
+    }
+
+    // ========== 搜索地标 ==========
+    function openSearch() {
+        $('searchInput').value = '';
+        runSearch();
+        $('searchPanel').classList.add('on');
+        setTimeout(function () { $('searchInput').focus(); }, 200);
+    }
+
+    function closeSearch() { $('searchPanel').classList.remove('on'); }
+
+    function runSearch() {
+        const box = $('searchResults');
+        const q = $('searchInput').value.trim().toLowerCase();
+        if (!markers.length) {
+            box.innerHTML = '<div class="rempty">还没有人添加地标，先在地图上点一个吧</div>';
+            return;
+        }
+        let list = markers;
+        if (q) {
+            list = markers.filter(function (m) {
+                return String(m.name || '').toLowerCase().indexOf(q) >= 0 ||
+                       String(m.desc || '').toLowerCase().indexOf(q) >= 0;
+            });
+        }
+        if (!list.length) {
+            box.innerHTML = '<div class="rempty">没有匹配「' + escapeHtml(q) + '」的地标</div>';
+            return;
+        }
+        box.innerHTML = list.slice(0, 30).map(function (m) {
+            return '<div class="rrow" data-id="' + escapeHtml(m.id) + '">' +
+                   '<span class="rname">' + escapeHtml(m.name || '未命名') + '</span>' +
+                   '<span class="rmeta">' + (m.votes > 0 ? (m.votes + ' 票') : '') + '</span></div>';
+        }).join('');
+        Array.prototype.forEach.call(box.querySelectorAll('.rrow'), function (row) {
+            row.addEventListener('click', function () {
+                focusMarker(row.getAttribute('data-id'));
+            });
+        });
+    }
+
+    // 选中搜索结果：地图飞过去并展开详情
+    function focusMarker(id) {
+        if (!map) { toast('地图还没加载好'); return; }
+        const item = markers.filter(function (m) { return m.id === id; })[0];
+        if (!item) { toast('这个地标已经不在了'); return; }
+        closeSearch();
+        map.setZoomAndCenter(18, [parseFloat(item.lng), parseFloat(item.lat)]);
+        showView(item);
+    }
+
+    // ========== Key 管理 ==========
+    function storedKey() {
+        try { return bridge() && bridge().getAmapKey ? String(bridge().getAmapKey() || '') : ''; } catch (e) { return ''; }
+    }
+    function storedCode() {
+        try { return bridge() && bridge().getAmapSecurity ? String(bridge().getAmapSecurity() || '') : ''; } catch (e) { return ''; }
+    }
+
+    function openSetup() {
+        $('inpKey').value = storedKey();
+        $('inpCode').value = storedCode();
+        showMask('setup');
+    }
+
+    function saveKey() {
+        const k = $('inpKey').value.trim();
+        const c = $('inpCode').value.trim();
+        if (!k) { toast('请先填写 JS API Key'); return; }
+        if (!/^[0-9a-zA-Z]{20,}$/.test(k)) { toast('Key 看起来不太对，请再核对一下'); return; }
+        try {
+            if (bridge() && bridge().saveAmapKey) bridge().saveAmapKey(k, c);
+        } catch (e) {
+            toast('保存失败，请重试');
+            return;
+        }
+        hideMasks();
+        resetMap();
+        bootMap();
+    }
+
+    function clearKey() {
+        try { if (bridge() && bridge().saveAmapKey) bridge().saveAmapKey('', ''); } catch (e) {}
+        resetMap();
+        $('inpKey').value = '';
+        $('inpCode').value = '';
+        setCount('未配置地图 Key');
+        showMask('setup');
+    }
+
+    function resetMap() {
+        if (map) { try { map.destroy(); } catch (e) {} }
+        map = null; amapReady = false;
+        markers = []; markerObjs = [];
+        draft = null;
+        $('map').innerHTML = '';
+        $('editPanel').classList.remove('on');
+        $('viewPanel').classList.remove('on');
+        syncZoomBar();
+    }
+
+    // ========== 加载高德 JS API ==========
+    function loadAmap(key, code, done, fail) {
+        if (code) {
+            window._AMapSecurityConfig = { securityJsCode: code };
+        }
+        const s = document.createElement('script');
+        s.src = 'https://webapi.amap.com/maps?v=2.0&key=' + encodeURIComponent(key) +
+                '&plugin=AMap.PlaceSearch,AMap.Geolocation&jscode=' + encodeURIComponent(code || '');
+        s.onload = function () { done(); };
+        s.onerror = function () { fail(); };
+        document.head.appendChild(s);
+    }
+
+    function bootMap() {
+        const key = storedKey();
+        if (!key) {
+            setCount('尚未配置地图 Key');
+            openSetup();
+            return;
+        }
+        setCount('正在加载地图…');
+        showMask(null);
+
+        if (window.AMap && window.AMap.Map) {
+            amapReady = true;
+            initMap();
+            return;
+        }
+        loadAmap(key, storedCode(), function () {
+            amapReady = true;
+            initMap();
+        }, function () {
+            $('errMsg').textContent = '地图脚本没有加载成功。请检查网络连接，并确认 Key 类型是「Web端（JS API）」。';
+            showMask('error');
+            setCount('地图加载失败');
+        });
+    }
+
+    function initMap() {
+        try {
+            map = new AMap.Map('map', {
+                zoom: DEFAULT_ZOOM,
+                center: DEFAULT_CENTER,
+                viewMode: '2D',
+                resizeEnable: true,
+                showLabel: true,
+                mapStyle: 'whitesmoke'
+            });
+        } catch (e) {
+            $('errMsg').textContent = '地图初始化失败：' + (e && e.message ? e.message : '未知原因');
+            showMask('error');
+            setCount('地图加载失败');
+            return;
+        }
+
+        map.on('click', onMapClick);
+        map.on('zoomend', applyMarkerStyle);
+        setCount('正在读取地标…');
+        loadMarkers();
+    }
+
+    // ========== 地标读取 ==========
+    function loadMarkers() {
+        fetch(MARKER_URL + '?t=' + Date.now() + '&did=' + encodeURIComponent(deviceId()), { method: 'GET' })
+            .then(function (r) { return r.text(); })
+            .then(function (txt) {
+                let data = null;
+                try { data = JSON.parse(txt); } catch (e) {}
+                if (!data || !data.ok) { throw new Error('bad'); }
+                markers = (data.markers || []).filter(function (m) {
+                    return m && isFinite(parseFloat(m.lat)) && isFinite(parseFloat(m.lng));
+                });
+                renderMarkers();
+                setCount('已收录 ' + markers.length + ' 个地标');
+            })
+            .catch(function () {
+                setCount('地标读取失败');
+                toast('地标列表没读到，检查网络后再试');
+            });
+    }
+
+    // 缩放级别低于 LABEL_MIN_ZOOM 时地标收成圆点，放大后显示名称角标
+    const LABEL_MIN_ZOOM = 16;
+
+    function markerHtml(item, compact) {
+        if (compact) return '<div class="dot"></div>';
+        return '<div class="pin">' + escapeHtml(item.name || '未命名') + '</div>';
+    }
+
+    function applyMarkerStyle() {
+        if (!map) return;
+        const compact = map.getZoom() < LABEL_MIN_ZOOM;
+        markerObjs.forEach(function (m) {
+            try { m.setContent(markerHtml(m._item, compact)); } catch (e) {}
+        });
+    }
+
+    function renderMarkers() {
+        if (!map) return;
+        markerObjs.forEach(function (m) { try { m.setMap(null); } catch (e) {} });
+        markerObjs = [];
+        const compact = map.getZoom() < LABEL_MIN_ZOOM;
+        markers.forEach(function (item) {
+            const mk = new AMap.Marker({
+                position: [parseFloat(item.lng), parseFloat(item.lat)],
+                anchor: 'bottom-center',
+                offset: new AMap.Pixel(0, 4),
+                content: markerHtml(item, compact),
+                zIndex: 120
+            });
+            mk._item = item;
+            mk.on('click', function () {
+                suppressMapClick = true;
+                setTimeout(function () { suppressMapClick = false; }, 150);
+                showView(item);
+            });
+            mk.setMap(map);
+            markerObjs.push(mk);
+        });
+    }
+
+    function escapeHtml(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ========== 新增地标 ==========
+    function onMapClick(e) {
+        if (suppressMapClick) return;
+        if (!amapReady || !map) return;
+        const lng = e.lnglat.getLng();
+        const lat = e.lnglat.getLat();
+        // 移动模式下点地图 = 重新选点
+        if (movingItem) {
+            placeDraft(lng, lat, '拖动微调');
+            $('moveCoord').textContent = '坐标 ' + lat.toFixed(5) + ', ' + lng.toFixed(5);
+            return;
+        }
+        closeView();
+        placeDraft(lng, lat);
+        $('editCoord').textContent = '坐标 ' + lat.toFixed(5) + ', ' + lng.toFixed(5);
+        $('editPanel').classList.add('on');
+        $('viewPanel').classList.remove('on');
+        syncZoomBar();
+        setTimeout(function () { $('editName').focus(); }, 240);
+    }
+
+    function placeDraft(lng, lat, label) {
+        if (draft) { try { draft.setMap(null); } catch (e) {} }
+        draft = new AMap.Marker({
+            position: [lng, lat],
+            anchor: 'bottom-center',
+            offset: new AMap.Pixel(0, 4),
+            content: '<div class="pin draft">' + escapeHtml(label || '新地标') + '</div>',
+            zIndex: 130,
+            draggable: true
+        });
+        draft.on('dragend', function (ev) {
+            const p = ev.lnglat;
+            const txt = '坐标 ' + p.getLat().toFixed(5) + ', ' + p.getLng().toFixed(5);
+            if (movingItem) {
+                $('moveCoord').textContent = txt;
+            } else {
+                $('editCoord').textContent = txt;
+            }
+        });
+        draft.setMap(map);
+    }
+
+    // ========== 移动已有地标 ==========
+    var movingItem = null;
+
+    function startMove() {
+        if (!currentItem || !map) return;
+        if (!currentItem.mine) { toast('只能移动自己添加的标注'); return; }
+        movingItem = currentItem;
+        const lng = parseFloat(currentItem.lng);
+        const lat = parseFloat(currentItem.lat);
+        closeView();
+        map.setZoomAndCenter(18, [lng, lat]);
+        placeDraft(lng, lat, '拖动微调');
+        $('moveCoord').textContent = '坐标 ' + lat.toFixed(5) + ', ' + lng.toFixed(5);
+        $('movePanel').classList.add('on');
+        $('editPanel').classList.remove('on');
+        syncZoomBar();
+    }
+
+    function cancelMove() {
+        movingItem = null;
+        $('movePanel').classList.remove('on');
+        syncZoomBar();
+        if (draft) { try { draft.setMap(null); } catch (e) {} draft = null; }
+    }
+
+    function saveMove() {
+        if (!movingItem || !draft || busy) return;
+        const pos = draft.getPosition();
+        const id = movingItem.id;
+        busy = true;
+        $('moveSave').disabled = true;
+        $('moveSave').textContent = '保存中…';
+
+        const body = 'action=move&id=' + encodeURIComponent(id) +
+                     '&did=' + encodeURIComponent(deviceId()) +
+                     '&lat=' + pos.getLat().toFixed(6) + '&lng=' + pos.getLng().toFixed(6);
+
+        fetch(MARKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+            body: body
+        })
+            .then(function (r) { return r.text(); })
+            .then(function (txt) {
+                let data = null;
+                try { data = JSON.parse(txt); } catch (e) {}
+                if (!data || !data.ok) {
+                    if (data && data.msg === 'not_mine') throw new Error('只能调整自己添加的标注');
+                    if (data && data.msg === 'not_found') throw new Error('这个地标已经不在了');
+                    throw new Error(submitErrorText(data, txt));
+                }
+                toast('位置已更新');
+                cancelMove();
+                loadMarkers();
+            })
+            .catch(function (e) {
+                toast(e && e.message ? e.message : '保存失败，请稍后再试');
+            })
+            .then(function () {
+                busy = false;
+                $('moveSave').disabled = false;
+                $('moveSave').textContent = '保存位置';
+            });
+    }
+
+    function cancelEdit() {
+        $('editPanel').classList.remove('on');
+        syncZoomBar();
+        if (draft) { try { draft.setMap(null); } catch (e) {} draft = null; }
+        $('editName').value = '';
+        $('editDesc').value = '';
+    }
+
+    function submitMarker() {
+        if (busy) return;
+        const name = $('editName').value.trim();
+        if (!name) { toast('给它起个名字吧'); $('editName').focus(); return; }
+        if (!draft) { toast('请先在地图上选一个位置'); return; }
+        const pos = draft.getPosition();
+        const lat = pos.getLat(), lng = pos.getLng();
+        let by = '';
+        try { by = bridge() && bridge().getDeviceName ? String(bridge().getDeviceName() || '') : ''; } catch (e) {}
+
+        busy = true;
+        $('editSave').disabled = true;
+        $('editSave').textContent = '提交中…';
+
+        const body = 'action=add&name=' + encodeURIComponent(name) +
+                     '&desc=' + encodeURIComponent($('editDesc').value.trim()) +
+                     '&lat=' + lat.toFixed(6) + '&lng=' + lng.toFixed(6) +
+                     '&by=' + encodeURIComponent(by) +
+                     '&did=' + encodeURIComponent(deviceId());
+
+        fetch(MARKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+            body: body
+        })
+            .then(function (r) { return r.text(); })
+            .then(function (txt) {
+                let data = null;
+                try { data = JSON.parse(txt); } catch (e) {}
+                if (!data || !data.ok) {
+                    throw new Error(submitErrorText(data, txt));
+                }
+                toast(data.msg === 'exists' ? '这个位置已经有同名地标了' : '已添加，感谢分享');
+                cancelEdit();
+                loadMarkers();
+            })
+            .catch(function (e) {
+                toast(e && e.message ? e.message : '提交失败，请检查网络后重试');
+            })
+            .then(function () {
+                busy = false;
+                $('editSave').disabled = false;
+                $('editSave').textContent = '添加';
+            });
+    }
+
+    // 把服务端的返回说清楚，避免只显示一句「提交失败」
+    function submitErrorText(data, raw) {
+        const msg = data && data.msg;
+        if (msg === 'name_empty') return '请填写这里的名称';
+        if (msg === 'did_empty') return '本机标识没生成，请重开地图再试';
+        if (msg === 'empty') return '提交内容不完整，请重试';
+        if (msg === 'bad_location') return '坐标无效，请重新点选位置';
+        if (msg === 'too_many') return '标注数量已达上限，暂时无法新增';
+        if (msg === 'write_failed') return '服务器保存失败，请稍后再试';
+        if (msg === 'method_not_allowed') return '接口不接受该请求，请更新服务器文件';
+        if (!data) {
+            const head = String(raw || '').trim().slice(0, 40);
+            return head ? '服务器返回异常：' + head : '服务器无响应，请检查网络';
+        }
+        return '提交失败，请稍后再试';
+    }
+
+    // ========== 查看 / 举报 / 删除 ==========
+    function showView(item) {
+        currentItem = item;
+        $('viewName').textContent = item.name || '未命名';
+        const bits = [];
+        if (item.by) bits.push(item.by);
+        if (item.time) bits.push(item.time);
+        $('viewMeta').textContent = bits.join(' · ');
+        $('viewDesc').textContent = item.desc || '（没有补充说明）';
+
+        const votes = item.votes || 0;
+        const btnVote = $('btnVote');
+        const btnDelete = $('btnDelete');
+        const btnMove = $('btnMove');
+
+        if (item.mine) {
+            btnDelete.style.display = '';
+            btnMove.style.display = '';
+            btnVote.style.display = 'none';
+            $('viewTip').textContent = '这是你添加的标注，可以移动位置或直接删除。';
+        } else {
+            btnDelete.style.display = 'none';
+            btnMove.style.display = 'none';
+            btnVote.style.display = '';
+            if (item.voted) {
+                btnVote.disabled = false;
+                btnVote.textContent = '撤销举报';
+            } else {
+                btnVote.disabled = false;
+                btnVote.textContent = '举报此标注';
+            }
+            $('viewTip').textContent = votes > 0
+                ? '已被 ' + votes + ' 人举报，超过 ' + VOTE_LIMIT + ' 票将自动删除。'
+                : '如有错误可举报，超过 ' + VOTE_LIMIT + ' 票会自动删除。';
+        }
+
+        if (movingItem) { cancelMove(); }
+        $('editPanel').classList.remove('on');
+        $('viewPanel').classList.add('on');
+        syncZoomBar();
+        if (draft) { try { draft.setMap(null); } catch (e) {} draft = null; }
+    }
+
+    function closeView() {
+        $('viewPanel').classList.remove('on');
+        syncZoomBar();
+        currentItem = null;
+    }
+
+    function actOnMarker(action) {
+        if (!currentItem || busy) return;
+        const id = currentItem.id;
+        busy = true;
+        const btnVote = $('btnVote');
+        const btnDelete = $('btnDelete');
+        btnVote.disabled = true;
+        btnDelete.disabled = true;
+
+        const body = 'action=' + action + '&id=' + encodeURIComponent(id) +
+                     '&did=' + encodeURIComponent(deviceId());
+
+        fetch(MARKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+            body: body
+        })
+            .then(function (r) { return r.text(); })
+            .then(function (txt) {
+                let data = null;
+                try { data = JSON.parse(txt); } catch (e) {}
+                if (!data || !data.ok) {
+                    const msg = data && data.msg;
+                    if (msg === 'already') throw new Error('你已经举报过了');
+                    if (msg === 'not_voted') throw new Error('你还没有举报过这个标注');
+                    if (msg === 'own') throw new Error('不能举报自己添加的标注');
+                    if (msg === 'not_mine') throw new Error('只能删除自己添加的标注');
+                    throw new Error('操作没成功，请稍后再试');
+                }
+                if (data.msg === 'removed') {
+                    toast('举报超过 ' + VOTE_LIMIT + ' 票，该标注已删除');
+                } else if (data.msg === 'deleted') {
+                    toast('已删除你的标注');
+                } else if (data.msg === 'unvoted') {
+                    toast('已撤销举报（当前 ' + (data.votes || 0) + ' 票）');
+                } else if (data.msg === 'voted') {
+                    toast('已记录你的举报（' + (data.votes || 0) + ' 票）');
+                }
+                closeView();
+                loadMarkers();
+            })
+            .catch(function (e) {
+                toast(e && e.message ? e.message : '操作没成功，请稍后再试');
+                if (currentItem) showView(currentItem);
+            })
+            .then(function () {
+                busy = false;
+                btnDelete.disabled = false;
+            });
+    }
+
+    function voteMarker() {
+        // 已举报过再点即为撤销
+        actOnMarker(currentItem && currentItem.voted ? 'unvote' : 'vote');
+    }
+    function deleteMarker() { actOnMarker('delete'); }
+
+    // 跳转外部高德地图导航：先二次确认，避免误触直接进导航
+    var naviTarget = null;
+
+    function naviToMarker() {
+        if (!currentItem) return;
+        naviTarget = currentItem;
+        $('naviName').textContent = '将跳转到高德地图规划到「' + (currentItem.name || '该地点') +
+            '」的路线，进入后可选驾车、步行或骑行。';
+        $('naviPanel').classList.add('on');
+    }
+
+    function cancelNavi() {
+        naviTarget = null;
+        $('naviPanel').classList.remove('on');
+    }
+
+    function confirmNavi() {
+        if (!naviTarget) return;
+        const it = naviTarget;
+        naviTarget = null;
+        $('naviPanel').classList.remove('on');
+        try {
+            const b = bridge();
+            if (b && b.openNavi) {
+                b.openNavi(String(it.lat), String(it.lng), it.name || '目的地');
+            } else {
+                toast('当前环境不支持跳转导航');
+            }
+        } catch (e) {
+            toast('跳转导航失败');
+        }
+    }
+
+    // 启动
+    window.addEventListener('load', function () {
+        const k = storedKey();
+        if (k) { bootMap(); } else { openSetup(); setCount('未配置地图 Key'); }
+    });
+</script>
+</body>
+</html>

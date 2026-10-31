@@ -2,5 +2,20 @@
 <LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="match_parent"
   xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
     <androidx.viewpager2.widget.ViewPager2 android:id="@id/pager" android:layout_width="match_parent" android:layout_height="0.0dp" android:layout_weight="1.0" />
-    <com.google.android.material.bottomnavigation.BottomNavigationView android:id="@id/bottom_navigation" android:background="?android:windowBackground" android:layout_width="match_parent" android:layout_height="wrap_content" app:menu="@menu/bottom_nav_menu" />
+    <com.google.android.material.bottomnavigation.BottomNavigationView android:id="@id/bottom_navigation"
+      android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:minHeight="52dp"
+      android:background="@drawable/bg_nav_glass"
+      android:elevation="10dp"
+      android:paddingTop="0dp"
+      android:paddingBottom="0dp"
+      app:elevation="10dp"
+      app:itemIconSize="18dp"
+      app:itemPaddingTop="6dp"
+      app:itemPaddingBottom="3dp"
+      app:itemTextAppearanceActive="@style/TextAppearance.Wuyi.NavLabel"
+      app:itemTextAppearanceInactive="@style/TextAppearance.Wuyi.NavLabel"
+      app:itemActiveIndicatorStyle="@style/Widget.Wuyi.BottomNavIndicator"
+      app:labelVisibilityMode="labeled"
+      app:menu="@menu/bottom_nav_menu" />
 </LinearLayout>

@@ -6186,4 +6186,15 @@
     <style name="Widget.Support.CoordinatorLayout" parent="@android:style/Widget">
         <item name="statusBarBackground">#000000</item>
     </style>
+
+    <!-- 底部导航：缩小图标与文字，收窄选中胶囊，控制整体高度 -->
+    <style name="TextAppearance.Wuyi.NavLabel" parent="@style/TextAppearance.Material3.LabelSmall">
+        <item name="android:textSize">9sp</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+    <style name="Widget.Wuyi.BottomNavIndicator" parent="@style/Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:width">34dp</item>
+        <item name="android:height">22dp</item>
+        <item name="android:color">#1FC96442</item>
+    </style>
 </resources>

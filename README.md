@@ -1,4 +1,4 @@
-# Mimi 课表
+﻿# Mimi 课表
 
 <p align="center">
   <img src=".github/app-icon.webp" width="96" alt="Mimi课表" />
@@ -10,7 +10,7 @@
 
 ## 下载安装
 
-**[下载 mimi-kebiao-3.2.apk](https://github.com/Aokiisei/-Mimi-/releases/tag/v3.2)** （9.6 MB，Android 7.0+）
+**[下载 mimi-kebiao-3.3.apk](https://github.com/Aokiisei/-Mimi-/releases/tag/v3.3)** （9.2 MB，Android 7.0+）
 
 下载后传到手机上点开安装即可。若提示「禁止安装未知来源应用」，去系统设置里允许浏览器/文件管理器安装即可。
 
@@ -22,6 +22,7 @@
 - **成绩查询** —— 分学期拉取成绩，查看已修课程与分数
 - **桌面小组件** —— 主屏直接看当天课程，不用打开应用
 - **公交查询** —— 查询公交线路与到站信息，方便校园出行
+- **校园地图标注** —— 接入自备的高德地图 Key，同学共同在地图上标注校园地点
 - **智能助手** —— 内置助手页，提供答疑与快捷操作入口
 - **日程管理** —— 查看与管理个人日程安排
 - **暖纸主题** —— 新增暖色调纸质视觉风格
@@ -36,9 +37,71 @@
 | 应用 ID | `com.mimi.kebiao`（源码包 `com.wuyi.kebiao`） |
 | 最低版本 | Android 7.0（API 21） |
 | 目标版本 | Android 14（API 34） |
-| 当前版本 | 3.2（versionCode 20） |
+| 当前版本 | 3.3（versionCode 23） |
 
 课程表与成绩页面通过 WebView 承载教务系统（`jwxt.wuyiu.edu.cn`），Java 层负责登录态维持、会话超时判断、数据缓存与桌面小组件刷新。
+
+## 架构
+
+教务系统没有开放接口，整条链路是自己打通的：模拟登录拿到会话 → WebView 带会话取页面 → 解析成结构化数据 → 落本地缓存。
+
+```mermaid
+flowchart LR
+    subgraph Edu["武夷学院教务系统"]
+        A["jwxt.wuyiu.edu.cn<br/>课表 / 成绩页面"]
+    end
+
+    subgraph App["Mimi 课表"]
+        B["OkHttp<br/>模拟登录 · 维持会话"]
+        C["WebView<br/>带 Cookie 渲染页面"]
+        D["Java 解析层<br/>HTML → 结构化数据"]
+        E["SharedPreferences<br/>本地缓存"]
+        F["原生 UI"]
+        G["桌面小组件<br/>AppWidgetProvider"]
+    end
+
+    A -->|"HTML / JSON"| B
+    B -->|"Cookie 注入"| C
+    C -->|"页面源码"| D
+    D -->|"课程 · 成绩对象"| E
+    E --> F
+    E --> G
+```
+
+会话过期是这类工具最容易翻车的地方（自动跳回登录页就什么都查不了了），所以做了主动判断与无感续期：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant A as 本应用
+    participant N as OkHttp
+    participant S as 教务系统
+
+    U->>A: 打开课表
+    A->>A: 读取本地 Cookie
+    alt Cookie 有效
+        A->>N: 携带 Cookie 请求
+        N->>S: GET 课表页面
+        S-->>N: 200 返回 HTML
+        N-->>A: 页面源码
+        A->>A: 解析 → 缓存 → 刷新界面
+    else Cookie 已过期
+        A->>N: 携带过期 Cookie 请求
+        N->>S: GET 课表页面
+        S-->>N: 302 跳回登录页
+        N-->>A: 检测到登录页特征
+        A->>N: 自动重新登录（已存凭据）
+        N->>S: POST 账号密码
+        S-->>N: 下发新 Cookie
+        N-->>A: 更新会话
+        A->>N: 重放原请求
+        N->>S: GET 课表页面
+        S-->>N: 200 返回 HTML
+        A->>A: 解析 → 缓存 → 刷新界面
+    end
+    A-->>U: 展示本周课程
+```
 
 ## 构建
 
@@ -63,6 +126,7 @@ app/src/main/
     ├── index.html            # 课表页面（注入教务系统后由前端解析渲染）
     ├── grade.html            # 成绩页面
     ├── bus.html              # 公交查询页面
+    ├── map.html              # 校园地图标注页面（高德 JS API）
     └── schedule.html         # 日程页面
 ```
 
@@ -134,3 +198,5 @@ app/src/main/
 - 许可证全文见仓库根目录的 [LICENSE](LICENSE) 文件。
 - 第三方组件的版权与署名见 [NOTICE](NOTICE) 文件（AndroidX、Material、Gson、OkHttp 等均为 Apache 2.0）。
 - 在遵守本许可证的前提下，你可以自由地使用、修改、分发本项目的代码。
+
+

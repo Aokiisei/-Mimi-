@@ -28,7 +28,7 @@
 .wheel-body {
     position: relative; height: 220px;
     display: flex; align-items: center; justify-content: center;
-    overflow: hidden;
+    overflow: hidden; overscroll-behavior: contain;
 }
 .wheel-hi {
     position: absolute; left: 8px; right: 8px; top: 88px; height: 44px;
@@ -39,8 +39,9 @@
 }
 .wheel-col {
     position: relative; z-index: 1;
-    flex: 0 0 88px; height: 220px;
+    flex: 1 1 0; height: 220px;
     overflow-y: scroll; -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding: 88px 0; box-sizing: border-box;
     text-align: center; scrollbar-width: none;
 }

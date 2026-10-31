@@ -70,8 +70,9 @@
             font-size: 12px; color: var(--sub);
         }
         .times b { color: var(--ink); font-weight: 500; }
+        .times .actions { margin-left: auto; display: flex; gap: 6px; }
         .tt-btn {
-            margin-left: auto; height: 24px; padding: 0 10px; border-radius: 7px;
+            height: 24px; padding: 0 10px; border-radius: 7px;
             border: 1px solid var(--border); background: #FFFFFF; color: var(--sub);
             font-family: inherit; font-size: 11px;
         }
@@ -127,6 +128,31 @@
         .stop.seg.from-pt .dot, .stop.seg.to-pt .dot { box-shadow: 0 0 0 4px rgba(201,100,66,0.18); }
         .stop.seg.from-pt .name, .stop.seg.to-pt .name { font-weight: 500; }
         .foot { margin-top: auto; padding: 10px 16px 13px; font-size: 11px; color: var(--sub); }
+        /* ===== 实时公交面板 ===== */
+        .live-panel { display: none; flex-direction: column; padding: 10px 16px 14px; border-top: 1px dashed var(--border); }
+        .live-panel.on { display: flex; }
+        .live-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .live-route { font-size: 14px; font-weight: 500; color: var(--ink); }
+        .live-dir-group { display: flex; gap: 6px; margin-left: auto; }
+        .live-dir { height: 24px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--border); background: #FFFFFF; color: var(--sub); font-family: inherit; font-size: 11px; white-space: nowrap; }
+        .live-dir.on { background: var(--soft); border-color: rgba(201,100,66,0.42); color: var(--primary); }
+        .live-meta { display: flex; gap: 10px; font-size: 11px; color: var(--sub); margin-bottom: 8px; }
+        .live-meta b { color: var(--ink); font-weight: 500; }
+        .live-meta .live-state-warn { color: #B4553A; font-weight: 500; }
+        .live-list { font-size: 12.5px; color: var(--ink); }
+        .live-list-row { display: flex; align-items: flex-start; gap: 8px; padding: 7px 2px; border-bottom: 1px dashed var(--border); }
+        .live-list-row:last-child { border-bottom: none; }
+        .live-station-num { flex: 0 0 22px; font-size: 10.5px; color: var(--sub); text-align: right; padding-top: 1px; font-variant-numeric: tabular-nums; }
+        .live-station-name { flex: 1 1 auto; min-width: 0; }
+        .live-station-name .ln { color: var(--ink); font-weight: 500; }
+        .live-station-name .lst { font-size: 11px; color: var(--sub); margin-left: 4px; }
+        .live-buses { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; min-width: 110px; }
+        .live-bus { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--soft); color: var(--primary); border: 1px solid rgba(201,100,66,0.3); line-height: 1.5; text-align: right; }
+        .live-bus .lb-plate { font-weight: 500; font-size: 11px; }
+        .live-bus .lb-sub { color: var(--sub); font-size: 10px; margin-left: 3px; }
+        .live-empty { padding: 20px 0; text-align: center; color: var(--sub); font-size: 12px; }
+        .live-empty.warn { color: #B4553A; }
+        .live-loader { padding: 14px 0; text-align: center; color: var(--sub); font-size: 12px; }
 </style>
 </head>
 <body>
@@ -149,19 +175,19 @@
     <div class="tabs" id="tabs"></div>
     <div id="routes"></div>
 
-    <div class="foot">路线与发车时间整理自公交站牌，如有调整请以现场为准。</div>
+    <div class="foot">线路站点与首末班整理自掌上公交，如有调整请以现场为准。</div>
 </div>
 <script>
     const ROUTES = {
-        2: { start: '6:00', end: '22:00', stops: ['火车站', '综合农场', '樟树公园', '绿缘小区', '火车站路口', '污水处理厂',
-            '中洲', '富贵华府', '金悦山庄', '中医院', '市人大', '崇安街道办', '环岛东', '大同街', '横街头',
-            '列宁公园', '汽车站', '岩福路口', '岩前路口', '瑞岩小区', '石雄公交站'] },
-        6: { start: '6:00', end: '22:00', stops: ['高铁北站', '东湖丽景', '双龙寺', '崇安高速路口', '西门批发市场',
-            '西门', '列宁公园', '横街头', '市体育局', '开放大学', '富贵华府', '中洲', '污水处理厂', '火车站路口',
-            '武夷华庭', '武夷和园', '市立医院西门', '教师公寓', '茶场新区', '世纪桃源', '机场', '高苏坂',
-            '武夷家园', '赤石新村', '桂林新村', '景区北入口', '崇溪东路口', '角亭', '紫阳古城', '武夷广场',
-            '红袍步行街', '漫心酒店', '三姑环岛', '太阳城', '茶博园', '嘉元千禧度假酒店', '公馆小学',
-            '公馆新村', '景区南入口'] },
+        2: { start: '6:00', end: '22:35', stops: ['火车站', '综合农场', '樟树公园', '绿缘小区', '火车站路口', '污水处理厂',
+            '中洲', '富贵华府', '中医院', '不动产中心', '金悦山庄', '市人大', '崇安街道办', '环岛东（江滨公园）', '大同街', '横街头',
+            '列宁公园', '汽车站', '岩福路口', '岩前路口', '瑞岩小区', '石雄街', '石雄公交站'] },
+        6: { start: '6:00', end: '22:55', stops: ['武夷山北站③', '东湖丽景', '双龙寺', '工人文化宫', '崇安高速路口', '西门批发市场',
+            '西门', '列宁公园', '横街头（和平路口）①', '体育馆', '市区环岛', '开放大学（余庆小学分校）', '富贵华府', '中洲', '污水处理厂', '火车站路口',
+            '武夷华庭', '武夷和园', '市立医院', '教师公寓', '茶场新区', '茶场', '世纪桃源', '机场', '高苏坂',
+            '武夷家园', '赤石新村', '桂林新村', '景区北入口', '崇溪东路口', '角亭（融庭湾）', '紫阳古城', '武夷广场（月映武夷）',
+            '红袍步行街', '云季酒店', '三姑环岛', '太阳城（悦华酒店）', '茶博园（印象大红袍）', '嘉元千禧度假酒店', '公馆小学',
+            '公馆新村', '景区南入口', '上埔', '天游山庄', '南源岭公路站（青瓦）', '南源岭枢纽站（汽车城）'] },
         7: { start: '6:00', end: '22:15', fare: '免费乘车',
             remark: '计划发车时间，受路况影响可能临时调整，首末班除外',
             dirs: [
@@ -178,48 +204,57 @@
                     { label: '夜间 19:24–22:15', note: '该时段时刻表暂缺，请以站牌为准' }
                 ] }
             ],
-            stops: ['高铁北站', '东湖丽景', '北城加油站', '双龙寺', '工人文化宫',
-            '崇安高速路口', '西门批发市场', '汽车站', '岩前路口', '小武夷花园', '交警大队', '丰和园',
-            '小武夷路口', '金悦山庄', '市民广场', '武夷集团', '武建集团', '中华职校', '供电公司', '新丰小学',
-            '市立医院西门', '武夷学院', '武夷山职业学院', '茶场三区', '旗山工业园区', '世纪桃源', '机场',
-            '高苏坂', '武夷家园', '石赤新村', '桂林新村', '景区北入口', '崇溪东路口', '南亭', '紫阳古城',
-            '武夷广场', '红袍步行街', '漫心酒店', '三姑环岛', '太阳城', '悦华酒店', '茶博园',
-            '嘉元千禧度假酒店', '公馆小学', '公馆新村', '景区南入口', '上埔', '天游山庄', '南源岭', '南源岭民宿'] },
-        8: { start: '6:50', end: '22:40', fare: '免费乘车',
+            stops: ['武夷山北站①', '东湖丽景', '双龙寺', '工人文化宫',
+            '崇安高速路口', '西门批发市场', '西门', '汽车站', '岩福路口', '岩前路口', '小武夷花园', '交警大队', '丰和园',
+            '小武夷路口', '金悦山庄', '市民广场（政务服务中心）', '中华职校', '供电公司', '新丰小学',
+            '市立医院西门', '武夷学院', '学生公寓', '武夷山职业学院', '茶场三区宿舍', '旗山工业园区', '世纪桃源', '机场',
+            '高苏坂', '武夷家园', '赤石新村', '桂林新村', '景区北入口', '崇溪东路口', '角亭（融庭湾）', '紫阳古城',
+            '武夷广场（月映武夷）', '红袍步行街', '云季酒店', '三姑环岛', '太阳城（悦华酒店）', '茶博园（印象大红袍）',
+            '嘉元千禧度假酒店', '公馆小学', '公馆新村', '景区南入口', '上埔', '天游山庄', '南源岭公路站（青瓦）', '南源岭枢纽站（汽车城）'] },
+        8: { start: '6:10', end: '22:40', fare: '免费乘车',
             remark: '计划发车时间，受路况影响可能临时调整，首末班除外',
             dirs: [
-                { name: '火车站 → 武夷山北站', first: '06:50', last: '22:40', periods: [
-                    { label: '早高峰 06:50–10:00', times: ['06:50', '07:20', '07:50', '08:20', '08:50', '09:20', '09:50'] },
-                    { label: '平峰 10:00–16:00', times: ['10:20', '10:50', '11:20', '12:00', '12:30', '13:00', '13:40', '14:20', '15:00', '15:40'] },
-                    { label: '晚高峰 16:00–20:00', times: ['16:20', '17:10', '17:40', '18:10', '18:50', '19:30'] },
-                    { label: '夜间 20:00–22:45', times: ['20:10', '20:50', '21:40', '22:45'] }
-                ] },
                 { name: '武夷山北站② → 火车站', first: '06:10', last: '22:00', periods: [
                     { label: '早高峰 06:10–10:00', times: ['06:10', '06:40', '07:10', '07:40', '08:10', '08:40', '09:10', '09:40'] },
                     { label: '平峰 10:00–16:00', times: ['10:10', '10:40', '11:20', '11:50', '12:20', '13:00', '13:40', '14:20', '15:00', '15:40'] },
                     { label: '晚高峰 16:00–20:00', times: ['16:30', '17:00', '17:30', '18:10', '18:50', '19:30'] },
                     { label: '夜间 20:00–22:05', times: ['20:10', '21:00', '22:05'] }
+                ] },
+                { name: '火车站 → 武夷山北站', first: '06:50', last: '22:40', periods: [
+                    { label: '早高峰 06:50–10:00', times: ['06:50', '07:20', '07:50', '08:20', '08:50', '09:20', '09:50'] },
+                    { label: '平峰 10:00–16:00', times: ['10:20', '10:50', '11:20', '12:00', '12:30', '13:00', '13:40', '14:20', '15:00', '15:40'] },
+                    { label: '晚高峰 16:00–20:00', times: ['16:20', '17:10', '17:40', '18:10', '18:50', '19:30'] },
+                    { label: '夜间 20:00–22:45', times: ['20:10', '20:50', '21:40', '22:45'] }
                 ] }
             ],
-            stops: ['高铁北站', '东湖丽景', '北城加油站', '双龙寺', '工人文化宫',
-            '崇安高速路口', '西门批发市场', '西门', '列宁公园', '横街头', '大同街', '环岛东', '崇安街道办',
-            '市人大', '金悦山庄', '市民广场', '武建集团', '中华职校', '供电公司', '新丰小学', '市立医院西门',
-            '武夷学院', '学生公寓', '公安局', '茶场新区', '教师公寓', '武夷医院', '武夷和园', '武夷华庭',
+            stops: ['武夷山北站②', '东湖丽景', '双龙寺', '工人文化宫',
+            '崇安高速路口', '西门批发市场', '西门', '列宁公园', '横街头', '大同街', '环岛东（江滨公园）', '崇安街道办',
+            '市人大', '金悦山庄', '市民广场（政务服务中心）', '中华职校', '供电公司', '新丰小学', '市立医院西门',
+            '武夷学院', '学生公寓', '公安局', '茶场新区', '教师公寓', '市立医院', '武夷和园', '武夷华庭',
             '绿缘小区', '樟树公园', '综合农场', '火车站'] },
-        9: { start: '6:10', end: '20:20', stops: ['高铁北站', '东湖丽景', '双龙寺', '工人文化宫', '崇安高速路口',
-            '西门批发市场', '西门', '体育馆', '市区环岛', '开放大学', '富贵华府', '中洲', '污水处理厂',
-            '火车站路口', '武夷华庭', '武夷和园', '市立医院西门', '教师公寓', '茶场新区', '世纪桃源', '机场',
-            '高苏坂', '武夷家园', '赤石新村', '桂林新村', '景区北入口', '崇溪东路口', '角亭', '紫阳古城',
-            '武夷广场', '红袍步行街', '漫心酒店', '三姑环岛', '三姑老街', '兰汤', '武夷山庄'] },
-        10: { start: '7:00', end: '18:25', stops: ['高铁北站', '东湖丽景', '北城加油站', '双龙寺', '工人文化宫',
-            '崇安高速路口', '西门批发市场', '西门', '体育馆', '市区环岛', '崇安大桥', '东岸村', '横山头',
-            '水美幸福湾', '湖桃小学', '上东埠村', '下东埠村', '碧桂园', '高速运营中心', '赤石纪念馆'] }
+        9: { start: '6:00', end: '21:20', stops: ['武夷山北站③', '东湖丽景', '双龙寺', '工人文化宫', '崇安高速路口',
+            '西门批发市场', '西门', '体育馆', '市区环岛', '开放大学（余庆小学分校）', '富贵华府', '中洲', '污水处理厂',
+            '火车站路口', '武夷华庭', '武夷和园', '市立医院', '教师公寓', '茶场新区', '茶场', '世纪桃源', '机场',
+            '高苏坂', '武夷家园', '赤石新村', '桂林新村', '景区北入口', '崇溪东路口', '角亭（融庭湾）', '紫阳古城',
+            '武夷广场（月映武夷）', '红袍步行街', '云季酒店', '三姑环岛', '三姑老街', '兰汤', '武夷山庄（武夷宫）',
+            '区徽', '岩茶村', '一线天前兰路口', '天上宫（竹筏码头）①', '星村车站'] },
+        10: { start: '6:25', end: '18:25', stops: ['武夷山北站④', '东湖丽景', '双龙寺', '工人文化宫',
+            '崇安高速路口', '西门批发市场', '西门', '体育馆', '市区环岛', '崇安大桥（崇阳溪漫游道）', '看守所', '东岸村', '横山头',
+            '水美幸福湾', '湖桃小学', '上东埠村', '下东埠村', '碧桂园', '高速运营中心', '赤石纪念馆', '崇溪东路口',
+            '角亭（融庭湾）', '紫阳古城', '武夷广场（月映武夷）', '红袍步行街', '云季酒店', '三姑环岛',
+            '苏闽步行街（武旅集团）', '望峰酒店', '麒铭都', '泓林酒店', '三木自游小镇', '景区南入口', '上埔',
+            '天游山庄', '南源岭公路站（青瓦）', '南源岭民宿村（汽车城）', '东山埔', '慈心园', '中晟路口', '香江茗苑',
+            '鑫泰光电', '仙店园区管委会', '仙店村（蓝湾国际）'] }
     };
     const ORDER = [2, 6, 7, 8, 9, 10];
+    const LIVE_ROUTES = {'2': true, '6': true, '7': true, '8': true, '9': true, '10': true}; // 所有线路均支持实时
     const DEFAULT_ROUTE = 7;
     const DEFAULT_STOP = '武夷学院';
     let current = DEFAULT_ROUTE;
     let touched = false;
+    // ===== 实时公交状态 =====
+    const LIVE_URL = 'https://aokiisei.vxni.ink/mimi/live.php';
+    let liveState = { route: null, dir: '1', panelEl: null, timer: null, running: false, lastData: null, failCount: 0, currentReq: 0 };
 
     function esc(t) {
         return String(t).replace(/[&<>"]/g, function (c) {
@@ -249,6 +284,11 @@
             const ttBtn = r.dirs
                 ? '<button class="tt-btn" onclick="toggleTimetable(' + no + ')">时刻表 ▾</button>'
                 : '';
+            const liveBtn = LIVE_ROUTES[String(no)]
+                ? '<button class="tt-btn" onclick="toggleLive(' + no + ')">实时 ▾</button>'
+                : '';
+            const hasBtns = ttBtn || liveBtn;
+            const actions = hasBtns ? '<span class="actions">' + ttBtn + liveBtn + '</span>' : '';
             const tt = r.dirs
                 ? '<div class="tt" id="tt' + no + '">' +
                     '<div class="dirs">' + r.dirs.map(function (d, i) {
@@ -260,9 +300,11 @@
                 : '';
             return '<div class="route' + (no === current ? ' on' : '') + '" id="route' + no + '">' +
                 '<div class="times"><span>首班 <b class="t-first">' + r.start + '</b></span>' +
-                '<span>末班 <b class="t-last">' + r.end + '</b></span>' + ttBtn + '</div>' +
+                '<span>末班 <b class="t-last">' + r.end + '</b></span>' + actions + '</div>' +
                 '<div class="scroller"><div class="rail"><div class="arrow l"></div>' + stops +
-                '<div class="arrow r"></div></div></div>' + tt + '</div>';
+                '<div class="arrow r"></div></div></div>' + tt +
+                (LIVE_ROUTES[String(no)] ? '<div class="live-panel" id="live' + no + '"></div>' : '') +
+                '</div>';
         }).join('');
         ORDER.forEach(function (no) {
             if (ROUTES[no].dirs) showDir(no, 0, true);
@@ -441,10 +483,206 @@
     }
 
     function closeSheet() {
+        stopLivePoll();
         if (window.MimiBridge && window.MimiBridge.close) {
             window.MimiBridge.close();
         }
     }
+
+    // ======== 实时公交面板逻辑 ========
+    function toggleLive(no) {
+        const noStr = String(no);
+        if (!LIVE_ROUTES[noStr]) return;
+        // 如果已经开着其他线路的实时面板，先关掉
+        if (liveState.panelEl && liveState.route !== noStr) {
+            stopLivePoll();
+            const oldBtn = document.querySelector('#route' + liveState.route + ' .live-btn') ||
+                           document.querySelector('#route' + liveState.route + ' .tt-btn[onclick^="toggleLive"]');
+            if (oldBtn) oldBtn.textContent = '实时 ▾';
+            liveState.panelEl.classList.remove('on');
+            liveState.panelEl = null;
+        }
+        const panel = document.getElementById('live' + no);
+        const open = panel.classList.toggle('on');
+        const btn = document.querySelector('#route' + no + ' [onclick="toggleLive(' + no + ')"]');
+        if (open) {
+            if (btn) btn.textContent = '实时 ▴';
+            // 首次打开：构造面板内容 + 初始化方向
+            if (!panel.dataset.init) {
+                buildLivePanel(no, panel);
+            }
+            liveState.panelEl = panel;
+            liveState.route = noStr;
+            liveState.dir = '1';
+            startLivePoll(noStr, '1');
+        } else {
+            if (btn) btn.textContent = '实时 ▾';
+            stopLivePoll();
+            liveState.panelEl = null;
+            liveState.route = null;
+        }
+    }
+
+    function buildLivePanel(no, panel) {
+        panel.dataset.init = '1';
+        const r = ROUTES[no];
+        // 方向端点名：有 dirs 用 dirs 名，否则用 stops 首尾拼接
+        const firstStop = r.stops[0];
+        const lastStop = r.stops[r.stops.length - 1];
+        const dirNames = r.dirs
+            ? [r.dirs[0].name, r.dirs[1].name]
+            : [firstStop + ' → ' + lastStop, lastStop + ' → ' + firstStop];
+        panel.innerHTML =
+            '<div class="live-head">' +
+                '<span class="live-route">' + no + ' 路 · 实时</span>' +
+                '<div class="live-dir-group">' +
+                    '<button class="live-dir on" data-dir="1" onclick="liveSwitchDir(\'' + no + '\', \'1\')">' + esc(dirNames[0]) + '</button>' +
+                    '<button class="live-dir" data-dir="2" onclick="liveSwitchDir(\'' + no + '\', \'2\')">' + esc(dirNames[1]) + '</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="live-meta" id="liveMeta' + no + '">' +
+                '<span>加载中…</span>' +
+            '</div>' +
+            '<div class="live-list" id="liveList' + no + '">' +
+                '<div class="live-loader">正在连接实时数据…</div>' +
+            '</div>';
+    }
+
+    function liveSwitchDir(no, dir) {
+        if (liveState.route !== String(no) || liveState.dir === dir) return;
+        liveState.dir = dir;
+        const panel = document.getElementById('live' + no);
+        panel.querySelectorAll('.live-dir').forEach(function(el) {
+            el.classList.toggle('on', el.dataset.dir === dir);
+        });
+        // 先清空 list，立即拉
+        const listEl = document.getElementById('liveList' + no);
+        listEl.innerHTML = '<div class="live-loader">切换方向，刷新中…</div>';
+        startLivePoll(String(no), dir);
+    }
+
+    function startLivePoll(line, dir) {
+        stopLivePoll();
+        liveState.running = true;
+        liveState.failCount = 0;
+        // 立即拉一次
+        tickLive(line, dir);
+        scheduleNext(line, dir, 5000);
+    }
+
+    function stopLivePoll() {
+        liveState.running = false;
+        if (liveState.timer) {
+            clearTimeout(liveState.timer);
+            liveState.timer = null;
+        }
+    }
+
+    function scheduleNext(line, dir, delay) {
+        if (!liveState.running) return;
+        liveState.timer = setTimeout(function() {
+            tickLive(line, dir);
+            scheduleNext(line, dir, 5000);
+        }, delay);
+    }
+
+    async function tickLive(line, dir) {
+        if (!liveState.running) return;
+        const reqKey = line + ':' + dir;
+        const thisReq = ++liveState.currentReq;
+        try {
+            const res = await fetch(LIVE_URL + '?line=' + line + '&dir=' + dir, {
+                headers: {'Accept': 'application/json'}
+            });
+            const body = await res.json();
+            if (thisReq !== liveState.currentReq) return; // 已切方向，丢弃旧响应
+            if (!res.ok || !body.ok) throw new Error((body && body.error) || ('HTTP ' + res.status));
+            liveState.lastData = body;
+            liveState.failCount = 0;
+            renderLiveList(line, body);
+        } catch (e) {
+            if (thisReq !== liveState.currentReq) return;
+            liveState.failCount++;
+            renderLiveError(line, e.message);
+        }
+    }
+
+    function renderLiveList(line, data) {
+        const metaEl = document.getElementById('liveMeta' + line);
+        const listEl = document.getElementById('liveList' + line);
+        // meta 行
+        const busCount = data.buses ? data.buses.length : 0;
+        const timeStr = new Date(data.updatedAt).toLocaleTimeString('zh-CN', {hour12: false});
+        let html = '<span><b>' + esc(data.beginTime || '--') + '</b> 首班 / <b>' + esc(data.endTime || '--') + '</b> 末班</span>';
+        html += '<span>在线 <b>' + busCount + '</b> 辆车</span>';
+        html += '<span>' + timeStr + ' 更新</span>';
+        if (data.runState === 1) html += '<span class="live-state-warn">该线路已停运</span>';
+        if (liveState.failCount > 0) html += '<span class="live-state-warn">数据可能延迟</span>';
+        metaEl.innerHTML = html;
+
+        // 站点列表
+        const stations = data.stations || [];
+        if (busCount === 0 && stations.length > 0) {
+            listEl.innerHTML =
+                '<div class="live-list-row"><div class="live-empty" style="padding:18px 0;flex:1;">暂无在线车辆</div></div>' +
+                '<div class="live-list-row"><div class="live-station-num"></div><div class="live-station-name"><span class="lst">共 ' + stations.length + ' 个站点，首班 ' + esc(stations[0].name) + '，末班 ' + esc(stations[stations.length-1].name) + '</span></div></div>';
+            return;
+        }
+
+        // index → 车辆数组 映射
+        const busMap = {};
+        (data.buses || []).forEach(function(b) {
+            const i = b.stationIndex;
+            if (!busMap[i]) busMap[i] = [];
+            busMap[i].push(b);
+        });
+
+        let rows = [];
+        stations.forEach(function(s, idx) {
+            const num = idx + 1;
+            const cls = (idx === 0 ? 'live-start' : (idx === stations.length - 1 ? 'live-end' : ''));
+            const buses = busMap[idx] || [];
+            let busHtml = '';
+            buses.forEach(function(b) {
+                const meters = b.meters;
+                let distTxt;
+                if (meters >= 1000) distTxt = (meters / 1000).toFixed(1) + ' km';
+                else distTxt = meters + ' m';
+                busHtml += '<div class="live-bus">' +
+                    '<span class="lb-plate">' + esc(b.plate) + '</span>' +
+                    '<span class="lb-sub">' + esc(b.state) + ' · ' + distTxt + '</span>' +
+                '</div>';
+            });
+            rows.push('<div class="live-list-row">' +
+                '<div class="live-station-num">' + num + '</div>' +
+                '<div class="live-station-name"><span class="ln">' + esc(s.name) + '</span>' + (idx === 0 ? '<span class="lst">（起）</span>' : (idx === stations.length - 1 ? '<span class="lst">（终）</span>' : '')) + '</div>' +
+                '<div class="live-buses">' + busHtml + '</div>' +
+            '</div>');
+        });
+        listEl.innerHTML = rows.join('');
+    }
+
+    function renderLiveError(line, msg) {
+        const metaEl = document.getElementById('liveMeta' + line);
+        const listEl = document.getElementById('liveList' + line);
+        const data = liveState.lastData;
+        if (data) {
+            // 有旧数据：保留列表，只在 meta 标 warning
+            metaEl.innerHTML += '<span class="live-state-warn">请求失败（' + esc(msg) + '），显示上次数据</span>';
+        } else {
+            metaEl.innerHTML = '<span class="live-state-warn">实时数据加载失败</span>';
+            listEl.innerHTML = '<div class="live-empty warn">请求实时公交失败：' + esc(msg) + '<br>请检查网络或稍后再试</div>';
+        }
+    }
+
+    // 页面不可见时停止轮询，恢复可见立即刷新
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible' && liveState.running) {
+            // 立即拉一次，保持 5 秒间隔
+            stopLivePoll();
+            startLivePoll(liveState.route, liveState.dir);
+        }
+    });
 
     buildTabs();
     buildRoutes();
