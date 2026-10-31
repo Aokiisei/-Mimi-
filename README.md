@@ -1,112 +1,196 @@
-﻿# Mimi 课表
-
-<p align="center">
+﻿<p align="center">
   <img src=".github/app-icon.webp" width="96" alt="Mimi课表" />
 </p>
 
-武夷学院课程安排与成绩查询工具。
+<h1 align="center">Mimi 课表</h1>
 
-把教务系统里散落的课表和分数，收进一个能随手打开的地方。
+<p align="center">
+  武夷学院课程安排与成绩查询工具<br/>
+  把教务系统里散落的课表和分数，收进一个能随手打开的地方
+</p>
+
+<p align="center">
+  <a href="https://github.com/Aokiisei/-Mimi-/releases/latest"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="下载 APK" /></a>
+  <img src="https://img.shields.io/github/v/release/Aokiisei/-Mimi-?style=for-the-badge&label=Release&color=2F7CF6" alt="最新版本" />
+  <img src="https://img.shields.io/badge/License-Apache--2.0-6E7B8B?style=for-the-badge" alt="License" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 7.0+" />
+  <img src="https://img.shields.io/badge/Java-17-ED8B00?style=flat-square&logo=openjdk&logoColor=white" alt="Java 17" />
+  <img src="https://img.shields.io/badge/Gradle-8.9-02303A?style=flat-square&logo=gradle&logoColor=white" alt="Gradle 8.9" />
+  <img src="https://img.shields.io/github/stars/Aokiisei/-Mimi-?style=flat-square&label=Stars&color=BA7517" alt="Stars" />
+</p>
 
 ## 下载安装
 
-**[下载 mimi-kebiao-3.3.apk](https://github.com/Aokiisei/-Mimi-/releases/tag/v3.3)** （9.2 MB，Android 7.0+）
+点上面的 **下载 APK** 按钮，或打开 [Releases](https://github.com/Aokiisei/-Mimi-/releases) 挑版本；传到手机上点开安装即可。
 
-下载后传到手机上点开安装即可。若提示「禁止安装未知来源应用」，去系统设置里允许浏览器/文件管理器安装即可。
+若提示「禁止安装未知来源应用」，去系统设置里允许浏览器 / 文件管理器安装。
 
-> 历史版本与更新日志见 [Releases](https://github.com/Aokiisei/-Mimi-/releases) 页面。
+> 需要 **Android 7.0** 及以上。每个版本都带独立安装包，v3.1 起的版本另有完整源码。
 
 ## 功能
 
-- **课程表** —— 按周次查看当日课程，支持周次切换与全屏查看
-- **成绩查询** —— 分学期拉取成绩，查看已修课程与分数
+**课表**
+
+- 按周次查看当日课程，支持周次切换与全屏
+- 全屏模式可横向滑动，网格不再被压窄
+- 第九至十二节全部支持，晚课卡片标注「晚七 / 晚九」
+- 跨格日程框：有课时透明透出，整段无课才实底展开详情
+
+**成绩**
+
+- 分学期拉取，可展开每门课的成绩构成
+- 教务首页是异步加载的，登录后自动延时复检一次，避免只抓到前几门
+
+**校园生活**
+
+- **公交查询** —— 武夷山公交线路与到站信息
+- **校园地图标注** —— 填入自备的高德 Key，同学共同标注校园地点，支持搜索、举报与一键导航
+- **日程管理** —— 倒计日、单点提醒，卡片右滑标记完成
 - **桌面小组件** —— 主屏直接看当天课程，不用打开应用
-- **公交查询** —— 查询公交线路与到站信息，方便校园出行
-- **校园地图标注** —— 接入自备的高德地图 Key，同学共同在地图上标注校园地点
-- **智能助手** —— 内置助手页，提供答疑与快捷操作入口
-- **日程管理** —— 查看与管理个人日程安排
-- **暖纸主题** —— 新增暖色调纸质视觉风格
-- **公告与更新** —— 启动时拉取公告，检测新版本
-- **崩溃日志上报** —— 异常时记录日志，可一键反馈
+
+**体验**
+
+- **暖纸主题** —— 暖色调纸质视觉，全 App 统一衬线字体
+- **公告与更新** —— 启动拉取公告，检测新版本
+- **崩溃日志上报** —— 异常记录日志，可一键反馈
 
 ## 技术栈
 
 | 项 | 值 |
 | :-- | :-- |
-| 语言 | Java |
+| 语言 | Java 17 |
 | 应用 ID | `com.mimi.kebiao`（源码包 `com.wuyi.kebiao`） |
-| 最低版本 | Android 7.0（API 21） |
-| 目标版本 | Android 14（API 34） |
+| 最低 / 目标版本 | Android 7.0（API 21）/ Android 14（API 34） |
+| 构建 | AGP 8.5.2 · Gradle 8.9 · JDK 17 |
 | 当前版本 | 3.3（versionCode 23） |
+| 核心依赖 | AppCompat 1.6.1 · Material 1.11.0 · Navigation 2.7.7 · OkHttp 4.12.0 · Gson 2.10.1 |
 
-课程表与成绩页面通过 WebView 承载教务系统（`jwxt.wuyiu.edu.cn`），Java 层负责登录态维持、会话超时判断、数据缓存与桌面小组件刷新。
+登录与取数都由 WebView 走教务系统本身完成（`AndroidBack.login()` 提交，`CookieManager` 维持登录状态），OkHttp 只负责版本检查与公告拉取——不碰教务的任何请求。
 
 ## 架构
 
-教务系统没有开放接口，整条链路是自己打通的：模拟登录拿到会话 → WebView 带会话取页面 → 解析成结构化数据 → 落本地缓存。
+教务系统没有开放接口，也没给 App 用的 API，所以整条链路是自己接的。
+
+办法是用两个内置浏览器（WebView）分工：**一个藏在后台专门加载教务页面**，负责"进去把东西拿出来"；**另一个负责界面**，只管显示。抓回来的网页不直接展示，而是往里注入一段脚本，把表格读成数据，再交回 App 存起来，最后推给界面。
+
+教务那边看到的始终是一次正常的浏览器访问，不需要破解任何加密。
 
 ```mermaid
-flowchart LR
-    subgraph Edu["武夷学院教务系统"]
-        A["jwxt.wuyiu.edu.cn<br/>课表 / 成绩页面"]
+flowchart TB
+    A["教务系统<br/>jwxt.wuyiu.edu.cn"]
+
+    subgraph CRAWL["抓取层 · 看不见"]
+        B["隐藏的内置浏览器<br/>带着登录态去取页面"]
+        C["注入的脚本<br/>把网页表格读成数据"]
     end
 
-    subgraph App["Mimi 课表"]
-        B["OkHttp<br/>模拟登录 · 维持会话"]
-        C["WebView<br/>带 Cookie 渲染页面"]
-        D["Java 解析层<br/>HTML → 结构化数据"]
-        E["SharedPreferences<br/>本地缓存"]
-        F["原生 UI"]
-        G["桌面小组件<br/>AppWidgetProvider"]
+    D["AndroidBack 桥<br/>脚本把数据交回 App"]
+    E["本地存储<br/>课表 · 成绩 · 登录态"]
+
+    subgraph UI["展示层"]
+        F["界面浏览器<br/>课表 · 成绩 · 公交 · 地图"]
+        G["原生页面<br/>日程 · 助手 · 我的"]
+        H["桌面小组件"]
     end
 
-    A -->|"HTML / JSON"| B
-    B -->|"Cookie 注入"| C
-    C -->|"页面源码"| D
-    D -->|"课程 · 成绩对象"| E
+    A -->|"网页"| B
+    B -->|"页面内容"| C
+    C -->|"结构化数据"| D
+    D --> E
     E --> F
     E --> G
+    E --> H
+
+    classDef ext fill:#EEF3FA,stroke:#4A90D9,color:#0C447C
+    classDef core fill:#F5F1E8,stroke:#C9A063,color:#4A3B1E
+    classDef data fill:#EDF7EE,stroke:#5C9E6E,color:#1E4230
+    classDef ui fill:#FBEEEA,stroke:#D98A6C,color:#5A2A1C
+    class A ext
+    class B,C core
+    class D,E data
+    class F,G,H ui
 ```
 
-会话过期是这类工具最容易翻车的地方（自动跳回登录页就什么都查不了了），所以做了主动判断与无感续期：
+这张图可以分三层看：
+
+1. **去哪儿取** —— 教务系统，本质上就是一个普通网页
+2. **怎么取** —— 后台那个看不见的浏览器加载它，注入的脚本在页面里把表格解析成数据
+3. **放在哪、给谁看** —— 数据存进本地，界面和桌面小组件都从本地读，不用每次都联网
+
+下面是一次课表刷新的完整过程。
+
+这里最容易出问题的是**登录态过期**：服务器会悄悄把人送回登录页，界面上看起来就是一张空课表，什么提示都没有。所以做了主动判断和自动续期。
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant U as 用户
-    participant A as 本应用
-    participant N as OkHttp
+    participant UI as 界面浏览器
+    participant F as App 主体
+    participant C as 后台浏览器
     participant S as 教务系统
 
-    U->>A: 打开课表
-    A->>A: 读取本地 Cookie
-    alt Cookie 有效
-        A->>N: 携带 Cookie 请求
-        N->>S: GET 课表页面
-        S-->>N: 200 返回 HTML
-        N-->>A: 页面源码
-        A->>A: 解析 → 缓存 → 刷新界面
-    else Cookie 已过期
-        A->>N: 携带过期 Cookie 请求
-        N->>S: GET 课表页面
-        S-->>N: 302 跳回登录页
-        N-->>A: 检测到登录页特征
-        A->>N: 自动重新登录（已存凭据）
-        N->>S: POST 账号密码
-        S-->>N: 下发新 Cookie
-        N-->>A: 更新会话
-        A->>N: 重放原请求
-        N->>S: GET 课表页面
-        S-->>N: 200 返回 HTML
-        A->>A: 解析 → 缓存 → 刷新界面
+    U->>UI: 打开课表
+    UI->>F: 请求刷新
+    F->>C: 带着登录态加载教务
+    C->>S: 请求课表页面
+
+    alt 登录态还有效
+        S-->>C: 返回课表网页
+    else 已经过期
+        S-->>C: 跳回登录页
+        F->>C: 清掉旧登录态 · 用记住的账号密码重登
+        C->>S: 提交登录
+        S-->>C: 下发新的登录态
+        F->>C: 重新请求课表
+        S-->>C: 返回课表网页
     end
-    A-->>U: 展示本周课程
+
+    F->>C: 注入解析脚本
+    C->>C: 按节次编号读表格
+    C-->>F: 交回课程数据
+    F->>F: 存进本地
+    F->>UI: 把数据交给界面
+    UI-->>U: 显示本周课程
+```
+
+解析规则单独存成 `timetable_parser.js`，而不是写死在 Java 字符串里——这套规则经常要改，独立成文件才好在浏览器里调试。晚课（第 9–12 节）的归属判定就靠它：先看节次编号，没有再找行标题里的数字，最后才按位置兜底。
+
+## 功能模块
+
+App 底部有四个标签，各自对应一个页面：
+
+```mermaid
+flowchart LR
+    M["主界面<br/>底部四个标签"]
+
+    M --> HM["课表<br/>兼成绩"]
+    M --> SC["日程"]
+    M --> AS["小助手<br/>公交 · 校园地图"]
+    M --> PF["我的<br/>公告 · 反馈 · 更新"]
+
+    HM --> H1["课表页"]
+    HM --> H2["成绩页"]
+    AS --> A1["公交页"]
+    AS --> A2["地图页"]
+
+    classDef bar fill:#EEF3FA,stroke:#4A90D9,color:#0C447C
+    classDef frag fill:#F5F1E8,stroke:#C9A063,color:#4A3B1E
+    classDef web fill:#FBEEEA,stroke:#D98A6C,color:#5A2A1C
+    class M bar
+    class HM,SC,AS,PF frag
+    class H1,H2,A1,A2 web
 ```
 
 ## 构建
 
+需要 **JDK 17** 和 **Android SDK 34**（含 build-tools）。路径按自己的机器改，`local.properties` 与 `keystore.properties` 都不会被提交。
+
 ```bash
-cp keystore.properties.example keystore.properties   # 填入密钥库路径与密码（不会被提交）
+cp keystore.properties.example keystore.properties   # 填入密钥库路径与密码
 echo "sdk.dir=/your/path/to/Android/sdk" > local.properties
 ./gradlew assembleRelease                            # Windows 用 gradlew.bat
 ```
@@ -127,7 +211,10 @@ app/src/main/
     ├── grade.html            # 成绩页面
     ├── bus.html              # 公交查询页面
     ├── map.html              # 校园地图标注页面（高德 JS API）
-    └── schedule.html         # 日程页面
+    ├── schedule.html         # 日程页面
+    ├── timetable_parser.js   # 课表解析脚本，注入教务页面执行
+    ├── wheel.css             # 时间选择滚轮样式（课表页与日程页共用）
+    └── wheel.js              # 时间选择滚轮逻辑，不依赖 CSS scroll-snap
 ```
 
 ### 界面
@@ -136,9 +223,21 @@ app/src/main/
 | :-- | :-- |
 | `MainActivity.java` | 主界面。安装崩溃处理器、初始化主题、绑定底部导航与页面容器，并触发自动更新检查 |
 | `SplashActivity.java` | 启动页，展示 500ms 后跳转主界面 |
-| `HomeFragment.java` | **核心页面**。用 WebView 承载教务系统，注入 JS 抓取课表与成绩，负责登录态、会话超时判定与数据缓存 |
+| `HomeFragment.java` | **核心页面**。用 WebView 承载教务系统，注入 JS 抓取课表与成绩，负责登录状态、超时判定与数据缓存 |
 | `GradeFragment.java` | 成绩页。继承 `HomeFragment`，仅切换为成绩模式 |
+| `ScheduleFragment.java` | 日程页。倒计日与提醒的时间选择、卡片右滑标记完成 |
+| `AssistantFragment.java` | 小助手页。公交查询与校园地图入口，管理高德 Key 与导航跳转 |
 | `ProfileFragment.java` | 「我的」页面：公告、版本更新、意见反馈、打赏入口 |
+
+### 日程与对话框
+
+| 文件 | 作用 |
+| :-- | :-- |
+| `ScheduleStore.java` | 日程的本地存取与自动清理（永不 / 过期 7 天 / 30 天） |
+| `ScheduleCleanupClickListener.java` | 清理过期日程的入口 |
+| `MimiDialogBuilder.java` | 统一样式的自定义对话框 |
+| `MimiSystemDialogBuilder.java` | 系统风格对话框，用于需要原生外观的场景 |
+| `CarouselSwitchListener.java` | 首页轮播开关，保存用户偏好 |
 
 ### 主题与视觉
 
