@@ -16,8 +16,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 7.0+" />
-  <img src="https://img.shields.io/badge/Java-17-ED8B00?style=flat-square&logo=openjdk&logoColor=white" alt="Java 17" />
+  <img src="https://img.shields.io/badge/Android-5.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 5.0+" />
+  <img src="https://img.shields.io/badge/Java-8-ED8B00?style=flat-square&logo=openjdk&logoColor=white" alt="Java 8" />
   <img src="https://img.shields.io/badge/Gradle-8.9-02303A?style=flat-square&logo=gradle&logoColor=white" alt="Gradle 8.9" />
   <img src="https://img.shields.io/github/stars/Aokiisei/-Mimi-?style=flat-square&label=Stars&color=BA7517" alt="Stars" />
 </p>
@@ -28,7 +28,7 @@
 
 若提示「禁止安装未知来源应用」，去系统设置里允许浏览器 / 文件管理器安装。
 
-> 需要 **Android 7.0** 及以上。每个版本都带独立安装包，v3.1 起的版本另有完整源码。
+> 需要 **Android 5.0** 及以上（API 21）。每个版本都带独立安装包，v3.1 起的版本另有完整源码。
 
 ## 功能
 
@@ -61,14 +61,14 @@
 
 | 项 | 值 |
 | :-- | :-- |
-| 语言 | Java 17 |
+| 语言 | Java（源码级别 1.8，用 JDK 17 构建） |
 | 应用 ID | `com.mimi.kebiao`（源码包 `com.wuyi.kebiao`） |
-| 最低 / 目标版本 | Android 7.0（API 21）/ Android 14（API 34） |
+| 最低 / 目标版本 | Android 5.0（API 21）/ Android 14（API 34） |
 | 构建 | AGP 8.5.2 · Gradle 8.9 · JDK 17 |
 | 当前版本 | 3.3（versionCode 23） |
 | 核心依赖 | AppCompat 1.6.1 · Material 1.11.0 · Navigation 2.7.7 · OkHttp 4.12.0 · Gson 2.10.1 |
 
-登录与取数都由 WebView 走教务系统本身完成（`AndroidBack.login()` 提交，`CookieManager` 维持登录状态），OkHttp 只负责版本检查与公告拉取——不碰教务的任何请求。
+登录与取数都由 WebView 走教务系统本身完成（`AndroidBack.login()` 提交，`CookieManager` 维持登录状态）。更新检查与 APK 下载走 OkHttp，公告和反馈走 `HttpURLConnection`——都不碰教务的请求。
 
 ## 架构
 
