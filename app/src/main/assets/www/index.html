@@ -127,7 +127,9 @@
             outline: none;
             border-color: var(--primary);
             background: var(--card);
-            box-shadow: 0 0 0 3px var(--primary-soft);
+            /* 内发光代替外扩散：聚焦时输入框外框尺寸与未聚焦完全一致，
+               密码框和上面的学号框严格等宽对齐，不再向外“凸”一圈 */
+            box-shadow: inset 0 0 0 2px var(--primary-soft);
         }
         button {
             width: 100%;
@@ -238,22 +240,28 @@
             background: rgba(0,0,0,0.45);
             z-index: 70;
         }
+        /* 城市输入弹窗：屏幕正中的小卡片，只保留一个输入框 */
         #cityPanel {
-            position: fixed; left: 0; right: 0; bottom: 0;
+            position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            width: min(86vw, 340px);
             background: var(--card);
-            border-radius: 20px 20px 0 0;
+            border-radius: 16px;
             padding: 20px;
             z-index: 71;
         }
         #cityPanel h2 { font-size: 17px; color: var(--text); margin-bottom: 14px; text-align: center; }
-        .city-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-        .city-chip {
-            padding: 7px 14px; border-radius: 10px; font-size: 13px;
-            background: var(--input-bg); color: var(--text);
-            border: 1px solid var(--input-border);
-            transition: transform .15s cubic-bezier(.2,.8,.2,1);
+        #cityPanel input { font-size: 15px; }
+        .city-hint {
+            min-height: 18px;
+            margin-top: 8px;
+            font-size: 12px;
+            text-align: center;
+            color: var(--sub);
         }
-        .city-chip:active { transform: scale(.93); }
+        .city-hint.err { color: #c62828; }
+        .city-btns { display: flex; gap: 10px; margin-top: 6px; }
+        .city-btns button { flex: 1; margin-top: 0; padding: 11px; font-size: 15px; }
+        .city-btns .city-cancel { flex: 0 0 96px; background: var(--glass-card); }
         .hidden { display: none; }
         /* ===== 动态玻璃增强层（2.6：叠加在 2.1 原 UI 之上，不改布局/尺寸） ===== */
         body::before {
@@ -294,12 +302,22 @@
             box-shadow: 0 -8px 30px var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
         }
         .btn { box-shadow: inset 0 1px 0 rgba(255,255,255,0.28); }
-        /* 玻璃模式：按钮与内容区强化毛玻璃质感 */
-        html[data-glass="1"] button:not(.clear-btn):not(.copy-log-link) {
+        /* 玻璃模式：按钮与内容区强化毛玻璃质感。
+           彩色按钮（确认/保存/日程类型/色点/全屏）排除在外，保留各自的实色底，
+           否则玻璃渐变会盖掉赤陶底，白字直接看不见 */
+        html[data-glass="1"] button:not(.clear-btn):not(.copy-log-link):not(.confirm-btn):not(.sch-save):not(.sch-mode-btn):not(.sch-color-dot):not(.wk-fullscreen-btn) {
             border-radius: 12px;
             background: linear-gradient(180deg, rgba(255,255,255,0.46), rgba(255,255,255,0.22));
             box-shadow: 0 6px 18px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.62), inset 0 -1px 0 rgba(255,255,255,0.16);
         }
+        /* 玻璃层里的按钮文字改用纯色填充、取消全局细描边：
+           描边+ backdrop-filter 在部分 WebView 重绘时会漏画字形，表现为文字偶发空白 */
+        html[data-glass="1"] button {
+            -webkit-text-stroke: 0;
+            -webkit-text-fill-color: currentColor;
+        }
+        /* 按下时不再叠加 filter：filter 与 backdrop-filter 同层会让部分 WebView 重绘丢失文字 */
+        html[data-glass="1"] button:active { filter: none; }
         html[data-glass="1"] .course-list:not(.wk) {
             background: rgba(250,249,245,0.34);
             border: 1px solid var(--glass-border);
@@ -380,6 +398,10 @@
         .slot-time-row.on { background: var(--input-bg); }
         .slot-time-row.on, .slot-time-row.on b { color: var(--primary); }
         .slot-time-row.on b { font-weight: 600; }
+        /* 课程详情弹层 */
+        .cd-name { font-size: 15px; font-weight: 500; color: var(--text); text-align: left; margin: 2px 0 8px; word-break: break-all; }
+        .cd-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; padding: 7px 10px; border-radius: 9px; font-size: 13px; color: var(--sub); text-align: left; }
+        .cd-row b { font-weight: 500; color: var(--text); text-align: right; word-break: break-all; }
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
             .card, .gcard, #cityPanel { background: var(--card); }
         }
@@ -390,8 +412,6 @@
         .copy-log-link:active { transform: scale(.95); opacity: 1; }
         .hw-city { transition: transform .15s cubic-bezier(.2,.8,.2,1); }
         .hw-city:active { transform: scale(.94); }
-        .city-chip { transition: transform .15s cubic-bezier(.2,.8,.2,1); }
-        .city-chip:active { transform: scale(.93); }
         .hello-card { transition: transform .15s cubic-bezier(.2,.8,.2,1); }
         .hello-card:active { transform: scale(.995); }
         .btn-group {
@@ -489,8 +509,13 @@
             background: var(--wk-accent-soft); box-shadow: inset 0 0 0 1px var(--wk-accent);
             display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1px;
         }
+        /* 可点击的课程卡（带 data-cid）：给出明确的触摸反馈 */
+        .wkg-course[data-cid] { cursor: pointer; }
+        .wkg-course[data-cid]:active { opacity: 0.78; }
         .wkg-course span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-all; color: var(--text); font-size: 9px; font-weight: 500; max-width: 100%; }
         .wkg-course small { max-width: 100%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-all; white-space: normal; line-height: 1.15; font-size: 7.5px; color: var(--sub); }
+        /* 课程名的「前 4 字」副本：普通视图和横屏全屏不显示，仅竖屏全屏使用 */
+        .wkg-course .wkg-cshort { display: none; }
         /* 日程卡片（周视图网格）：颜色跟随日程自选色（默认玫红） */
         .wkg-course.sch-item {
             background: var(--wk-accent-soft);
@@ -526,46 +551,116 @@
         }
         .wk-fullscreen-btn:active { transform: scale(0.94); }
         /* 全屏模式样式（针对整个 courseContent） */
-        #courseContent:fullscreen {
+        /* 全屏模式：一屏完整显示 7 天 × 6 节次，外观对齐教务系统的周课表：
+           表格紧凑、只显示课程名（不显示地点/教师），行高由 JS 按可视区计算并封顶（--fs-row）
+           用 .wk-fs 类而不是 :fullscreen 伪类，兼容不支持 unprefixed 伪类的旧 WebView */
+        #courseContent.wk-fs {
             background: var(--bg, #F5F4ED);
-            overflow: auto; -webkit-overflow-scrolling: touch;
-            padding: 12px;
+            overflow: hidden;
             max-height: none;
+            height: 100vh;
+            display: flex; flex-direction: column;
+            box-sizing: border-box;
+            padding: 0 5px 6px;
+            padding-top: 44px;   /* 避开系统状态栏，保证右上角 ✕ 可点 */
         }
-        #courseContent:fullscreen .wk-title {
-            font-size: 17px; margin-bottom: 12px;
-            position: sticky; top: 0; background: var(--bg, #F5F4ED);
-            padding: 8px 0; z-index: 10;
+        #courseContent.wk-fs .wk-title {
+            font-size: 14px; margin: 0 3px 4px; flex: 0 0 auto;
         }
-        #courseContent:fullscreen .wk-week-badge { font-size: 13px; }
-        #courseContent:fullscreen .wk-fullscreen-btn { font-size: 12px; padding: 2px 8px; }
-        #courseContent:fullscreen .wk-grid-wrap {
-            margin: 0 0 12px;
+        #courseContent.wk-fs .wk-week-badge { font-size: 11px; padding: 0 6px; }
+        #courseContent.wk-fs .wk-fullscreen-btn {
+            font-size: 13px; padding: 0 9px; line-height: 18px;
+            position: static; z-index: auto;
         }
         /* 全屏只显示网格课表，隐藏下方的日视图卡片列表 */
-        #courseContent:fullscreen .wk-day,
-        #courseContent:fullscreen .wk-note {
+        #courseContent.wk-fs .wk-day,
+        #courseContent.wk-fs .wk-note,
+        #courseContent.wk-fs .wk-subtitle,
+        #courseContent.wk-fs .wk-actions {
             display: none;
         }
-        /* 全屏网格：横向可滚动 + 最小宽度，竖屏时 7 列不被压窄裁字；横屏时自动撑满 */
-        #courseContent:fullscreen .wk-grid-scroll { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; }
-        #courseContent:fullscreen .wk-grid {
-            min-width: 640px; width: 100%;
-            grid-template-columns: 30px repeat(7, 1fr);
+        #courseContent.wk-fs .wk-grid-wrap {
+            flex: 0 0 auto; margin: 0; min-height: 0;
+            display: flex; flex-direction: column;
+            background: var(--card); border: 1px solid var(--input-border);
+            box-shadow: none; border-radius: 10px; overflow: hidden;
         }
-        #courseContent:fullscreen .wkg-head { font-size: 13px; padding: 10px 0 8px; }
-        #courseContent:fullscreen .wkg-head small { font-size: 11px; }
-        #courseContent:fullscreen .wkg-slot { font-size: 11px; height: 64px; }
-        #courseContent:fullscreen .wkg-slot small { font-size: 10px; }
-        #courseContent:fullscreen .wkg-cell { height: 64px; --cell-h: 64px; }
-        #courseContent:fullscreen .wkg-course span { font-size: 11px; }
-        #courseContent:fullscreen .wkg-course small { font-size: 9px; }
-        /* 横屏时单元格稍矮，更多内容可见 */
+        #courseContent.wk-fs .wk-grid-scroll {
+            flex: 0 0 auto; min-height: 0;
+            overflow: hidden;
+        }
+        #courseContent.wk-fs .wk-grid {
+            display: grid;
+            grid-template-columns: 36px repeat(7, minmax(0, 1fr));
+            grid-template-rows: auto repeat(6, var(--fs-row, 56px));
+            width: 100%; min-width: 0;
+        }
+        #courseContent.wk-fs .wkg-corner,
+        #courseContent.wk-fs .wkg-head { background: var(--input-bg); }
+        #courseContent.wk-fs .wkg-head {
+            font-size: 10.5px; padding: 4px 0 3px; text-align: center; line-height: 1.2;
+        }
+        #courseContent.wk-fs .wkg-head small { font-size: 8.5px; display: block; line-height: 1.1; margin-top: 1px; }
+        #courseContent.wk-fs .wkg-corner { height: 100%; }
+        #courseContent.wk-fs .wkg-slot {
+            font-size: 8.5px; padding: 1px 0; height: var(--fs-row, 56px);
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center;
+            overflow: hidden; line-height: 1.15;
+        }
+        #courseContent.wk-fs .wkg-slot small { font-size: 7.5px; margin-top: 1px; font-weight: 400; display: block; line-height: 1.1; }
+        #courseContent.wk-fs .wkg-cell {
+            height: var(--fs-row, 56px);
+            --cell-h: var(--fs-row, 56px);
+            padding: 2px; gap: 2px;
+            overflow: hidden;
+        }
+        /* 跨格日程的外框要能越过本格继续向下延伸，不能被单格裁掉 */
+        #courseContent.wk-fs .wkg-cell.has-span { overflow: visible; z-index: 6; }
+        /* 全屏课程卡片：只显示课程名（不显示地点/教师），最多两行，超出省略 */
+        #courseContent.wk-fs .wkg-course {
+            flex: 1 1 0; min-height: 0;
+            padding: 2px 2px; margin: 0; border-radius: 5px;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            text-align: center; line-height: 1.25;
+            overflow: hidden;
+        }
+        #courseContent.wk-fs .wkg-course span {
+            font-size: 11.5px; font-weight: 500;
+            width: 100%; overflow: hidden;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            white-space: normal; word-break: break-all;
+        }
+        /* 竖屏全屏：课程名只显示前 4 个字（单行，字号随屏宽自适应） */
+        #courseContent.wk-fs .wkg-course .wkg-cname { display: none; }
+        #courseContent.wk-fs .wkg-course .wkg-cshort {
+            display: block; width: auto; max-width: 100%;
+            font-size: 10px; font-size: clamp(8px, 2.5vw, 11px);
+            line-height: 1.25; letter-spacing: -0.2px;
+            white-space: nowrap; text-overflow: ellipsis;
+            word-break: keep-all; overflow: hidden;
+        }
+        #courseContent.wk-fs .wkg-course small { display: none; }
+        /* 横屏全屏：恢复完整课程名 + 地点 */
         @media (orientation: landscape) {
-            #courseContent:fullscreen .wkg-head { font-size: 14px; }
-            #courseContent:fullscreen .wkg-slot { height: 56px; }
-            #courseContent:fullscreen .wkg-cell { height: 56px; --cell-h: 56px; }
+            #courseContent.wk-fs .wkg-course .wkg-cname {
+                display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+                white-space: normal; word-break: break-all;
+            }
+            #courseContent.wk-fs .wkg-course .wkg-cshort { display: none; }
+            #courseContent.wk-fs .wkg-course small { display: -webkit-box; }
         }
+        /* 全屏日程框：删除时间，标题每行 2 个字（2×2 排布更整齐），框本身裁剪防溢出 */
+        #courseContent.wk-fs .wkg-span { overflow: hidden; }
+        #courseContent.wk-fs .wkg-span-page { padding: 3px 3px; font-size: 10px; }
+        #courseContent.wk-fs .wkg-span.solid .wkg-span-page > span,
+        #courseContent.wk-fs .wkg-span.sch-active .wkg-span-page > span {
+            width: 2.15em; margin: 0 auto; font-size: 11px; line-height: 1.25;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            white-space: normal; word-break: break-all; overflow: hidden;
+        }
+        #courseContent.wk-fs .wkg-span-page > small { display: none; }
         .wk-note { text-align: center; color: var(--sub); font-size: 11px; margin: 0 0 12px; }
         .wk-day { margin-bottom: 14px; }
         .wk-day-head {
@@ -679,8 +774,43 @@
             cursor: pointer;
         }
         .clear-btn:active { opacity: 0.7; }
-        .pwd-wrap { position: relative; }
+        .pwd-wrap { position: relative; width: 100%; }
         .pwd-wrap input { padding-right: 42px; }
+        /* 密码掩码：不再依赖字体里的圆点字形（各机型宽度不同，容易挤成一坨）。
+           这里把原生文字设为透明，由 .pwd-dots 自绘等距圆点，保证任何机型都清晰可数 */
+        .pwd-wrap input[type="password"] {
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+            caret-color: var(--text);
+            letter-spacing: normal;
+            -webkit-text-stroke: 0;
+        }
+        /* 原生文字透明后，占位符需要单独恢复颜色 */
+        .pwd-wrap input[type="password"]::placeholder {
+            color: var(--sub);
+            -webkit-text-fill-color: var(--sub);
+        }
+        .pwd-dots {
+            position: absolute;
+            left: 17px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            height: 18px;
+            max-width: calc(100% - 64px);
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .pwd-dots.hidden { display: none; }
+        .pwd-dots i {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text);
+            flex: 0 0 7px;
+        }
         .pwd-eye {
             position: absolute;
             right: 10px;
@@ -871,6 +1001,7 @@
             <label>密码</label>
             <div class="pwd-wrap">
                 <input type="password" id="password" placeholder="请输入密码">
+                <div class="pwd-dots hidden" id="pwdDots"></div>
                 <span id="pwdEye" class="pwd-eye"></span>
             </div>
         </div>
@@ -942,6 +1073,15 @@
         </div>
     </div>
 </div>
+<div id="courseDetailMask" class="confirm-mask hidden" onclick="if(event.target===this)hideCourseDetail()">
+    <div class="confirm-card">
+        <div class="confirm-title">课程详情</div>
+        <div id="courseDetailList" class="slot-time-list"></div>
+        <div class="confirm-btns">
+            <button class="confirm-btn ok" onclick="hideCourseDetail()">知道了</button>
+        </div>
+    </div>
+</div>
 <div id="scheduleMask" class="sch-mask hidden">
     <div class="sch-dialog">
         <h3>添加日程</h3>
@@ -968,10 +1108,11 @@
 </div>
 <div id="cityPanel" class="hidden">
     <h2>选择城市</h2>
-    <div class="city-grid" id="cityGrid"></div>
-    <div style="display:flex;gap:10px;margin-top:12px;">
-        <input id="cityInput" type="text" placeholder="输入城市名，如：武夷山" autocomplete="off" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--text);font-size:14px;">
-        <button id="cityOk" style="flex:0 0 84px;margin:0;padding:10px;font-size:14px;">确定</button>
+    <input id="cityInput" type="text" placeholder="输入城市名，如：武夷山" autocomplete="off" maxlength="20">
+    <div class="city-hint" id="cityHint">默认武夷山，可直接输入其他城市</div>
+    <div class="city-btns">
+        <button id="cityCancel" class="city-cancel">取消</button>
+        <button id="cityOk">确定</button>
     </div>
 </div>
 
@@ -1154,6 +1295,17 @@
         lpTexts.forEach(function(el){ if (el && t) el.textContent = t; });
         if (lpBars[0]) lpBars[0].classList.add('idle');
     }
+    // 登录进度：Java 在关键节点调用，文字后面带百分比（0-100）
+    window.mimiLoginProgress = function(pct, text) {
+        try {
+            var p = Math.round(Number(pct) || 0);
+            if (p < 0) p = 0;
+            if (p > 100) p = 100;
+            var t = String(text || '正在登录教务系统…');
+            showProgress(t + ' ' + p + '%');
+            if (p >= 100) { lpLocked = true; hideProgress(900); }
+        } catch(e) {}
+    };
     // 内部消息翻译成大白话；返回 null 不显示
     function simplifyTimetableMsg(msg) {
         if (!msg) return null;
@@ -1164,7 +1316,12 @@
             if (u.indexOf('xsMainV.htmlx') >= 0) return '已进入教务系统，正在读取课表...';
             return null;
         }
-        if (msg.indexOf('[A] ') === 0) return msg.substring(4);
+        if (msg.indexOf('[A] ') === 0) {
+            const a = msg.substring(4);
+            // 请求报文、提交值自检等属于排查证据，只留在可复制的完整日志里，不上屏
+            if (a.indexOf('[网络]') >= 0 || a.indexOf('提交值自检') >= 0 || a.indexOf('cookie') >= 0) return null;
+            return a;
+        }
         if (msg.indexOf('[JS] ') === 0) return msg.substring(4);
         if (msg.indexOf('[页] ') === 0) {
             const p = msg.substring(4);
@@ -1212,8 +1369,31 @@
     pwdEye.onclick = function() {
         passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
         setEyeIcon();
+        syncPwdDots();
     };
     setEyeIcon();
+    // 密码圆点：原生掩码文字已设为透明，这里按字符数自绘等距圆点，
+    // 彻底规避不同机型圆点字形宽度不一致、叠加成一坨的问题
+    const pwdDots = document.getElementById('pwdDots');
+    function syncPwdDots() {
+        if (!pwdDots) return;
+        const n = passwordInput.value ? passwordInput.value.length : 0;
+        if (passwordInput.type !== 'password' || n === 0) {
+            pwdDots.innerHTML = '';
+            pwdDots.__n = 0;
+            pwdDots.classList.add('hidden');
+            return;
+        }
+        if (pwdDots.__n !== n) {
+            let h = '';
+            const cnt = n > 40 ? 40 : n;
+            for (let i = 0; i < cnt; i++) h += '<i></i>';
+            pwdDots.innerHTML = h;
+            pwdDots.__n = n;
+        }
+        pwdDots.classList.remove('hidden');
+    }
+    passwordInput.addEventListener('input', syncPwdDots, false);
 
 
     function getTodayWeekday() {
@@ -1231,32 +1411,38 @@
         return weekdays[tomorrow.getDay()];
     }
 
-    // 解析周次范围，如 [1-16周] / [3周] / [1-8周,10-16周]
+    // 解析周次范围：支持 [1-16周] / [3周] / [1-8周,10-16周] / [1-8周][10-16周] / 1-16周(单)
+    // 旧实现只取第一个 [] 段，导致「后半学期才上的课」（如第15周）被判为不上课而漏显示
     function parseWeekRanges(wr) {
         if (!wr) return null;
-        const m = wr.match(/\[(.*?)\]/);
-        let s = m ? m[1] : wr;
-        s = s.replace(/周/g, '');
+        const s = String(wr);
         const segs = [];
-        s.split(',').forEach(p => {
-            p = p.trim();
-            if (!p) return;
-            if (p.indexOf('-') >= 0) {
-                const ab = p.split('-');
-                segs.push([parseInt(ab[0]), parseInt(ab[1])]);
+        const re = /(\d{1,2})\s*[-~—－至]\s*(\d{1,2})\s*周\s*[（(]?\s*([单双])?|(\d{1,2})\s*周\s*[（(]?\s*([单双])?/g;
+        let m;
+        while ((m = re.exec(s)) !== null) {
+            let a, b, parity = '';
+            if (m[1] != null) {
+                a = parseInt(m[1], 10);
+                b = parseInt(m[2], 10);
+                parity = m[3] || '';
             } else {
-                const n = parseInt(p);
-                if (!isNaN(n)) segs.push([n, n]);
+                a = b = parseInt(m[4], 10);
+                parity = m[5] || '';
             }
-        });
+            if (isNaN(a) || isNaN(b)) continue;
+            segs.push([Math.min(a, b), Math.max(a, b), parity]);
+        }
         return segs.length ? segs : null;
     }
 
     function courseInWeek(c, n) {
         const segs = parseWeekRanges(c.weekRange);
         if (!segs) return true;
-        for (let s of segs) {
-            if (n >= s[0] && n <= s[1]) return true;
+        for (const s of segs) {
+            if (n < s[0] || n > s[1]) continue;
+            if (s[2] === '单' && n % 2 === 0) continue;
+            if (s[2] === '双' && n % 2 === 1) continue;
+            return true;
         }
         return false;
     }
@@ -1383,13 +1569,60 @@
             + '<div class="wk-icon">' + esc((c.name || '?').substring(0, 1)) + '</div>'
             + '<div class="wk-main"><div class="wk-name">' + esc(c.name || '未知课程') + '</div>'
             + '<div class="wk-hl">'
-            + '<span>' + WK_ICONS.clock + esc(secText) + (alias && si >= 0 ? '(<span class="wk-alias" onclick="showSlotTime(' + si + ')">' + esc(alias) + '</span>)' : (alias ? '(' + esc(alias) + ')' : '')) + '</span>'
+            + '<span>' + WK_ICONS.clock + esc(secText) + (alias && si >= 0 ? '(<span class="wk-alias" onclick="event.stopPropagation();showSlotTime(' + si + ')">' + esc(alias) + '</span>)' : (alias ? '(' + esc(alias) + ')' : '')) + '</span>'
             + '<span>' + WK_ICONS.pin + esc(cleanLoc(c.location) || '未知地点') + '</span>'
             + '<span>' + WK_ICONS.user + esc(c.teacher || '未知教师') + '</span>'
             + '</div>'
             + (c.weekRange ? '<div class="wk-weeks">' + WK_ICONS.cal + fmtWeeks(c.weekRange) + '</div>' : '')
             + '</div></div>';
     }
+
+    // ===== 课程详情弹层：点课程卡片，显示周次范围与上课信息 =====
+    let __cardSeq = 0;
+    const __cardMap = {};
+    function cardIdOf(c) {
+        if (!c.__cid) c.__cid = ++__cardSeq;
+        __cardMap[c.__cid] = c;
+        return c.__cid;
+    }
+    // 周次文案：把「[1-8周][10-16周]」写成「第1-8周、第10-16周」
+    function fmtWeekDetail(wr) {
+        const segs = parseWeekRanges(wr);
+        if (!segs) return '全部周次';
+        return segs.map(function(s) {
+            const t = (s[0] === s[1]) ? ('第' + s[0] + '周') : ('第' + s[0] + '-' + s[1] + '周');
+            return s[2] ? (t + '（' + s[2] + '周）') : t;
+        }).join('、');
+    }
+    window.showCourseDetail = function(cid) {
+        const c = __cardMap[cid];
+        const mask = document.getElementById('courseDetailMask');
+        const box = document.getElementById('courseDetailList');
+        if (!c || !mask || !box) return;
+        function row(k, v) {
+            return '<div class="cd-row"><span>' + k + '</span><b>' + esc(v) + '</b></div>';
+        }
+        const si = slotIndexOfCourse(c);
+        const secText = c.sections || (si >= 0 && SLOT_NAMES[si] ? SLOT_NAMES[si] : (c.timeSlot || ''));
+        const timeText = (si >= 0 && SLOT_TIMES[si]) ? (SLOT_TIMES[si][0] + ' - ' + SLOT_TIMES[si][1]) : '';
+        let h = '<div class="cd-name">' + esc(c.name || '未知课程') + '</div>';
+        if (c.__schedule) {
+            h += row('日期', c.note || '');
+            if (c.sections) h += row('时间', c.sections);
+            if (c.location) h += row('地点', c.location);
+        } else {
+            h += row('周次', fmtWeekDetail(c.weekRange));
+            h += row('时间', (c.dayOfWeek ? c.dayOfWeek + ' · ' : '') + secText + (timeText ? '（' + timeText + '）' : ''));
+            h += row('地点', cleanLoc(c.location) || '未知地点');
+            h += row('教师', c.teacher || '未知教师');
+        }
+        box.innerHTML = h;
+        mask.classList.remove('hidden');
+    };
+    window.hideCourseDetail = function() {
+        const mask = document.getElementById('courseDetailMask');
+        if (mask) mask.classList.add('hidden');
+    };
     function daySection(day, list, idx0, dateStr, isCurWeek) {
         const isToday = isCurWeek !== false && day === getTodayWeekday();
         list.sort(function(a, b) { return slotIndexOfCourse(a) - slotIndexOfCourse(b); });
@@ -1655,6 +1888,7 @@
         if (v.type === 'tomorrow') window.requestTomorrow();
         else if (v.type === 'week') renderWeekCards('本周课表', null, '日期为本周实际日期，周次为各课上课周', undefined, getCurrentWeekNo());
         else if (v.type === 'custom' && v.weekNo) renderWeekCards('第' + v.weekNo + '周课表', function(c) { return courseInWeek(c, v.weekNo); }, undefined, undefined, v.weekNo);
+        else if (v.type === 'all') renderAllWeeks();
         else window.requestToday();
     }
     window.refreshSchedules = function() {
@@ -1689,23 +1923,161 @@
     // 全屏状态变化时同步按钮文案（支持 Esc / 系统返回键退出）
     document.addEventListener('fullscreenchange', updateFullscreenBtns);
     document.addEventListener('webkitfullscreenchange', updateFullscreenBtns);
+    window.addEventListener('resize', function() {
+        if (document.fullscreenElement || document.webkitFullscreenElement) applyFullscreenRowHeight();
+    });
+    window.addEventListener('orientationchange', function() {
+        setTimeout(function() {
+            if (document.fullscreenElement || document.webkitFullscreenElement) applyFullscreenRowHeight();
+        }, 300);
+    });
+    /**
+     * 全屏下按可视区高度计算每节行高：一屏放下 6 节次且不溢出。
+     * 行高封顶 76px（对齐教务系统紧凑表格的观感），屏幕较矮时才按可视区压缩。
+     * 依赖 rem/vh 在这里不可靠（WebView 的全屏区域与 100vh 不完全一致），直接量元素高度最稳。
+     */
+    function applyFullscreenRowHeight() {
+        try {
+            const box = document.getElementById('courseContent');
+            if (!box) return;
+            const cs = getComputedStyle(box);
+            const padTop = parseFloat(cs.paddingTop) || 0;
+            const padBottom = parseFloat(cs.paddingBottom) || 0;
+            const titleEl = box.querySelector('.wk-title');
+            const headEl = box.querySelector('.wkg-head');
+            const titleH = titleEl ? titleEl.getBoundingClientRect().height : 0;
+            const titleMb = titleEl ? (parseFloat(getComputedStyle(titleEl).marginBottom) || 0) : 0;
+            const headH = headEl ? headEl.getBoundingClientRect().height : 0;
+            const avail = box.clientHeight - padTop - padBottom - titleH - titleMb - headH - 2;
+            if (avail <= 0) return;
+            // 一屏容纳 6 节次；不超过 76px，避免大屏上把格子拉得又高又空
+            const rowH = Math.max(36, Math.min(Math.floor(avail / 6), 76));
+            box.style.setProperty('--fs-row', rowH + 'px');
+            timetableLog('[页] 全屏行高: ' + rowH + 'px × 6（可视区 ' + box.clientHeight + 'px）');
+        } catch (e) {}
+    }
     function updateFullscreenBtns() {
         const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
         document.querySelectorAll('.wk-fullscreen-btn').forEach(function(b) {
             b.textContent = isFs ? '✕' : '⛶';
             b.title = isFs ? '退出全屏' : '全屏';
         });
+        const box = document.getElementById('courseContent');
+        if (isFs) {
+            // 全屏样式挂在 .wk-fs 类上，兼容不支持 :fullscreen 伪类的 WebView
+            if (box) box.classList.add('wk-fs');
+            // 等浏览器完成全屏尺寸变更后再量（连续两次 rAF 更稳）
+            requestAnimationFrame(function() {
+                applyFullscreenRowHeight();
+                requestAnimationFrame(applyFullscreenRowHeight);
+            });
+        } else if (box) {
+            box.classList.remove('wk-fs');
+            box.style.removeProperty('--fs-row');
+        }
     }
-    function renderWeekGrid(filterFn, weekNo, isCurWeek) {
+    // 一条课程记录覆盖的周数（越窄越具体，例如「第1周」比「1-18周」更具体）
+    function weekSpanLen(wr) {
+        const segs = parseWeekRanges(wr);
+        if (!segs) return 99;
+        let n = 0;
+        segs.forEach(function(s) { n += Math.abs(s[1] - s[0]) + 1; });
+        return n;
+    }
+    // 单周视图：同一时间格、同一门课只保留一条，避免换教室的多条记录重复渲染（右上角 1/N 叠加）
+    function dedupeCellCourses(list) {
+        if (list.length <= 1) return list;
+        const groups = {}, order = [];
+        list.forEach(function(c) {
+            // 去掉括号备注后的课程名作为归并键：同门课的不同地点/不同周次视为同一条
+            const k = String(c.name || '').replace(/[（(].*?[）)]/g, '').replace(/\s+/g, '');
+            if (!groups[k]) { groups[k] = []; order.push(k); }
+            groups[k].push(c);
+        });
+        const out = [];
+        order.forEach(function(k) {
+            const arr = groups[k];
+            if (arr.length === 1) { out.push(arr[0]); return; }
+            // 多条时取「周次最具体」的那条：第1周换教室，就显示第1周那间教室
+            let best = arr[0];
+            for (let i = 1; i < arr.length; i++) {
+                if (weekSpanLen(arr[i].weekRange) < weekSpanLen(best.weekRange)) best = arr[i];
+            }
+            out.push(best);
+        });
+        return out;
+    }
+    // 当前周所属的周次文案（如「[1-4周][5-16周]」在第15周只显示「第5-16周」）
+    function activeWeekText(wr, week) {
+        if (!week) return wr;
+        const segs = parseWeekRanges(wr);
+        if (!segs) return wr;
+        const hit = segs.filter(function(s) {
+            if (week < s[0] || week > s[1]) return false;
+            if (s[2] === '单' && week % 2 === 0) return false;
+            if (s[2] === '双' && week % 2 === 1) return false;
+            return true;
+        });
+        if (!hit.length) return wr;
+        return hit.map(function(s) {
+            const t = (s[0] === s[1]) ? ('第' + s[0] + '周') : ('第' + s[0] + '-' + s[1] + '周');
+            return s[2] ? (t + '（' + s[2] + '周）') : t;
+        }).join('、');
+    }
+    // 日视图（今天/明天）去重：同一天、同一节次、同一门课只保留一条。
+    // 换教室或整学期补抓会产生同课多条记录（如「5-16周」与「1-4周、5-16周」），
+    // 优先取「包含当前周且周次最具体」的那条，并只显示当前周所属的周次区间。
+    function dedupeDayCourses(list, week) {
+        const groups = {}, order = [], sches = [];
+        list.forEach(function(c) {
+            if (c.__schedule) { sches.push(c); return; }
+            let k = String(c.name || '').replace(/[（(].*?[）)]/g, '').replace(/\s+/g, '');
+            const si = slotIndexOfCourse(c);
+            k += '|' + (c.dayOfWeek || '') + '|' + (si >= 0 ? si : String(c.timeSlot || c.sections || ''));
+            if (!groups[k]) { groups[k] = []; order.push(k); }
+            groups[k].push(c);
+        });
+        const out = [];
+        order.forEach(function(k) {
+            const arr = groups[k];
+            let best = arr[0];
+            for (let i = 1; i < arr.length; i++) {
+                const bestIn = week ? courseInWeek(best, week) : true;
+                const curIn = week ? courseInWeek(arr[i], week) : true;
+                if (curIn && !bestIn) { best = arr[i]; continue; }
+                if (curIn === bestIn && weekSpanLen(arr[i].weekRange) < weekSpanLen(best.weekRange)) best = arr[i];
+            }
+            if (week && best.weekRange) {
+                // 浅拷贝，避免改动全周次详情弹层依赖的原始数据
+                const copy = {};
+                for (const k2 in best) {
+                    if (Object.prototype.hasOwnProperty.call(best, k2)) copy[k2] = best[k2];
+                }
+                copy.weekRange = activeWeekText(best.weekRange, week);
+                out.push(copy);
+            } else {
+                out.push(best);
+            }
+        });
+        return out.concat(sches);
+    }
+    function renderWeekGrid(filterFn, weekNo, isCurWeek, allWeeks) {
         const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
         const labels = ['1-2', '3-4', '5-6', '7-8', '9-10', '11-12'];
         const labelSubs = ['早八', '早十', '午二', '午四', '晚七', '晚九'];
         const today = isCurWeek === false ? '' : getTodayWeekday();
-        // 推算各天的实际日期：本周用今天推算，选周用学期第一周推算
+        // 视图周次：选周视图用所选周，本周/今日/明日视图用当前教学周
+        // 课表数据现在包含整学期课程（含只在其他周上的课），必须按视图周次再过滤一次，否则会串周显示
+        // 全部周次视图不做周次过滤（同一格允许叠加该课在各周的全部安排）
+        const viewW = allWeeks ? null : ((weekNo != null) ? weekNo : getCurrentWeekNo());
+        function inView(c) {
+            return (!filterFn || filterFn(c)) && (viewW == null || courseInWeek(c, viewW));
+        }
+        // 推算各天的实际日期：本周/全部周次用今天推算，选周用所选周推算
         const dates = {};
         days.forEach(function(d) {
             const dn = DAY_NAME_TO_NUM[d];
-            if (weekNo) dates[d] = getDateForWeekDay(weekNo, dn);
+            if (weekNo && !allWeeks) dates[d] = getDateForWeekDay(weekNo, dn);
             else dates[d] = getDateForWeekDay(null, dn); // 本周：用今天推算
         });
         let h = '<div class="wk-grid-wrap"><div class="wk-grid-scroll"><div class="wk-grid"><div class="wkg-corner"></div>';
@@ -1717,18 +2089,26 @@
             h += '<div class="wkg-slot">' + lb + '<small>(' + labelSubs[ri] + ')</small></div>';
             days.forEach(function(d) {
                 const dayIso = isoForWeekDay(weekNo, DAY_NAME_TO_NUM[d]);
-                const daySch = schedulesForIso(dayIso).map(function(s) {
+                // 全部周次视图不显示任何日程信息（日程只属于具体的某一周/某一天）
+                const daySch = allWeeks ? [] : schedulesForIso(dayIso).map(function(s) {
                     return { s: s, si: scheduleSlotIndex(s), span: scheduleSpan(s), isSingle: !!s.single };
                 });
                 // 本格的**课程**永远正常渲染（不被任何跨格日程吞掉）
-                const list = window.coursesData.filter(function(c) {
-                    return c.dayOfWeek === d && slotIndexOfCourse(c) === ri && (!filterFn || filterFn(c));
+                let list = window.coursesData.filter(function(c) {
+                    return c.dayOfWeek === d && slotIndexOfCourse(c) === ri && inView(c);
                 });
+                // 单周视图：同一门课的多条记录（如第1周换教室）只留最贴合本周的那一条，避免 1/N 重复叠加
+                if (!allWeeks) list = dedupeCellCourses(list);
                 const courseItems = [];
                 list.forEach(function(c) {
                     const col = wkColor(c.name || '?');
-                    courseItems.push('<div class="wkg-course" style="--wk-accent:' + col + ';--wk-accent-soft:' + hexSoft(col) + '">'
-                    + '<span>' + esc(c.name || '课程') + '</span>'
+                    const nm = String(c.name || '课程');
+                    // 仅「全部周次」场景挂 data-cid（点击看详情）；单周视图不挂，避免误触与翻页冲突
+                    const cidAttr = allWeeks ? (' data-cid="' + cardIdOf(c) + '"') : '';
+                    // 完整名称 + 前 4 字副本：竖屏全屏显示后者，横屏/普通视图显示前者
+                    courseItems.push('<div class="wkg-course"' + cidAttr + ' style="--wk-accent:' + col + ';--wk-accent-soft:' + hexSoft(col) + '">'
+                    + '<span class="wkg-cname">' + esc(nm) + '</span>'
+                    + '<span class="wkg-cshort">' + esc(nm.slice(0, 4)) + '</span>'
                     + (cleanLoc(c.location) ? '<small>' + esc(cleanLoc(c.location)) + '</small>' : '') + '</div>');
                 });
                 // 跨格日程：按 (起始节次, 跨格数) 分组，同组共用一圈外框，多条时右上角 1/N 角标翻页
@@ -1758,16 +2138,17 @@
                     const multi = grp.length > 1;
                     // 日程框可能跨到下面几格：只要跨格范围内任意一格有课程，就保持透明外框让课程透出；
                     // 全部格子都空时才实底显示日程内容（否则实底会盖住下面格子的课程）
-                    const spanRows = grp[0].span;
+                    // 跨格数不能超过表格剩余行数，否则框会越出表格底部，文字被裁成半截
+                    const spanRows = Math.min(grp[0].span, labels.length - ri);
                     const hasCourseInSpan = window.coursesData.some(function(c) {
                         if (c.dayOfWeek !== d) return false;
                         const ci = slotIndexOfCourse(c);
-                        return ci >= ri && ci < ri + spanRows && (!filterFn || filterFn(c));
+                        return ci >= ri && ci < ri + spanRows && inView(c);
                     });
                     const solid = !hasCourseInSpan;
                     h += '<div class="wkg-span' + (multi ? ' wkg-pager' : '') + (solid ? ' solid' : '') + '"'
                         + (multi ? ' data-pg="0"' : '')
-                        + ' style="--span:' + grp[0].span + '">';
+                        + ' style="--span:' + spanRows + '">';
                     grp.forEach(function(ds, i) {
                         const sc = ds.s.color || '#D97757';
                         const page = '<div class="wkg-span-page" style="--wk-accent:' + sc + '">'
@@ -1800,7 +2181,7 @@
         h += '</div></div></div>';
         return h;
     }
-    function renderWeekCards(title, filterFn, note, showGrid, weekNo, hideBadge) {
+    function renderWeekCards(title, filterFn, note, showGrid, weekNo, hideBadge, allWeeks) {
         // 重渲染时先收起单点提醒浮层，避免停留在旧位置
         const __rp = document.getElementById('remindPop');
         if (__rp) __rp.classList.add('hidden');
@@ -1811,6 +2192,12 @@
         }
         // 只有所选周就是当前周时，才显示"今天"标记与高亮
         const curW = getCurrentWeekNo();
+        // 视图周次：选周视图用所选周，本周/今天/明天视图用当前教学周。
+        // 课表数据现已包含整学期课程，不再「只有当前周」，所以默认视图也要按周次过滤，避免串周。
+        const viewW = allWeeks ? null : ((weekNo != null) ? weekNo : curW);
+        function inViewCard(c) {
+            return (!filterFn || filterFn(c)) && (viewW == null || courseInWeek(c, viewW));
+        }
         // 回传当前教学周给桌面小组件（仅在周次变化时调用，避免每次渲染都触发刷新）
         try {
             if (curW && window.__widgetWeek !== curW) {
@@ -1818,18 +2205,20 @@
                 Android.setWidgetWeek(String(curW));
             }
         } catch(e) {}
-        const isCurWeek = (weekNo == null) || (curW != null && weekNo === curW);
+        const isCurWeek = allWeeks ? false : ((weekNo == null) || (curW != null && weekNo === curW));
         // 推算各天的实际日期
         const dates = {};
         ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].forEach(function(day) {
             const dn = DAY_NAME_TO_NUM[day];
-            if (weekNo) dates[day] = getDateForWeekDay(weekNo, dn);
+            if (weekNo && !allWeeks) dates[day] = getDateForWeekDay(weekNo, dn);
             else dates[day] = getDateForWeekDay(null, dn);
         });
         let html = '<div class="wk-title"><span class="wk-title-text">' + esc(title) + '</span>';
         // 仅周视图显示周次徽标；日视图（今天/明天）不显示
         if (!hideBadge) {
-            if (weekNo) {
+            if (allWeeks) {
+                html += '<span class="wk-week-badge">全部周次</span>';
+            } else if (weekNo) {
                 html += '<span class="wk-week-badge">第' + weekNo + '周</span>';
             } else if (curW) {
                 html += '<span class="wk-week-badge">第' + curW + '周</span>';
@@ -1841,12 +2230,17 @@
         }
         html += '</div>';
         if (note) html += '<div class="wk-note">' + esc(note) + '</div>';
-        if (showGrid !== false) html += renderWeekGrid(filterFn, weekNo, isCurWeek);
+        if (showGrid !== false) html += renderWeekGrid(filterFn, weekNo, isCurWeek, allWeeks);
         let idx = 0, any = false;
+        // 周课表只用网格展示；逐日排列的卡片列表只保留给「今天/明天」这类日视图
+        const gridOnly = allWeeks || weekNo != null || !filterFn;
+        if (!gridOnly) {
         ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].forEach(function(day) {
-            const list = window.coursesData.filter(function(c) {
-                return c.dayOfWeek === day && (!filterFn || filterFn(c));
+            let list = window.coursesData.filter(function(c) {
+                return c.dayOfWeek === day && inViewCard(c);
             });
+            // 今天/明天列表：同课同节次只保留一条，并显示当前周对应的周次区间
+            list = dedupeDayCourses(list, viewW);
             // 合并当日日程（按实际日期精确匹配），与课程一起按节次排序展示
             let dayIso = isoForWeekDay(weekNo, DAY_NAME_TO_NUM[day]);
             // 日视图（今天/明天）：只合并被查看那一天，其余天不合并，避免明天日程混进今天板块
@@ -1861,14 +2255,31 @@
             html += daySection(day, list, idx, dates[day] || '', isCurWeek);
             idx += list.length;
         });
+        }
         courseContent.classList.add('wk');
-        courseContent.innerHTML = any ? html : '<div class="wk-empty">' + esc(title) + '：暂无课程</div>';
+        if (gridOnly) {
+            const has = window.coursesData.some(inViewCard);
+            courseContent.innerHTML = has ? html : '<div class="wk-empty">' + esc(title) + '：暂无课程</div>';
+        } else {
+            courseContent.innerHTML = any ? html : '<div class="wk-empty">' + esc(title) + '：暂无课程</div>';
+        }
         // 渲染完成后按设置决定是否开启多页卡片自动轮播
         try { window.applyCarousel && window.applyCarousel(); } catch(e) {}
+        // 正处于全屏时，重渲染会重建标题行与表格：同步按钮文案并重新量行高
+        try {
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                updateFullscreenBtns();
+            }
+        } catch(e) {}
     }
     function renderDayView(day, label) {
         window.__dayViewDay = day; // 供日程合并判断：日视图只显示被查看当天的日程
         renderWeekCards(label + ' · ' + day, function(c) { return c.dayOfWeek === day; }, '', false, undefined, true);
+    }
+
+    // 全部周次视图：同样是网格布局（不按周过滤），同一格允许叠加该课程在各周的全部安排
+    function renderAllWeeks() {
+        renderWeekCards('全部周次课表', null, '点击课程卡片可查看该课的具体周次与上课信息', undefined, undefined, false, true);
     }
 
 
@@ -1925,12 +2336,32 @@
                     hideProgress(600);
                     return;
                 }
+                const firstShow = loginPage.classList.contains('hidden') === false;
                 loginPage.classList.add('hidden');
                 timetablePage.classList.remove('hidden');
                 mountHelloCard(true);
                 setLoginBtnLoading(false);
                 showTip('登录成功，课表已加载', false);
                 timetableLog('[JS] 课表加载完成，共 ' + window.coursesData.length + ' 门课程');
+                try {
+                    // 逐周课程数：核对「只在某些周上」的课（如第15周）是否真的进来了
+                    let _maxW = 20;
+                    for (let i = 0; i < window.coursesData.length; i++) {
+                        const _segs = parseWeekRanges(window.coursesData[i].weekRange);
+                        if (!_segs) continue;
+                        for (const _s of _segs) _maxW = Math.max(_maxW, _s[1]);
+                    }
+                    _maxW = Math.min(_maxW, 30);
+                    const _wk = [];
+                    for (let w = 1; w <= _maxW; w++) {
+                        let _n = 0;
+                        for (let i = 0; i < window.coursesData.length; i++) {
+                            if (courseInWeek(window.coursesData[i], w)) _n++;
+                        }
+                        _wk.push(w + ':' + _n);
+                    }
+                    timetableLog('[JS] 每周课程数 ' + _wk.join(' '));
+                } catch(_e) {}
                 hideProgress(900);
                 setTimeout(function() { lpLocked = true; }, 1000); // 1秒后锁定，避免后续状态消息再触发进度条
 
@@ -1940,14 +2371,28 @@
                     timetableLog('[页] 记住密码未勾选，已清除保存的凭据');
                 }
 
-                window.requestDefaultView();
+                if (firstShow) {
+                    // 首次展示课表：按默认规则（今日/明日）确定初始视图
+                    window.requestDefaultView();
+                    timetableLog('[页] 首次展示，切到默认视图');
+                } else {
+                    // 后台自动更新 / 延时复检触发的重新解析：保持用户当前正在看的视图（本周/选周/今日），不要跳回今日
+                    rerenderCurrentView();
+                    timetableLog('[页] 后台更新完成，保留原视图');
+                }
 
             } catch(e) {
                 console.error('解析课表失败:', e);
             }
         } else if (type === 'status') {
             timetableLog('[A] ' + data);
-            if (String(data || '').indexOf('成功') >= 0) hideProgress(900);
+            var __st = String(data || '');
+            if (__st.indexOf('成功') >= 0) hideProgress(900);
+            // 后台自动更新失败只回传 status（不弹窗），这里顺手收起进度条并复位登录按钮
+            else if (__st.indexOf('失败') >= 0) {
+                hideProgress(1200);
+                if (__st.indexOf('自动更新失败') >= 0) setLoginBtnLoading(false);
+            }
         } else if (type === 'error') {
             courseContent.textContent = '错误: ' + data;
             showTip(data, true);
@@ -1987,6 +2432,7 @@
                 clearCredentialsBtn.style.display = 'none';
                 usernameInput.value = '';
                 passwordInput.value = '';
+                syncPwdDots();
                 try { Android.clearSavedCredentials(); } catch(e2) {}
                 return;
             }
@@ -1998,6 +2444,7 @@
                         usernameInput.value = cred.username;
                         if (cred.password && cred.password !== 'null') {
                             passwordInput.value = cred.password;
+                            syncPwdDots();
                         }
                         clearCredentialsBtn.style.display = 'inline-block';
                         didFill = true;
@@ -2015,7 +2462,11 @@
                 __autoLoginFired = true;
                 setLoginBtnLoading(true);
                 showProgress('正在登录教务系统...');
-                Android.login(usernameInput.value.trim(), passwordInput.value);
+                // 只有当缓存课表已经在看时才走静默接口（失败不弹窗、不打断）；
+                // 没有缓存时用户盯着登录页，失败必须正常提示并把按钮复位
+                var __hasCacheView = !timetablePage.classList.contains('hidden');
+                if (__hasCacheView && Android.loginAuto) Android.loginAuto(usernameInput.value.trim(), passwordInput.value);
+                else Android.login(usernameInput.value.trim(), passwordInput.value);
             } else {
                 if (didFill && prefOn('mimi_auto_login', autoLoginCheckbox) && !window.__needAutoUpdate) {
                     var __lu = lastCacheTime();
@@ -2116,6 +2567,7 @@
                 Android.clearSavedCredentials();
                 usernameInput.value = '';
                 passwordInput.value = '';
+                syncPwdDots();
                 rememberCheckbox.checked = true;
                 try { localStorage.setItem('mimi_remember_pref', '1'); } catch(e3) {}
                 // 连同课表缓存一并清掉，避免清空账号后仍然显示上一次的旧课表
@@ -2135,6 +2587,31 @@
         } catch(e) {
             showTip('清空失败：' + e.message, true);
         }
+    };
+
+    // 登录明确失败（账号或密码错误）：清空账号缓存与课表缓存，回到登录页让用户重新输入
+    window.mimiForceRelogin = function(msg) {
+        try {
+            if (Android && Android.clearSavedCredentials) Android.clearSavedCredentials();
+            usernameInput.value = '';
+            passwordInput.value = '';
+            try {
+                localStorage.removeItem('mimi_cached_courses');
+                localStorage.removeItem('mimi_last_cache_time');
+                localStorage.removeItem('mimi_week_anchor2');
+            } catch(e1) {}
+            window.coursesData = [];
+            window.__needAutoUpdate = true;
+            window.__semStart = null; window.__semStartChecked = false;
+            if (clearCredentialsBtn) clearCredentialsBtn.style.display = 'none';
+            timetablePage.classList.add('hidden');
+            loginPage.classList.remove('hidden');
+            lpLocked = false;
+            setLoginBtnLoading(false);
+            showIdle('请重新输入账号密码');
+            showTip(msg || '账号或密码错误，请重新输入', true, 6000);
+            timetableLog('[页] 登录失败，已清空账号与课表缓存，等待重新登录');
+        } catch(e) {}
     };
 
     // 按钮事件
@@ -2165,9 +2642,10 @@
         showProgress('正在重新获取课表...');
         Android.refresh();
     };
-    // 选周：滚轮选择（1-18），默认定位到当前教学周，上下滑动选择后点确定
+    // 选周：滚轮选择（1-18 + 全部周次），默认定位到当前教学周，上下滑动选择后点确定
     const WEEK_VALS = [];
     for (let i = 1; i <= 18; i++) WEEK_VALS.push(String(i));
+    WEEK_VALS.push('全部周次');
     document.getElementById('customWeekBtn').onclick = function() {
         if (!window.coursesData || window.coursesData.length === 0) {
             showTip('请先登录获取课表', true);
@@ -2179,6 +2657,13 @@
             value: String(curW),
             title: curW ? '选择周次（当前教学周：第 ' + curW + ' 周）' : '选择周次',
             onOk: function(v) {
+                if (v === '全部周次') {
+                    timetableLog('[页] 滚轮选周：全部周次');
+                    hideProgress();
+                    window.__currentView = { type: 'all' };
+                    renderAllWeeks();
+                    return;
+                }
                 const n = parseInt(v, 10);
                 if (isNaN(n) || n < 1 || n > 18) return;
                 timetableLog('[页] 滚轮选周：第' + n + '周');
@@ -2197,6 +2682,7 @@
         if (!prefOn('mimi_remember_pref', rememberCheckbox)) {
             usernameInput.value = '';
             passwordInput.value = '';
+            syncPwdDots();
         }
         loginPage.classList.remove('hidden');
         timetablePage.classList.add('hidden');
@@ -2327,6 +2813,15 @@
     }, true);
 
     courseContent.addEventListener('click', function(e) {
+        // 仅「全部周次」网格卡带 data-cid：点开该课的周次范围与上课信息。
+        // 单周网格与列表卡不挂 data-cid，因此不会触发详情；此处仍放在翻页判断之前，
+        // 避免同格多课时点击被 pagerGoNext 吞掉。
+        const card = e.target.closest('.wkg-course[data-cid]');
+        if (card) {
+            const cid = parseInt(card.getAttribute('data-cid'), 10);
+            if (cid > 0) showCourseDetail(cid);
+            return;
+        }
         // 单点提醒直线：点击弹出对应待办事项
         const line = e.target.closest('.wkg-line');
         if (line) {
@@ -2401,6 +2896,7 @@
         if (!rememberOk) {
             usernameInput.value = '';
             passwordInput.value = '';
+            syncPwdDots();
             clearCredentialsBtn.style.display = 'none';
             try { Android.clearSavedCredentials(); } catch(e) {}
             showIdle('页面就绪，请登录');
@@ -2458,7 +2954,7 @@
                 if (!prefOn('mimi_auto_login', autoLoginCheckbox)) return;
                 if (!usernameInput.value || !passwordInput.value) return;
                 timetableLog('[页] 缓存已超30分钟，触发自动更新');
-                Android.refresh();
+                if (Android.refreshAuto) Android.refreshAuto(); else Android.refresh();
             } catch(e) {}
         }, AUTO_UPDATE_INTERVAL);
         // 请求保存的凭据；是否自动登录由 saved_credentials handler 按「自动登录」勾选决定
@@ -2496,16 +2992,9 @@
         ['精诚所至，金石为开','《后汉书》'],['读万卷书，行万里路','刘彝'],
         ['世上无难事，只怕有心人','《西游记》'],['不飞则已，一飞冲天；不鸣则已，一鸣惊人','《史记》']
     ];
-    const HH_CITY_COORDS = {
-        '武夷山': [27.75995, 118.03066], '南平': [26.64, 118.18], '福州': [26.07, 119.30],
-        '厦门': [24.48, 118.09], '泉州': [24.87, 118.67], '漳州': [24.51, 117.65],
-        '莆田': [25.45, 119.01], '三明': [26.26, 117.64], '龙岩': [25.07, 117.02],
-        '宁德': [26.67, 119.55], '北京': [39.90, 116.40], '上海': [31.23, 121.47],
-        '广州': [23.13, 113.26], '深圳': [22.54, 114.06], '杭州': [30.27, 120.16],
-        '武汉': [30.59, 114.31], '长沙': [28.23, 112.94]
-    };
-    const HH_CITIES = Object.keys(HH_CITY_COORDS);
+    const HH_DEFAULT_CITY = '武夷山';
     let hhLastWx = 0;
+    let hhCityBusy = false;
 
     function hhPad(n) { return ('0' + n).slice(-2); }
     function hhEsc(s) {
@@ -2623,58 +3112,92 @@
     }
     function loadWeather() {
         hhLastWx = Date.now();
-        let city = '武夷山';
-        try { city = localStorage.getItem('mimi_city') || '武夷山'; } catch (e) {}
+        let city = HH_DEFAULT_CITY;
+        try { city = localStorage.getItem('mimi_city') || HH_DEFAULT_CITY; } catch (e) {}
         try {
             const cache = JSON.parse(localStorage.getItem('mimi_weather') || 'null');
             if (cache && cache.cityKey === city && Date.now() - cache.t < 30 * 60 * 1000) {
                 renderWeather(cache); return;
             }
         } catch (e) {}
-        const coord = HH_CITY_COORDS[city];
-        if (coord) { fetchWx(coord[0], coord[1], city); return; }
-        hhXhrJson('https://geocoding-api.open-meteo.com/v1/search?count=1&language=zh&name=' + encodeURIComponent(city), function(g) {
-            if (!g.results || !g.results.length) { renderWeather({ fail: true, city: city }); return; }
-            const r = g.results[0];
+        hhGeocode(city, function(r) {
             fetchWx(r.latitude, r.longitude, r.name || city, city);
-        }, function() { renderWeather({ fail: true, city: city }); });
+        }, function() {
+            renderWeather({ fail: true, city: city });
+        });
+    }
+    // 城市名合法性：2~20 个中文/英文字符（允许「·」「-」与空格，如「呼和浩特」「Xi'an」）
+    function hhCityNameValid(name) {
+        return name.length >= 2 && name.length <= 20 && /^[\u4e00-\u9fa5A-Za-z·\- ]+$/.test(name);
+    }
+    function hhGeocode(city, ok, fail) {
+        hhXhrJson('https://geocoding-api.open-meteo.com/v1/search?count=1&language=zh&name=' + encodeURIComponent(city), function(g) {
+            if (!g.results || !g.results.length) { fail && fail(); return; }
+            ok(g.results[0]);
+        }, fail);
+    }
+    function hhCityHint(msg, isErr) {
+        const el = document.getElementById('cityHint');
+        if (!el) return;
+        el.textContent = msg || '';
+        if (isErr) el.classList.add('err');
+        else el.classList.remove('err');
     }
     function openCityPanel() {
-        const grid = document.getElementById('cityGrid');
+        hhCityBusy = false;
+        let cur = HH_DEFAULT_CITY;
+        try { cur = localStorage.getItem('mimi_city') || HH_DEFAULT_CITY; } catch (e) {}
         const input = document.getElementById('cityInput');
-        if (grid && !grid.dataset.built) {
-            grid.innerHTML = HH_CITIES.map(function(c) {
-                return '<button class="city-chip" data-c="' + c + '">' + c + '</button>';
-            }).join('');
-            grid.dataset.built = '1';
-            grid.onclick = function(ev) {
-                const c = ev.target && ev.target.dataset ? ev.target.dataset.c : null;
-                if (c) pickCity(c);
-            };
+        if (input) {
+            input.value = cur;
+            input.classList.remove('err');
         }
-        if (input) input.value = '';
+        hhCityHint('可直接输入城市名，默认' + HH_DEFAULT_CITY, false);
+        const okBtn = document.getElementById('cityOk');
+        if (okBtn) okBtn.disabled = false;
         const mask = document.getElementById('cityMask');
         const panel = document.getElementById('cityPanel');
         if (mask) mask.classList.remove('hidden');
         if (panel) panel.classList.remove('hidden');
+        if (input) input.focus();
     }
     function closeCityPanel() {
+        hhCityBusy = false;
         const mask = document.getElementById('cityMask');
         const panel = document.getElementById('cityPanel');
         if (mask) mask.classList.add('hidden');
         if (panel) panel.classList.add('hidden');
     }
-    function pickCity(c) {
-        try {
-            localStorage.setItem('mimi_city', c);
-            localStorage.removeItem('mimi_weather');
-        } catch (e) {}
-        closeCityPanel();
-        hhLastWx = 0;
-        loadWeather();
+    // 输入城市 → 校验合规 → 解析坐标 → 保存并刷新天气；校验或查询失败时提示且不关闭弹窗
+    function submitCity() {
+        if (hhCityBusy) return;
+        const input = document.getElementById('cityInput');
+        const name = (input ? input.value : '').replace(/\s+/g, ' ').trim();
+        if (!name) { hhCityHint('请输入城市名', true); if (input) input.focus(); return; }
+        if (!hhCityNameValid(name)) { hhCityHint('城市名不合法，请输入 2~20 位中文或英文城市名', true); if (input) input.focus(); return; }
+        hhCityBusy = true;
+        hhCityHint('正在获取天气…', false);
+        const okBtn = document.getElementById('cityOk');
+        if (okBtn) okBtn.disabled = true;
+        hhGeocode(name, function(r) {
+            hhCityBusy = false;
+            if (okBtn) okBtn.disabled = false;
+            try {
+                localStorage.setItem('mimi_city', name);
+                localStorage.removeItem('mimi_weather');
+            } catch (e) {}
+            closeCityPanel();
+            hhLastWx = Date.now();
+            fetchWx(r.latitude, r.longitude, r.name || name, name);
+        }, function() {
+            hhCityBusy = false;
+            if (okBtn) okBtn.disabled = false;
+            hhCityHint('未找到该城市，请检查城市名后重试', true);
+            if (input) input.focus();
+        });
     }
     function initHello() {
-        // 天气城市：收起（tt-mini）时锁定武夷山不可点；展开成完整大卡后才能点击换城市
+        // 天气城市：收起（tt-mini）时不可点；展开成完整大卡后才能点击换城市
         const cityEl = document.getElementById('hhWCity');
         const wx = document.getElementById('hhWeather');
         const card = document.getElementById('hhCard');
@@ -2689,14 +3212,15 @@
         }
         const mask = document.getElementById('cityMask');
         if (mask) mask.onclick = closeCityPanel;
+        const cancel = document.getElementById('cityCancel');
+        if (cancel) cancel.onclick = closeCityPanel;
         const ok = document.getElementById('cityOk');
-        if (ok) ok.onclick = function() {
-            const input = document.getElementById('cityInput');
-            const v = input ? input.value.trim() : '';
-            if (v) pickCity(v);
-        };
+        if (ok) ok.onclick = submitCity;
         const input = document.getElementById('cityInput');
-        if (input) input.onkeydown = function(ev) { if (ev.key === 'Enter') { ok && ok.onclick(); } };
+        if (input) {
+            input.onkeydown = function(ev) { if (ev.key === 'Enter') { ev.preventDefault(); submitCity(); } };
+            input.oninput = function() { if (!hhCityBusy) hhCityHint('可直接输入城市名，默认' + HH_DEFAULT_CITY, false); };
+        }
         hhTick();
         setInterval(hhTick, 1000);
         loadQuote();

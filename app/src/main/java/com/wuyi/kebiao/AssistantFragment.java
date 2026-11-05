@@ -3,11 +3,13 @@ package com.wuyi.kebiao;
 /**
  * 本文件职责：
  * 「小助手」页面 Fragment（底部导航第三个入口）。
- * 罗列校园实用工具入口：武夷山公交查询、校园地图标注。
+ * 罗列校园实用工具入口：校园公告、武夷山公交查询、校园地图标注。
  */
 
 import android.Manifest;
 import android.app.Dialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -34,14 +36,25 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.net.URLEncoder;
 
 public class AssistantFragment extends Fragment {
 
     private static final String MAP_PREFS = "mimi_map";
+    // 校园公告接口：只允许访问自家服务器的公告接口，避免页面拿到任意请求能力
+    private static final String NOTICE_API_PREFIX = "https://aokiisei.vxni.ink/mimi.php?action=notice";
 
     private Dialog busDialog;
     private Dialog mapDialog;
+    private Dialog noticeDialog;
+    private WebView noticeWebView;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -73,7 +86,154 @@ public class AssistantFragment extends Fragment {
                 }
             });
         }
+        View noticeRow = view.findViewById(R.id.layout_campus_notice);
+        if (noticeRow != null) {
+            noticeRow.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showNotices();
+                }
+            });
+        }
         return view;
+    }
+
+    // 校园公告：列表与正文都在网页里渲染，数据走自家服务器接口
+    private void showNotices() {
+        if (getContext() == null) {
+            return;
+        }
+        noticeWebView = new WebView(getContext());
+        noticeWebView.setBackgroundColor(Color.TRANSPARENT);
+        WebSettings settings = noticeWebView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setDomStorageEnabled(true);
+        settings.setSupportZoom(false);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        noticeWebView.addJavascriptInterface(new NoticeBridge(getContext().getApplicationContext()), "MimiBridge");
+        noticeWebView.loadUrl("file:///android_asset/www/notice.html");
+
+        noticeDialog = new Dialog(getContext());
+        noticeDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        noticeDialog.setContentView(noticeWebView);
+        Window window = noticeDialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.setDimAmount(0.32f);
+        }
+        noticeDialog.setOnDismissListener(dialog -> {
+            WebView dead = noticeWebView;
+            noticeWebView = null;
+            if (dead != null) dead.destroy();
+        });
+        noticeDialog.show();
+        if (window != null) {
+            DisplayMetrics dm = getResources().getDisplayMetrics();
+            window.setLayout(Math.round(dm.widthPixels * 0.96f), Math.round(dm.heightPixels * 0.90f));
+        }
+    }
+
+    private class NoticeBridge {
+        private final Context appContext;
+
+        NoticeBridge(Context context) {
+            this.appContext = context;
+        }
+
+        @JavascriptInterface
+        public void close() {
+            final Dialog dialog = noticeDialog;
+            final WebView view = noticeWebView;
+            if (dialog != null && dialog.isShowing()) {
+                if (view != null) {
+                    view.post(() -> {
+                        if (noticeDialog != null && noticeDialog.isShowing()) noticeDialog.dismiss();
+                    });
+                } else {
+                    dialog.dismiss();
+                }
+            }
+        }
+
+        // 异步请求接口：网页侧传入回调函数名，结果通过 evaluateJavascript 回传
+        @JavascriptInterface
+        public void requestJson(String url, String callback) {
+            if (url == null || !url.startsWith(NOTICE_API_PREFIX)) {
+                reply(null, callback);
+                return;
+            }
+            if (callback == null || !callback.matches("[A-Za-z_$][A-Za-z0-9_$]*")) {
+                return;
+            }
+            new Thread(() -> {
+                String body = null;
+                HttpURLConnection conn = null;
+                try {
+                    conn = (HttpURLConnection) new URL(url).openConnection();
+                    conn.setConnectTimeout(6000);
+                    conn.setReadTimeout(14000);
+                    conn.setRequestProperty("Accept", "application/json");
+                    conn.setRequestProperty("User-Agent", "MimiKebiao-Android");
+                    if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                        InputStream in = conn.getInputStream();
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(in, "UTF-8"));
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            sb.append(line);
+                        }
+                        reader.close();
+                        body = sb.toString();
+                    }
+                } catch (Throwable ignored) {
+                } finally {
+                    if (conn != null) conn.disconnect();
+                }
+                reply(body, callback);
+            }).start();
+        }
+
+        private void reply(String body, String callback) {
+            if (callback == null || !callback.matches("[A-Za-z_$][A-Za-z0-9_$]*")) {
+                return;
+            }
+            final WebView view = noticeWebView;
+            if (view == null) {
+                return;
+            }
+            final String arg = body == null ? "null" : JSONObject.quote(body);
+            view.post(() -> {
+                if (view == noticeWebView) {
+                    view.evaluateJavascript("window['" + callback + "'](" + arg + ")", null);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void openUrl(String url) {
+            if (url == null) return;
+            String u = url.trim();
+            if (!u.startsWith("http://") && !u.startsWith("https://")) return;
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(u));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                appContext.startActivity(intent);
+            } catch (Exception ignored) {
+            }
+        }
+
+        @JavascriptInterface
+        public void copy(String text) {
+            if (text == null) return;
+            try {
+                ClipboardManager cm = (ClipboardManager) appContext.getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null) {
+                    cm.setPrimaryClip(ClipData.newPlainText("mimi_notice", text));
+                }
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     // 公交线路图：用 WebView 呈现直线 + 站点竖排文字，可横向滑动查看
@@ -277,8 +437,13 @@ public class AssistantFragment extends Fragment {
         if (mapDialog != null && mapDialog.isShowing()) {
             mapDialog.dismiss();
         }
+        if (noticeDialog != null && noticeDialog.isShowing()) {
+            noticeDialog.dismiss();
+        }
         busDialog = null;
         mapDialog = null;
+        noticeDialog = null;
+        noticeWebView = null;
         super.onDestroyView();
     }
 }

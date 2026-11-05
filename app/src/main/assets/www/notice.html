@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>校园公告</title>
+<style>
+        @font-face {
+            font-family: 'Mi Serif';
+            src: url('../fonts/mi-serif.otf') format('opentype');
+            font-display: block;
+        }
+        :root {
+            --primary: #C96442; --bg: #F5F4ED; --card: #FAF9F5; --ink: #141413;
+            --sub: #87867F; --border: #E8E6DC; --soft: #FDF1EC; --silver: #B4B1A8;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; height: 100%; background: transparent; }
+        body {
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+            -webkit-text-stroke: 0.32px currentColor;
+            color: var(--ink);
+        }
+        button { font-family: inherit; -webkit-text-stroke: 0; }
+        .hidden { display: none !important; }
+        .sheet {
+            height: calc(100% - 16px); margin: 8px; overflow: hidden;
+            display: flex; flex-direction: column;
+            background: var(--card); border-radius: 18px;
+            box-shadow: 0 0 0 1px rgba(201,100,66,0.14), 0 12px 40px rgba(20,20,19,0.20), inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+        .head { display: flex; align-items: flex-start; padding: 15px 16px 0; flex: 0 0 auto; }
+        .head-txt { min-width: 0; }
+        .title { font-size: 18px; font-weight: 500; letter-spacing: .2px; }
+        .sub { margin-top: 4px; font-size: 11px; color: var(--sub); }
+        .close {
+            flex: 0 0 auto; margin-left: auto; width: 28px; height: 28px; border-radius: 50%;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--sub);
+            font-size: 15px; line-height: 26px; text-align: center; padding: 0;
+        }
+        .close:active { opacity: .7; }
+
+        /* ===== 列表 ===== */
+        #listView { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+        .tabs { display: flex; align-items: center; gap: 7px; padding: 10px 16px 0; flex: 0 0 auto; }
+        .tab {
+            flex: 0 0 auto; height: 32px; padding: 0 14px; border-radius: 9px;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--sub);
+            font-size: 12.5px; transition: background .18s ease, color .18s ease, border-color .18s ease;
+        }
+        .tab.on { background: var(--soft); border-color: rgba(201,100,66,0.42); color: var(--primary); }
+        .reload {
+            flex: 0 0 auto; margin-left: auto; height: 26px; padding: 0 10px; border-radius: 7px;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--sub); font-size: 11px;
+        }
+        .reload:active { opacity: .7; }
+        .chips {
+            display: flex; gap: 6px; padding: 8px 16px 0;
+            overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex: 0 0 auto;
+        }
+        .chips::-webkit-scrollbar { height: 0; display: none; }
+        .chip {
+            flex: 0 0 auto; height: 27px; padding: 0 11px; border-radius: 8px;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--sub); font-size: 11.5px;
+        }
+        .chip.on { background: var(--soft); border-color: rgba(201,100,66,0.42); color: var(--primary); }
+        .head-meta {
+            padding: 10px 18px 0; font-size: 11px; color: var(--sub); flex: 0 0 auto;
+        }
+        .head-meta .cache-note { color: var(--sub); }
+        .scroller { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .item { padding: 13px 18px; border-bottom: 1px solid var(--border); }
+        .item:active { background: rgba(201,100,66,0.05); }
+        .item-title {
+            font-size: 15px; line-height: 1.52; color: var(--ink);
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .item-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 7px; font-size: 10.5px; color: var(--sub); }
+        .src { color: var(--primary); background: var(--soft); border-radius: 5px; padding: 1px 6px; }
+        .ext { color: #7A756C; background: #F1EFE8; border-radius: 5px; padding: 1px 6px; }
+        .fresh { color: #1B873F; background: rgba(27,135,63,0.10); border-radius: 5px; padding: 1px 6px; }
+        .date { color: var(--silver); }
+        .state { padding: 42px 24px; text-align: center; font-size: 12.5px; color: var(--sub); line-height: 1.7; }
+        .spinner {
+            width: 24px; height: 24px; margin: 0 auto 12px; border-radius: 50%;
+            border: 2px solid var(--border); border-top-color: var(--primary);
+            animation: spin .8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .retry {
+            display: inline-block; margin-top: 12px; height: 32px; line-height: 30px; padding: 0 18px;
+            border-radius: 9px; border: 1px solid var(--border); background: #FFFFFF;
+            color: var(--primary); font-size: 12.5px;
+        }
+        .note { padding: 12px 18px; font-size: 11px; color: #B4553A; text-align: center; }
+        .foot { padding: 14px 18px 18px; font-size: 10.5px; color: var(--silver); text-align: center; line-height: 1.6; }
+
+        /* ===== 详情 ===== */
+        #detailView { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .dbar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+        .back {
+            width: 28px; height: 28px; border-radius: 50%; padding: 0 0 2px;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--sub);
+            font-size: 20px; line-height: 24px; text-align: center;
+        }
+        .back:active { opacity: .7; }
+        .dbar-txt { font-size: 12px; color: var(--sub); }
+        .dbar-txt b { color: var(--ink); font-weight: 500; }
+        .dbody { padding: 16px 18px 26px; }
+        .dtitle { font-size: 19px; font-weight: 500; line-height: 1.42; letter-spacing: .2px; }
+        .dmeta { margin-top: 8px; font-size: 11px; color: var(--silver); line-height: 1.6; }
+        .dlink {
+            display: inline-block; margin-top: 10px; height: 28px; line-height: 26px; padding: 0 12px;
+            border-radius: 8px; border: 1px solid rgba(201,100,66,0.35); background: var(--soft);
+            color: var(--primary); font-size: 11.5px;
+        }
+        .dlink:active { opacity: .75; }
+        .dcontent { margin-top: 16px; font-size: 14px; line-height: 1.85; color: #2A2A28; }
+        .dcontent p { margin: 0 0 12px; word-break: break-word; }
+        .dcontent img {
+            display: block; width: 100%; height: auto; margin: 4px 0 14px;
+            border-radius: 10px; background: #F1EFE8;
+        }
+        .dfoot {
+            margin-top: 22px; padding-top: 12px; border-top: 1px dashed #D8D5CA;
+            font-size: 10px; line-height: 1.65; color: var(--silver); word-break: break-all;
+        }
+        .dcard {
+            margin-top: 16px; padding: 14px; border-radius: 10px;
+            background: #F7F5EE; font-size: 12px; line-height: 1.7; color: var(--sub);
+        }
+        .dcard b { display: block; color: var(--ink); font-weight: 500; margin-bottom: 4px; }
+        .dacts { display: flex; gap: 9px; margin-top: 14px; flex-wrap: wrap; }
+        .dacts button {
+            flex: 1 1 120px; height: 38px; border-radius: 10px;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--ink); font-size: 12.5px;
+        }
+        .dacts button.pri { background: var(--primary); border-color: transparent; color: #FFFFFF; }
+        .dacts button:active { opacity: .8; }
+        .durl { margin-top: 8px; font-size: 10px; color: var(--silver); word-break: break-all; }
+
+        /* ===== 图片全屏 ===== */
+        #lightbox {
+            position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 99;
+            background: rgba(10,10,10,0.92); display: flex; align-items: center; justify-content: center;
+        }
+        #lightbox img { max-width: 96vw; max-height: 84vh; border-radius: 6px; }
+        .lb-nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255,255,255,0.16);
+            color: #fff; font-size: 20px; line-height: 40px; text-align: center; padding: 0;
+        }
+        .lb-prev { left: 14px; } .lb-next { right: 14px; }
+        .lb-tip { position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; font-size: 11px; color: #BDBDBD; }
+</style>
+</head>
+<body>
+<div class="sheet">
+    <div class="head">
+        <div class="head-txt">
+            <div class="title">校园公告</div>
+            <div class="sub">学校通知与学院公告 · 每 30 分钟更新</div>
+        </div>
+        <button class="close" onclick="closeSheet()">✕</button>
+    </div>
+
+    <div id="listView">
+        <div class="tabs">
+            <button class="tab on" id="tabSchool" onclick="switchTab('school')">学校公告</button>
+            <button class="tab" id="tabDept" onclick="switchTab('dept')">学院公告</button>
+            <button class="reload" onclick="reload()">刷新</button>
+        </div>
+        <div class="chips hidden" id="srcRow"></div>
+        <div class="chips hidden" id="deptRow"></div>
+        <div class="head-meta" id="headMeta"></div>
+        <div class="scroller" id="listScroller">
+            <div id="listState"></div>
+            <div id="listItems"></div>
+            <div class="note hidden" id="olderNote">近一个月暂无新公告，以上为最近更新</div>
+            <div class="foot">数据来自武夷学院官网（www.wuyiu.edu.cn），每 30 分钟更新一次</div>
+        </div>
+    </div>
+
+    <div id="detailView" class="hidden">
+        <div class="dbar">
+            <button class="back" onclick="backToList()">‹</button>
+            <div class="dbar-txt">返回 <b>公告列表</b></div>
+        </div>
+        <div class="dbody" id="detailBody"></div>
+    </div>
+</div>
+
+<div id="lightbox" class="hidden">
+    <button class="lb-nav lb-prev" id="lbPrev" onclick="lbPrev(event)">‹</button>
+    <img id="lightImg" src="" alt="">
+    <button class="lb-nav lb-next" id="lbNext" onclick="lbNext(event)">›</button>
+    <div class="lb-tip" id="lbTip"></div>
+</div>
+
+<script>
+var API = 'https://aokiisei.vxni.ink/mimi.php';
+var st = { tab: 'school', srcId: '', deptId: 'jdxy', all: [], shown: [], sources: [], depts: [], seq: 0, dseq: 0, cur: null, images: [], imgIndex: 0 };
+
+/* ===== 网络：优先走原生桥（不受 file:// 跨域限制），没有桥再退回 XHR ===== */
+var cbSeq = 0;
+var cbMap = {};
+function apiJson(url, ok, fail) {
+    if (window.MimiBridge && typeof MimiBridge.requestJson === 'function') {
+        var name = '__mimiNoticeCb' + (++cbSeq);
+        var done = false;
+        var timer = setTimeout(function () {
+            if (done) return;
+            done = true;
+            delete cbMap[name];
+            fail('请求超时，请稍后重试');
+        }, 16000);
+        cbMap[name] = function (text) {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            delete cbMap[name];
+            if (!text) { fail('网络异常，请稍后重试'); return; }
+            var obj;
+            try { obj = JSON.parse(text); } catch (e) { fail('数据解析失败'); return; }
+            ok(obj);
+        };
+        window[name] = function (text) { if (cbMap[name]) cbMap[name](text); };
+        try { MimiBridge.requestJson(url, name); } catch (e) { fail('网络异常，请稍后重试'); }
+        return;
+    }
+    var x = new XMLHttpRequest();
+    x.open('GET', url, true);
+    x.timeout = 16000;
+    x.onreadystatechange = function () {
+        if (x.readyState !== 4) return;
+        if (x.status !== 200) { fail('网络异常，请稍后重试'); return; }
+        var obj;
+        try { obj = JSON.parse(x.responseText); } catch (e) { fail('数据解析失败'); return; }
+        ok(obj);
+    };
+    x.ontimeout = function () { fail('请求超时，请稍后重试'); };
+    x.send();
+}
+
+/* ===== 工具 ===== */
+function esc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function normTitle(t) {
+    return String(t || '').replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, '');
+}
+function dedupe(list) {
+    var seenUrl = {}, seenTitle = {}, out = [];
+    for (var i = 0; i < list.length; i++) {
+        var it = list[i] || {};
+        var url = String(it.url || '');
+        if (url && seenUrl[url]) continue;
+        var key = normTitle(it.title) + '|' + String(it.date || '');
+        if (seenTitle[key]) continue;
+        if (url) seenUrl[url] = 1;
+        seenTitle[key] = 1;
+        out.push(it);
+    }
+    return out;
+}
+function fmtDate(d) {
+    var s = String(d || '');
+    return s.length >= 10 ? s.substring(0, 10) : s;
+}
+function isFresh(d) {
+    var t = Date.parse(String(d || '').replace(/-/g, '/'));
+    if (isNaN(t)) return false;
+    return (Date.now() - t) <= 30 * 24 * 3600 * 1000 && t <= Date.now() + 2 * 24 * 3600 * 1000;
+}
+function isExternal(url) {
+    var u = String(url || '');
+    if (!/^https?:/i.test(u)) return false;
+    return !/wuyiu\.edu\.cn/i.test(u);
+}
+
+/* ===== 列表 ===== */
+function showListState(kind, msg) {
+    var box = document.getElementById('listState');
+    var items = document.getElementById('listItems');
+    if (kind === 'loading') {
+        items.innerHTML = '';
+        box.innerHTML = '<div class="state"><div class="spinner"></div>正在获取公告…</div>';
+    } else if (kind === 'err') {
+        items.innerHTML = '';
+        box.innerHTML = '<div class="state">' + esc(msg || '获取失败') + '<br><span class="retry" onclick="reload()">重试</span></div>';
+    } else if (kind === 'empty') {
+        items.innerHTML = '';
+        box.innerHTML = '<div class="state">暂无公告</div>';
+    } else {
+        box.innerHTML = '';
+    }
+}
+
+function load(type, id) {
+    var seq = ++st.seq;
+    showListState('loading');
+    document.getElementById('headMeta').textContent = '';
+    document.getElementById('olderNote').classList.add('hidden');
+    var url = API + '?action=notice&type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id || '');
+    apiJson(url, function (res) {
+        if (seq !== st.seq) return;
+        var d = res && (res.data || res);
+        if (!res || res.ok === false || !d) { showListState('err', '获取公告失败，请稍后重试'); return; }
+        var list = dedupe(d.items || []);
+        var deptName = type === 'dept' ? (d.name || '学院') : '官网';
+        st.all = list.map(function (it) {
+            return {
+                title: it.title || '',
+                date: fmtDate(it.date),
+                url: it.url || '',
+                external: !!it.external || isExternal(it.url),
+                source: it.source || deptName,
+                sourceId: it.sourceId || (type === 'dept' ? 'dept' : 'notice'),
+                fresh: isFresh(it.date)
+            };
+        });
+        st.sources = (d.sources && d.sources.length) ? d.sources : [];
+        if (st.sources.length) {
+            var srcOk = false;
+            for (var k = 0; k < st.sources.length; k++) if (st.sources[k].id === st.srcId) srcOk = true;
+            if (!srcOk) st.srcId = '';
+        } else {
+            st.srcId = '';
+        }
+        if (d.depts && d.depts.length) {
+            st.depts = d.depts;
+            var has = false;
+            for (var i = 0; i < d.depts.length; i++) if (d.depts[i].id === st.deptId) has = true;
+            if (!has) st.deptId = d.depts[0].id;
+        }
+        var meta = [];
+        if (d.updatedAt) meta.push(String(d.updatedAt) + ' 更新');
+        meta.push('共 ' + st.all.length + ' 条');
+        document.getElementById('headMeta').innerHTML = esc(meta.join(' · '))
+            + (d.stale ? ' <span class="cache-note">· 官网暂不可达 · 显示缓存数据</span>' : '');
+        document.getElementById('olderNote').classList.toggle('hidden', !d.older);
+        renderChips();
+        renderItems();
+    }, function (msg) {
+        if (seq !== st.seq) return;
+        showListState('err', msg || '获取失败，请检查网络');
+    });
+}
+
+function renderChips() {
+    var srcRow = document.getElementById('srcRow');
+    var deptRow = document.getElementById('deptRow');
+    if (st.tab === 'school' && st.sources.length) {
+        var html = '<button class="chip' + (st.srcId === '' ? ' on' : '') + '" onclick="setSrc(\'\')">全部</button>';
+        for (var i = 0; i < st.sources.length; i++) {
+            var s = st.sources[i];
+            html += '<button class="chip' + (st.srcId === s.id ? ' on' : '') + '" onclick="setSrc(\'' + esc(s.id) + '\')">' + esc(s.name) + '</button>';
+        }
+        srcRow.innerHTML = html;
+        srcRow.classList.remove('hidden');
+        deptRow.classList.add('hidden');
+        deptRow.innerHTML = '';
+    } else if (st.tab === 'dept' && st.depts.length) {
+        var dh = '';
+        for (var j = 0; j < st.depts.length; j++) {
+            var dp = st.depts[j];
+            dh += '<button class="chip' + (st.deptId === dp.id ? ' on' : '') + '" onclick="setDept(\'' + esc(dp.id) + '\')">' + esc(dp.name) + '</button>';
+        }
+        deptRow.innerHTML = dh;
+        deptRow.classList.remove('hidden');
+        srcRow.classList.add('hidden');
+        srcRow.innerHTML = '';
+    } else {
+        srcRow.classList.add('hidden');
+        deptRow.classList.add('hidden');
+    }
+}
+
+function renderItems() {
+    var list = st.srcId ? st.all.filter(function (it) { return it.sourceId === st.srcId; }) : st.all;
+    st.shown = list;
+    if (!list.length) { showListState('empty'); return; }
+    showListState('ok');
+    var html = '';
+    for (var i = 0; i < list.length; i++) {
+        var it = list[i];
+        html += '<div class="item" onclick="openDetail(' + i + ')">'
+            + '<div class="item-title">' + esc(it.title) + '</div>'
+            + '<div class="item-meta">'
+            + '<span class="src">' + esc(it.source) + '</span>'
+            + '<span class="date">' + esc(it.date) + '</span>'
+            + (it.external ? '<span class="ext">外链</span>' : '')
+            + (it.fresh ? '<span class="fresh">近 30 天</span>' : '')
+            + '</div></div>';
+    }
+    document.getElementById('listItems').innerHTML = html;
+    document.getElementById('listScroller').scrollTop = 0;
+}
+
+function switchTab(t) {
+    if (t === st.tab) return;
+    st.tab = t;
+    st.srcId = '';
+    document.getElementById('srcRow').classList.add('hidden');
+    document.getElementById('deptRow').classList.add('hidden');
+    document.getElementById('tabSchool').classList.toggle('on', t === 'school');
+    document.getElementById('tabDept').classList.toggle('on', t === 'dept');
+    load(t, t === 'dept' ? st.deptId : '');
+}
+function setSrc(id) {
+    if (id === st.srcId) return;
+    st.srcId = id || '';
+    renderChips();
+    renderItems();
+}
+function setDept(id) {
+    if (!id) return;
+    if (id === st.deptId && st.tab === 'dept') return;
+    st.deptId = id;
+    st.tab = 'dept';
+    st.srcId = '';
+    document.getElementById('tabSchool').classList.remove('on');
+    document.getElementById('tabDept').classList.add('on');
+    load('dept', id);
+}
+function reload() {
+    load(st.tab, st.tab === 'dept' ? st.deptId : '');
+}
+
+/* ===== 详情 ===== */
+function switchView(v) {
+    document.getElementById('listView').classList.toggle('hidden', v !== 'list');
+    document.getElementById('detailView').classList.toggle('hidden', v !== 'detail');
+    if (v === 'detail') document.getElementById('detailView').scrollTop = 0;
+}
+function backToList() {
+    st.dseq++;
+    switchView('list');
+    st.cur = null;
+}
+
+function openDetail(i) {
+    var it = st.shown[i];
+    if (!it || !it.url) return;
+    st.cur = it;
+    switchView('detail');
+    var seq = ++st.dseq;
+    var body = document.getElementById('detailBody');
+    body.innerHTML = '<div class="state"><div class="spinner"></div>正在获取正文…</div>';
+    if (it.external) { renderExternal(it); return; }
+    var url = API + '?action=noticeDetail&url=' + encodeURIComponent(it.url);
+    apiJson(url, function (res) {
+        if (seq !== st.dseq) return;
+        var d = res && (res.data || res);
+        if (!res || res.ok === false || !d) { renderDetailError(it); return; }
+        renderDetail(it, d);
+    }, function () {
+        if (seq !== st.dseq) return;
+        renderDetailError(it);
+    });
+}
+
+function metaHtml(it, d) {
+    var parts = [];
+    if (d && d.author) parts.push('发布者 ' + d.author);
+    var date = (d && d.date) || it.date;
+    if (date) parts.push(date);
+    if (d && d.views) parts.push('浏览 ' + d.views);
+    return parts.length ? '<div class="dmeta">' + esc(parts.join(' · ')) + '</div>' : '';
+}
+
+function linkBtn(it) {
+    return '<button class="dlink" onclick="openInBrowser(\'' + esc(jsStr(it.url)) + '\')">查看官网原文</button>';
+}
+
+function renderDetail(it, d) {
+    var title = d.title || it.title;
+    var blocks = (d.blocks && d.blocks.length) ? d.blocks : (d.paras || []).map(function (t) { return { type: 'text', text: t }; });
+    var html = '<div class="dtitle">' + esc(title) + '</div>' + metaHtml(it, d) + linkBtn(it);
+    html += '<div class="dcontent">';
+    var imgs = [];
+    for (var i = 0; i < blocks.length; i++) {
+        var b = blocks[i] || {};
+        if (b.type === 'img' && b.src) {
+            imgs.push(b.src);
+            html += '<img src="' + esc(b.src) + '" onclick="preview(' + (imgs.length - 1) + ')" alt="">';
+        } else if (b.text) {
+            html += '<p>' + esc(b.text) + '</p>';
+        }
+    }
+    html += '</div>';
+    var footer = d.footer || [];
+    if (footer.length) {
+        html += '<div class="dfoot">';
+        for (var j = 0; j < footer.length; j++) html += '<div>' + esc(footer[j]) + '</div>';
+        html += '</div>';
+    }
+    document.getElementById('detailBody').innerHTML = html;
+    st.images = imgs;
+}
+
+function renderExternal(it) {
+    var body = document.getElementById('detailBody');
+    body.innerHTML = '<div class="dtitle">' + esc(it.title) + '</div>'
+        + '<div class="dmeta">' + esc(it.source) + ' · ' + esc(it.date) + ' · 外链</div>'
+        + '<div class="dcard"><b>外部媒体报道</b>该文章发布在校外网站，App 内不抓取正文，请复制链接到浏览器查看。</div>'
+        + '<div class="dacts">'
+        + '<button onclick="copyLink(\'' + esc(jsStr(it.url)) + '\')">复制链接</button>'
+        + '<button class="pri" onclick="openInBrowser(\'' + esc(jsStr(it.url)) + '\')">浏览器打开</button>'
+        + '</div><div class="durl">' + esc(it.url) + '</div>';
+}
+
+function renderDetailError(it) {
+    document.getElementById('detailBody').innerHTML =
+        '<div class="state">正文获取失败，可能官网暂时不可用<br>'
+        + '<span class="retry" onclick="retryDetail()">重试</span></div>'
+        + '<div class="dacts"><button class="pri" onclick="openInBrowser(\'' + esc(jsStr(it.url)) + '\')">浏览器打开原文</button></div>';
+}
+
+function retryDetail() {
+    if (st.cur) openDetailByItem(st.cur);
+}
+function openDetailByItem(it) {
+    st.cur = it;
+    var seq = ++st.dseq;
+    var body = document.getElementById('detailBody');
+    body.innerHTML = '<div class="state"><div class="spinner"></div>正在获取正文…</div>';
+    var url = API + '?action=noticeDetail&url=' + encodeURIComponent(it.url);
+    apiJson(url, function (res) {
+        if (seq !== st.dseq) return;
+        var d = res && (res.data || res);
+        if (!res || res.ok === false || !d) { renderDetailError(it); return; }
+        renderDetail(it, d);
+    }, function () {
+        if (seq !== st.dseq) return;
+        renderDetailError(it);
+    });
+}
+
+/* ===== 图片预览 ===== */
+function preview(i) {
+    st.imgIndex = i || 0;
+    showLight();
+}
+function showLight() {
+    var arr = st.images;
+    if (!arr.length) return;
+    if (st.imgIndex < 0) st.imgIndex = arr.length - 1;
+    if (st.imgIndex >= arr.length) st.imgIndex = 0;
+    document.getElementById('lightImg').src = arr[st.imgIndex];
+    document.getElementById('lbTip').textContent = (st.imgIndex + 1) + ' / ' + arr.length;
+    var multi = arr.length > 1;
+    document.getElementById('lbPrev').classList.toggle('hidden', !multi);
+    document.getElementById('lbNext').classList.toggle('hidden', !multi);
+    document.getElementById('lightbox').classList.remove('hidden');
+}
+function lbPrev(e) { if (e) e.stopPropagation(); st.imgIndex--; showLight(); }
+function lbNext(e) { if (e) e.stopPropagation(); st.imgIndex++; showLight(); }
+function closeLightbox() { document.getElementById('lightbox').classList.add('hidden'); }
+
+/* ===== 原生交互 ===== */
+function jsStr(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function openInBrowser(url) {
+    if (!url) return;
+    if (window.MimiBridge && typeof MimiBridge.openUrl === 'function') {
+        MimiBridge.openUrl(url);
+        return;
+    }
+    window.open(url, '_blank');
+}
+function copyLink(url) {
+    if (!url) return;
+    if (window.MimiBridge && typeof MimiBridge.copy === 'function') {
+        MimiBridge.copy(url);
+        return;
+    }
+    var ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+}
+function closeSheet() {
+    if (window.MimiBridge && typeof MimiBridge.close === 'function') MimiBridge.close();
+}
+
+/* 点击图片遮罩关闭；左右按键不冒泡 */
+document.getElementById('lightbox').onclick = function (e) {
+    if (e.target && e.target.id === 'lightbox') closeLightbox();
+};
+document.getElementById('lightImg').onclick = function (e) { e.stopPropagation(); };
+
+/* 启动 */
+load('school', '');
+</script>
+</body>
+</html>

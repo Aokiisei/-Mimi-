@@ -1,8 +1,11 @@
 /*
  * 课表解析脚本（由 HomeFragment.injectParser 注入到教务 WebView 执行）。
  * 放在 assets 里是为了避免 Java 字符串转义，便于维护与排查。
- * 关键点：晚上 9-10 节的课程最容易漏，节次归属按「sections 首节号」优先，
- * 其次行标题节号，最后按标签行顺序兜底。
+ * 关键点：
+ *  1. 首页课表只渲染「当前教学周」，只在其他周上的课在 DOM 里根本不存在（第15周漏课的主因）；
+ *     因此先回传当前周，再按 rq=all → 逐周 rq=1..N → 课表查询页 逐级补抓整学期课程并合并。
+ *  2. 周次必须保留全部片段（如「[1-8周][10-16周]」不能只取第一段），否则后半学期的课会被过滤掉。
+ *  3. 晚上 9-10 节按 sections 首节号优先归位，避免节次错行。
  */
 (function () {
     var DAY_DEFAULT = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -149,25 +152,88 @@
         var loose = td.querySelectorAll('li.courselists-item');
         for (var i = 0; i < loose.length; i++) items.push(loose[i]);
         if (items.length) return items;
+        // 旧版正方（/framework/mainV_index_loadkb.htmlx 返回的结构）：div.item-box
+        var boxes = td.querySelectorAll('div.item-box');
+        for (var b = 0; b < boxes.length; b++) items.push(boxes[b]);
+        if (items.length) return items;
+        // 课表查询页（/jsxsd/xskb/xskb_list.do）：div.kbcontent，课程名 + font[title] 系列
+        var kbs = td.querySelectorAll('div.kbcontent');
+        for (var kb = 0; kb < kbs.length; kb++) items.push(kbs[kb]);
+        if (items.length) return items;
         // 少数模板直接把标题 div 挂在 td 下
         var titles = td.querySelectorAll('div.qz-hasCourse-title');
         for (var t = 0; t < titles.length; t++) items.push(titles[t]);
         return items;
     }
 
+    /** 课程名：各模板结构不同，只取课程名本身，别把教师/地点/周次拼进名字 */
+    function courseNameOf(node) {
+        if (!node) return '';
+        var title = node.querySelector ? node.querySelector('div.qz-hasCourse-title') : null;
+        if (title) return cleanText(title.textContent);
+        var p = node.querySelector ? node.querySelector('p') : null;
+        if (p) return cleanText(p.textContent);
+        // kbcontent：课程名是第一个 <br> 之前的那段裸文本
+        var html = String(node.innerHTML || '');
+        if (html.indexOf('<br') >= 0) {
+            var first = html.split(/<br\s*\/?>/i)[0].replace(/<[^>]+>/g, ' ');
+            var nm = cleanText(first);
+            if (nm) return nm;
+        }
+        var txt = cleanText(node.textContent);
+        return cleanText(
+            txt.replace(/老师[:：]\s*\S+/g, '')
+                .replace(/教师[:：]\s*\S+/g, '')
+                .replace(/上课地点[:：]\s*\S+/g, '')
+                .replace(/地点[:：]\s*\S+/g, '')
+                .replace(/周次[:：].*$/, '')
+                .replace(/节次[:：].*$/, '')
+        );
+    }
+
     function parseDetails(node, tooltip) {
-        var info = { teacher: '', location: '', weekRange: '', sections: '' };
+        // groups：同一门课在不同周可能换教室（如第1周在 A101、第2-16周在 B202），
+        // tooltip 会按「教师 / 上课地点 / 周次 / 节次」重复若干组，必须逐组拆开，否则整门课都显示第一周的教室。
+        var info = { teacher: '', location: '', weekRange: '', sections: '', groups: [] };
+        var groups = [];
+        var infoWeeks = [];   // 扁平字段：所有组周次的并集（老逻辑兜底用）
+
+        function newGroup() {
+            var g = { teacher: '', location: '', weekParts: [], sections: '' };
+            groups.push(g);
+            return g;
+        }
+        function cur() {
+            return groups.length ? groups[groups.length - 1] : newGroup();
+        }
+        function addWeek(t, g) {
+            t = cleanText(t).replace(/^周次\s*[:：]/, '');
+            if (!t || t.indexOf('周') < 0) return;
+            if (g && g.weekParts.indexOf(t) < 0) g.weekParts.push(t);
+            if (infoWeeks.indexOf(t) < 0) infoWeeks.push(t);
+        }
         function read(divs) {
             for (var i = 0; i < divs.length; i++) {
                 var text = cleanText(divs[i].textContent);
-                if (text.indexOf('教师：') === 0) {
-                    if (!info.teacher) info.teacher = text.replace('教师：', '');
-                } else if (text.indexOf('上课地点：') === 0) {
-                    if (!info.location) info.location = text.replace('上课地点：', '');
+                if (text.indexOf('教师：') === 0 || text.indexOf('老师：') === 0) {
+                    var tv = text.replace(/^(教师|老师)[:：]/, '');
+                    if (!info.teacher) info.teacher = tv;
+                    var g0 = cur();
+                    if (!g0.teacher) g0.teacher = tv;
+                } else if (text.indexOf('上课地点：') === 0 || text.indexOf('地点：') === 0) {
+                    var lv = text.replace(/^(上课)?地点[:：]/, '');
+                    // 已经有过地点说明这是新的一组（换了教室/周次）
+                    var last = groups.length ? groups[groups.length - 1] : null;
+                    var g = (last && last.location) ? newGroup() : cur();
+                    if (!g.location) g.location = lv;
+                    if (!info.location) info.location = lv;
                 } else if (text.indexOf('节次：') === 0) {
-                    if (!info.sections) info.sections = text.replace('节次：', '');
+                    var sv = text.replace(/^节次[:：]/, '');
+                    if (!info.sections) info.sections = sv;
+                    var gs = cur();
+                    if (!gs.sections) gs.sections = sv;
                 } else if (text.indexOf('周次：') === 0) {
-                    if (!info.weekRange) info.weekRange = text.replace('周次：', '');
+                    addWeek(text, cur());
                 }
             }
         }
@@ -178,18 +244,75 @@
         }
         var own = node.querySelectorAll('div.qz-hasCourse-detailitem');
         read(own);
+        // 旧版正方 item-box：div[not(@class)] 里 span[1]=地点，span[2]=周次(节次)
+        try {
+            var plain = node.querySelectorAll('div:not([class])');
+            for (var pdi = 0; pdi < plain.length; pdi++) {
+                var sps = plain[pdi].querySelectorAll('span');
+                if (sps.length >= 1 && !info.location) info.location = cleanText(sps[0].textContent);
+                if (sps.length >= 2) {
+                    var ws = cleanText(sps[1].textContent);
+                    addWeek(ws, cur());
+                    if (!info.sections) {
+                        var pm = ws.match(/[（(]([^）)]+)[）)]/);
+                        if (pm) info.sections = pm[1];
+                    }
+                }
+            }
+            var tch = node.querySelector('div.tch-name');
+            if (tch && !info.teacher) info.teacher = cleanText(tch.textContent);
+            // 更老的正方课表：font[title=老师/上课地点/周次(节次)]
+            var fonts = node.querySelectorAll('font[title]');
+            for (var fi = 0; fi < fonts.length; fi++) {
+                var ft = fonts[fi].getAttribute('title') || '';
+                var fv = cleanText(fonts[fi].textContent);
+                if ((ft.indexOf('老师') >= 0 || ft.indexOf('教师') >= 0) && !info.teacher) {
+                    info.teacher = fv;
+                } else if ((ft.indexOf('地点') >= 0 || ft.indexOf('教室') >= 0) && !info.location) {
+                    info.location = fv;
+                } else if (ft.indexOf('周次') >= 0 || ft.indexOf('节次') >= 0) {
+                    addWeek(fv, cur());
+                    if (!info.sections) {
+                        var fm = fv.match(/[（(]([^）)]+)[）)]/);
+                        if (fm) info.sections = fm[1];
+                    }
+                }
+            }
+        } catch (_) {}
         if (!info.location && own.length) {
             // 有的模板地点是纯文本，不带「上课地点：」前缀
             for (var k = 0; k < own.length; k++) {
-                var tv = cleanText(own[k].textContent);
-                if (tv.indexOf('小节') >= 0 || tv.charAt(0) === '[') continue;
-                if (tv.indexOf('教师') >= 0 || tv.indexOf('周次') >= 0 || tv.indexOf('节次') >= 0) continue;
-                info.location = tv;
+                var tv2 = cleanText(own[k].textContent);
+                if (tv2.indexOf('小节') >= 0 || tv2.charAt(0) === '[') continue;
+                if (tv2.indexOf('教师') >= 0 || tv2.indexOf('周次') >= 0 || tv2.indexOf('节次') >= 0) continue;
+                info.location = tv2;
             }
         }
-        var bl = info.weekRange.indexOf('[');
-        var br = info.weekRange.indexOf(']');
-        if (bl >= 0 && br > bl) info.weekRange = info.weekRange.slice(bl, br + 1);
+        // 兜底：有的模板不给「周次：」前缀（如直接写「1-16周」「第15周」），
+        // 从节点/悬浮框文本里按「a-b周」/「n周」提取，避免周次为空导致该课在所有周都显示
+        if (!infoWeeks.length) {
+            var scanNode = tooltip || node;
+            var scan = cleanText((tooltip ? tooltip.textContent : '') + ' ' + (node ? node.textContent : ''));
+            if (!scan && scanNode) scan = cleanText(scanNode.textContent);
+            var re = /\d{1,2}\s*[-~—－至]\s*\d{1,2}\s*周(?:\s*[（(]?\s*[单双]\s*[）)]?)?|\d{1,2}\s*周(?:\s*[（(]?\s*[单双]\s*[）)]?)?/g;
+            var m;
+            while ((m = re.exec(scan)) !== null) addWeek(m[0], cur());
+        }
+        info.weekRange = infoWeeks.join(' ');
+
+        // 只输出「有地点或周次」的组，避免空壳组把课程复制成多条
+        var outGroups = [];
+        for (var gi = 0; gi < groups.length; gi++) {
+            var g2 = groups[gi];
+            if (!g2.location && !g2.weekParts.length) continue;
+            outGroups.push({
+                teacher: g2.teacher || info.teacher,
+                location: g2.location || '',
+                weekRange: g2.weekParts.join(' '),
+                sections: g2.sections || ''
+            });
+        }
+        info.groups = outGroups;
         return info;
     }
 
@@ -245,13 +368,30 @@
         // 按真实列号展开（处理 colspan/rowspan），保证前导列/合并单元格不会把整行错位
         var grid = buildGrid(allRows, table);
 
-        // 课表正文的实际网格宽度（只看有 3 个以上单元格的行，避开标题/说明行）
+        // ① 找「备注」列：部分模板在 7 天右侧多一列备注，若把它算进宽度，整张表会错位一天
+        var notesCol = -1;
+        for (var nr = 0; nr < allRows.length && nr < 6 && notesCol < 0; nr++) {
+            var nCells = grid[nr] || [];
+            for (var nc = 0; nc < nCells.length; nc++) {
+                var nt = cleanText(nCells[nc].cell.textContent);
+                if (nt.length <= 8 && nt.indexOf('备注') >= 0) { notesCol = nCells[nc].col; break; }
+            }
+        }
+
+        // ② 课表正文的实际网格宽度：只统计「真的含课程」的行；
+        //    之前把表头/备注等行也算进来，只要多出一列就会让 startCol 偏移，整张表课程错位一天
         var maxCols = 0;
         for (var mr = 0; mr < allRows.length; mr++) {
             var mCells = grid[mr] || [];
             if (mCells.length < 3) continue;
+            var hasCourse = false;
+            for (var mc = 0; mc < mCells.length && !hasCourse; mc++) {
+                if (collectItems(mCells[mc].cell).length) hasCourse = true;
+            }
+            if (!hasCourse) continue;
             var lastCell = mCells[mCells.length - 1];
             var w = lastCell.col + lastCell.cs;
+            if (notesCol >= 0 && w > notesCol) w = notesCol;   // 备注列不算星期列
             if (w > maxCols) maxCols = w;
         }
 
@@ -361,36 +501,106 @@
                 var items = collectItems(td);
                 if (!items.length) continue;
 
-                // tooltip 挂在单元格上，个别模板挂到行上，做两级兜底
-                var tooltip = td.querySelector('div.qz-tooltip');
-                if (!tooltip) tooltip = row.querySelector('div.qz-tooltip');
-                var info = parseDetails(td, tooltip);
-                if (!info.teacher || !info.location || !info.sections) {
-                    var itemInfo = parseDetails(items[0], null);
-                    if (!info.teacher) info.teacher = itemInfo.teacher;
-                    if (!info.location) info.location = itemInfo.location;
-                    if (!info.sections) info.sections = itemInfo.sections;
-                    if (!info.weekRange) info.weekRange = itemInfo.weekRange;
-                }
+                // 本格可能存在多个 tooltip（同格多门课）：按「课程名」匹配，避免所有课都用第一个 tooltip 的周次
+                var tips = td.querySelectorAll('div.qz-tooltip');
+                var tipAll = td.querySelector('div.qz-tooltip') || row.querySelector('div.qz-tooltip');
+                var info = parseDetails(td, tipAll);
+                var single = items.length === 1;
+                var firstInfo = parseDetails(items[0], null);
+                if (!info.teacher) info.teacher = firstInfo.teacher;
+                if (!info.location) info.location = firstInfo.location;
+                if (!info.sections) info.sections = firstInfo.sections;
 
                 for (var it = 0; it < items.length; it++) {
                     var node = items[it];
-                    var nameNode = node.querySelector ? node.querySelector('div.qz-hasCourse-title') : null;
-                    var name = cleanText((nameNode || node).textContent);
+                    var name = courseNameOf(node);
                     if (!name) continue;
 
-                    // 每条课程自己的节次最可靠：09~10小节 → 第九十节
-                    var ownInfo = it === 0 ? null : parseDetails(node, null);
-                    var secText = (ownInfo && ownInfo.sections) || info.sections;
+                    var ownTip = node.querySelector ? node.querySelector('div.qz-tooltip') : null;
+                    if (!ownTip && tips.length) {
+                        for (var q = 0; q < tips.length; q++) {
+                            if (cleanText(tips[q].textContent).indexOf(name) >= 0) { ownTip = tips[q]; break; }
+                        }
+                    }
+                    if (!ownTip && single) ownTip = tipAll;   // 只有一门课时才能安全共用格子 tooltip
+                    var ownInfo = parseDetails(node, ownTip);
+
+                    // 旧版 item-box：一门课可能有多组「地点 + 周次(节次)」，逐组生成，避免节次/周次串位
+                    var pats = [];
+                    if (String(node.className || '').indexOf('item-box') >= 0 && node.querySelectorAll) {
+                        var pdivs = node.querySelectorAll('div:not([class])');
+                        for (var pi2 = 0; pi2 < pdivs.length; pi2++) {
+                            var psps = pdivs[pi2].querySelectorAll('span');
+                            if (psps.length < 2) continue;
+                            var pws = cleanText(psps[1].textContent);
+                            if (pws.indexOf('周') < 0) continue;
+                            var psm = pws.match(/[（(]([^）)]+)[）)]/);
+                            pats.push({
+                                week: pws,
+                                sec: psm ? psm[1] : '',
+                                loc: cleanText(psps[0].textContent)
+                            });
+                        }
+                    }
+                    if (pats.length) {
+                        for (var pp = 0; pp < pats.length; pp++) {
+                            var pSec = pats[pp].sec;
+                            var pNo = pickNum(pSec);
+                            var pSlot = (pNo >= 1 && pNo <= 12) ? slotKeyOf(pNo) : rowSlot;
+                            courses.push({
+                                name: name,
+                                teacher: ownInfo.teacher || info.teacher || '未知教师',
+                                location: pats[pp].loc || ownInfo.location || '未知地点',
+                                weekRange: pats[pp].week,
+                                dayOfWeek: dayInfo.day,
+                                dayDate: dayInfo.date,
+                                timeSlot: pSlot || rowSlot,
+                                sections: pSec || pSlot || rowSlot
+                            });
+                            rowCount++;
+                        }
+                        continue;
+                    }
+
+                    // 同一门课在不同周换教室/节次：tooltip 里是重复的「地点+周次」组，逐组生成，
+                    // 这样选到第几周就显示那一周对应的教室，而不是永远显示第一周的教室。
+                    var gs = (single && ownInfo.groups) ? ownInfo.groups : [];
+                    var canSplit = gs.length > 1;
+                    for (var chk = 0; chk < gs.length; chk++) {
+                        if (!gs[chk].weekRange) { canSplit = false; break; }
+                    }
+                    if (canSplit) {
+                        for (var gI = 0; gI < gs.length; gI++) {
+                            var gg = gs[gI];
+                            var gno = pickNum(gg.sections);
+                            var gslot = (gno >= 1 && gno <= 12) ? slotKeyOf(gno) : rowSlot;
+                            courses.push({
+                                name: name,
+                                teacher: gg.teacher || ownInfo.teacher || info.teacher || '未知教师',
+                                location: gg.location || ownInfo.location || '未知地点',
+                                weekRange: gg.weekRange,
+                                dayOfWeek: dayInfo.day,
+                                dayDate: dayInfo.date,
+                                timeSlot: gslot || rowSlot,
+                                sections: gg.sections || gslot || rowSlot
+                            });
+                            rowCount++;
+                        }
+                        continue;
+                    }
+
+                    // 多门课的格子绝不借用其他课的周次，宁可周次为空也不要张冠李戴（否则某些周会整门课消失）
+                    var weekRange = ownInfo.weekRange || (single ? info.weekRange : '');
+                    var secText = ownInfo.sections || (single ? info.sections : '');
                     var secNo = pickNum(secText);
                     var courseSlot = (secNo >= 1 && secNo <= 12) ? slotKeyOf(secNo) : rowSlot;
                     if (!courseSlot) courseSlot = rowSlot;
 
                     courses.push({
                         name: name,
-                        teacher: (ownInfo && ownInfo.teacher) || info.teacher || '未知教师',
-                        location: (ownInfo && ownInfo.location) || info.location || '未知地点',
-                        weekRange: (ownInfo && ownInfo.weekRange) || info.weekRange,
+                        teacher: ownInfo.teacher || info.teacher || '未知教师',
+                        location: ownInfo.location || info.location || '未知地点',
+                        weekRange: weekRange,
                         dayOfWeek: dayInfo.day,
                         dayDate: dayInfo.date,
                         timeSlot: courseSlot,
@@ -412,30 +622,52 @@
         return courses;
     }
 
-    var lastList = [];   // 最近一次解析结果（延时复检时对比课程数）
+    var lastList = [];   // 最近一次回传的课程（延时复检/全学期补充时对比）
+    var lastSent = 0;
 
-    function parseTables(tables) {
+    /** 周次规范化（只保留数字 + 单双标记），用于跨周页面去重 */
+    function canonWeek(wr) {
+        var s = String(wr || '');
+        var parity = s.indexOf('单') >= 0 ? '单' : (s.indexOf('双') >= 0 ? '双' : '');
+        // 去掉「(1-2节)」这类括号内容，否则节次数字会被当成周次参与去重
+        var nums = (s.replace(/[（(][^）)]*[）)]/g, ' ').match(/\d{1,2}/g) || []);
+        return nums.join(',') + parity;
+    }
+
+    function courseKey(co) {
+        return co.dayOfWeek + '|' + co.timeSlot + '|'
+            + String(co.name || '').replace(/\s+/g, '') + '|' + canonWeek(co.weekRange);
+    }
+
+    /** 解析多个表格并去重，返回课程数组（不回传） */
+    function collectCourses(tables) {
         var all = [];
         var seen = {};
         for (var t = 0; t < tables.length; t++) {
             var list = parseTable(tables[t]);
             for (var c = 0; c < list.length; c++) {
                 var co = list[c];
-                var key = co.dayOfWeek + '|' + co.timeSlot + '|' + co.name + '|' + co.sections + '|' + co.weekRange;
+                var key = courseKey(co);
                 if (!seen[key]) {
                     seen[key] = 1;
                     all.push(co);
                 }
             }
         }
-        lastList = all;
-        var preview = all.slice(0, 12).map(function (c) {
+        return all;
+    }
+
+    /** 回传课程给原生层（前端 receiveFromAndroid('courses') 会覆盖并重渲染） */
+    function deliver(list, tag) {
+        lastList = list;
+        lastSent = list.length;
+        var preview = list.slice(0, 12).map(function (c) {
             return c.dayOfWeek + c.timeSlot + '/' + c.name + '/' + c.sections;
         });
         log('[JS] 课程样本: ' + preview.join(' ; '));
-        log('[JS] 课表解析完成，共 ' + all.length + ' 门课程（表格 ' + tables.length + ' 个），正在回传');
+        log(tag || ('[JS] 课表解析完成，共 ' + list.length + ' 门课程，正在回传'));
         try {
-            AndroidBack.onCourses(JSON.stringify(all));
+            AndroidBack.onCourses(JSON.stringify(list));
         } catch (e) {
             err(e.message);
         }
@@ -470,7 +702,8 @@
         return null;
     }
 
-    function findTables() {
+    /** 在任意 document（含 DOMParser 解析出的文档）里挑出课表表格 */
+    function pickTables(root) {
         var tables = [];
         function push(tb) {
             for (var k = 0; k < tables.length; k++) {
@@ -478,20 +711,37 @@
             }
             tables.push(tb);
         }
-        function collect(doc) {
-            var tbs = doc.querySelectorAll('table');
+        try {
+            var tbs = root.querySelectorAll('table');
             for (var a = 0; a < tbs.length; a++) {
                 var tb = tbs[a];
                 var cls = String(tb.className || '');
                 if (cls.indexOf('qz-weeklyTable') >= 0 ||
                     tb.querySelector('ul.courselists') ||
                     tb.querySelector('td.qz-weeklyTable-td') ||
-                    tb.querySelector('div.qz-hasCourse-title')) {
+                    tb.querySelector('div.qz-hasCourse-title') ||
+                    tb.querySelector('div.kbcontent') ||
+                    tb.querySelector('div.item-box')) {
                     push(tb);
                 }
             }
+        } catch (_) {}
+        return tables;
+    }
+
+    function findTables() {
+        var tables = [];
+        function merge(list) {
+            for (var i = 0; i < list.length; i++) {
+                var tb = list[i];
+                var dup = false;
+                for (var k = 0; k < tables.length; k++) {
+                    if (tables[k] === tb) { dup = true; break; }
+                }
+                if (!dup) tables.push(tb);
+            }
         }
-        try { collect(document); } catch (_) {}
+        try { merge(pickTables(document)); } catch (_) {}
 
         // 依次扫所有 iframe（课表通常在内嵌的 person 框里）
         var frames = document.querySelectorAll('iframe,frame');
@@ -502,9 +752,356 @@
             } catch (_) {}
             if (!doc || !doc.body) continue;
             try { frames[f].style.display = 'block'; } catch (_) {}
-            try { collect(doc); } catch (_) {}
+            try { merge(pickTables(doc)); } catch (_) {}
         }
         return tables;
+    }
+
+    /** 读页面表单字段值：正方把 xnxqid / sjmsValue 放在 hidden input 里，innerHTML 里查不到 */
+    function readFieldValues(doc) {
+        var out = [];
+        try {
+            var els = doc.querySelectorAll('input,select,textarea');
+            for (var i = 0; i < els.length; i++) {
+                var el = els[i];
+                var nm = String(el.name || el.id || '');
+                if (!nm) continue;
+                var v = '';
+                if (String(el.tagName || '').toLowerCase() === 'select') {
+                    var so = el.options[el.selectedIndex];
+                    v = so ? (so.value || '') : '';
+                } else {
+                    v = el.value || el.getAttribute('value') || '';
+                }
+                if (v) out.push(nm + '=' + v);
+            }
+        } catch (_) {}
+        return out.join(' ');
+    }
+
+    /**
+     * 从主页面 / iframe / 脚本里找出课表接口所需参数（xnxqid 学期、sjmsValue 时间模式）：
+     *   主页面课表只渲染「当前周」，因此只在其他周上课的课程在 DOM 里根本不存在。
+     *   正方 jsxsd 用 mainV_index_loadkb.htmlx?rq=<周次> 切换周，rq=all 在部分学校直接给整学期。
+     */
+    function findSemesterParams() {
+        var docs = [document];
+        var frames = document.querySelectorAll('iframe,frame');
+        for (var f = 0; f < frames.length; f++) {
+            try {
+                if (frames[f].contentDocument && frames[f].contentDocument.body) {
+                    docs.push(frames[f].contentDocument);
+                }
+            } catch (_) {}
+        }
+        var reSj = /sjmsValue['"]?\s*[:=]\s*['"]?([A-Za-z0-9_-]{6,})/;
+        var reXq = /xnxq(?:id|01id)['"]?\s*[:=]\s*['"]?([0-9]{4}-?[0-9]{4}-?[0-9]{1,2})/;
+        var reXq2 = /xnxq(?:id|01id)=([^&'"\s]{2,40})/;
+        var sj = '', xq = '';
+        for (var i = 0; i < docs.length; i++) {
+            var d = docs[i];
+            var text = '';
+            try {
+                text = (d.documentElement ? d.documentElement.innerHTML : '') || '';
+            } catch (_) {}
+            try {
+                // 页面地址本身也可能带参数（主框架跳转后参数会保留在 href 上）
+                text += ' ' + (d.location ? String(d.location.href) : '');
+            } catch (_) {}
+            try {
+                // 个别模板把参数放在本地存储里
+                var st = d.defaultView;
+                if (st && st.localStorage) {
+                    for (var li = 0; li < st.localStorage.length; li++) {
+                        var lk = st.localStorage.key(li);
+                        text += ' ' + lk + '=' + (st.localStorage.getItem(lk) || '');
+                    }
+                }
+            } catch (_) {}
+            try {
+                text += ' ' + String(document.cookie || '');
+            } catch (_) {}
+            try {
+                text += ' ' + readFieldValues(d);
+            } catch (_) {}
+            if (!sj) {
+                var m1 = text.match(reSj);
+                if (m1) sj = m1[1];
+            }
+            if (!xq) {
+                var m2 = text.match(reXq) || text.match(reXq2);
+                if (m2) xq = m2[1];
+            }
+        }
+        return { sj: sj, xq: xq };
+    }
+
+    /* ==================== 整学期课表补抓 ====================
+     * 教务首页的周课表只渲染「当前教学周」，只在其他周上的课（例如只在第15周上的）
+     * 在 DOM 里根本不存在，所以必须再向教务要一份整学期数据。按「省流量 → 最可靠」逐级降级：
+     *   ① mainV_index_loadkb.htmlx?rq=all    一次请求拿整学期（部分学校支持）
+     *   ② mainV_index_loadkb.htmlx?rq=1..N   首页周课表的切换接口，逐周抓再合并（最可靠）
+     *   ③ xskb/xskb_list.do?zc=1..N          课表查询页（结构是 div.kbcontent），逐周抓
+     * 逐周抓到的课若没写周次，就按「它出现在哪些周」反推区间（如 [1-16周]），不串周也不漏周。
+     */
+    var __supplementRunning = false;
+
+    function fetchDoc(url, cb) {
+        var settled = false;
+        function done(html, ok) {
+            if (settled) return;
+            settled = true;
+            cb(String(html || ''), !!ok);
+        }
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            try { xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest'); } catch (_) {}
+            xhr.timeout = 4000;
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) return;
+                done(xhr.responseText, xhr.status >= 200 && xhr.status < 400);
+            };
+            xhr.ontimeout = function () { done('', false); };
+            xhr.onerror = function () { done('', false); };
+            xhr.send();
+        } catch (e) { done('', false); }
+    }
+
+    /** 解析一段课表 HTML；weekNo>0 表示这是「某一周」的课表，缺周次时按该周记 */
+    function parseHtmlCourses(html, weekNo) {
+        var doc = null;
+        try { doc = new DOMParser().parseFromString(html, 'text/html'); } catch (_) {}
+        if (!doc) return null;
+        var tables = pickTables(doc);
+        if (!tables.length) return null;
+        QUIET = true;
+        var list = [];
+        try { list = collectCourses(tables); } catch (_) { list = []; } finally { QUIET = false; }
+        if (weekNo > 0) {
+            for (var i = 0; i < list.length; i++) {
+                var co = list[i];
+                if (co.weekRange) continue;          // tooltip 里写了真实周次，直接用
+                co.weekRange = '第' + weekNo + '周';   // 没写：至少确定这门课在本周有课
+                co.__inferred = true;
+            }
+        }
+        return list;
+    }
+
+    /** 课程「基准键」（不含周次）：把逐周抓到的同一门课归并成一条 */
+    function baseKeyOf(co) {
+        return co.dayOfWeek + '|' + co.timeSlot + '|'
+            + String(co.name || '').replace(/\s+/g, '') + '|'
+            + String(co.teacher || '').replace(/\s+/g, '').replace(/^未知.*$/, '') + '|'
+            + String(co.location || '').replace(/\s+/g, '').replace(/^未知.*$/, '');
+    }
+
+    function weekNoOfRange(wr) {
+        var m = String(wr || '').match(/^第?\s*(\d{1,2})\s*周$/);
+        return m ? parseInt(m[1], 10) : 0;
+    }
+
+    /** 周次集合 → 「[1-8周][10-16周]」，与教务写法一致，前端 parseWeekRanges 能直接解析 */
+    function rangeTextOf(weeks) {
+        weeks.sort(function (a, b) { return a - b; });
+        var segs = [], i = 0;
+        while (i < weeks.length) {
+            var a = weeks[i], b = a;
+            while (i + 1 < weeks.length && weeks[i + 1] === b + 1) { b = weeks[++i]; }
+            segs.push(a === b ? (a + '周') : (a + '-' + b + '周'));
+            i++;
+        }
+        return '[' + segs.join('][') + ']';
+    }
+
+    /**
+     * 合并当前周课表 + 整学期课表：
+     *  - 有真实周次的按「周次+课程」去重；
+     *  - 只有「第N周」推断周次的按基准键归并，反推成区间；
+     *  - 同一门课已有真实周次时丢弃推断条目，避免同一格出现两遍。
+     */
+    function buildMerged(domList, extraList) {
+        var out = [], seen = {}, realBase = {};
+        function addReal(list) {
+            for (var i = 0; i < (list || []).length; i++) {
+                var co = list[i];
+                if (co.__inferred) continue;
+                var k = courseKey(co);
+                if (seen[k]) continue;
+                seen[k] = 1;
+                realBase[baseKeyOf(co)] = 1;
+                out.push(co);
+            }
+        }
+        addReal(domList);
+        addReal(extraList);
+
+        var groups = {}, order = [];
+        for (var g = 0; g < (extraList || []).length; g++) {
+            var ic = extraList[g];
+            if (!ic.__inferred) continue;
+            var bk = baseKeyOf(ic);
+            if (realBase[bk]) continue;
+            var wn = weekNoOfRange(ic.weekRange);
+            if (wn <= 0) continue;
+            if (!groups[bk]) { groups[bk] = { co: ic, weeks: [] }; order.push(bk); }
+            if (groups[bk].weeks.indexOf(wn) < 0) groups[bk].weeks.push(wn);
+        }
+        for (var o = 0; o < order.length; o++) {
+            var grp = groups[order[o]];
+            var copy = {};
+            for (var p in grp.co) { if (grp.co.hasOwnProperty(p)) copy[p] = grp.co[p]; }
+            delete copy.__inferred;
+            copy.weekRange = rangeTextOf(grp.weeks);
+            var k2 = courseKey(copy);
+            if (seen[k2]) continue;
+            seen[k2] = 1;
+            out.push(copy);
+        }
+        return out;
+    }
+
+    /** 学期周次范围：只处理第1~18周 */
+    function estimateMaxWeek() {
+        return 18;
+    }
+
+    function frameworkUrls(w, p) {
+        var base = '/jsxsd/framework/mainV_index_loadkb.htmlx?rq=' + w;
+        var xq = p.xq ? ('&xnxqid=' + encodeURIComponent(p.xq)) : '';
+        var out = [];
+        if (p.sj) out.push(base + '&sjmsValue=' + encodeURIComponent(p.sj) + xq + '&xswk=false');
+        if (xq) out.push(base + xq + '&xswk=false');
+        out.push(base);
+        return out;
+    }
+
+    function xskbUrls(w, p) {
+        var xq = p.xq ? ('&xnxq01id=' + encodeURIComponent(p.xq)) : '';
+        var out = ['/jsxsd/xskb/xskb_list.do?zc=' + w + xq];
+        if (xq) out.push('/jsxsd/xskb/xskb_list.do?zc=' + w + xq + '&xswk=false');
+        return out;
+    }
+
+    /**
+     * 逐周抓取 [a,b] 的课表并汇总。
+     * urlsOf(w,p) 给出该周的若干候选地址；某种地址一旦成功，后续周优先用它，避免重复试错。
+     */
+    function fetchWeekRange(a, b, p, urlsOf, cb) {
+        var results = [], nextW = a, active = 0, finished = false, winShape = -1;
+        var CONC = 3;
+
+        function shapeList(w) {
+            var arr = urlsOf(w, p);
+            var idxs = [];
+            for (var i = 0; i < arr.length; i++) idxs.push(i);
+            if (winShape >= 0) {
+                idxs.sort(function (x, y) { return x === winShape ? -1 : (y === winShape ? 1 : 0); });
+            }
+            var out = [];
+            for (var k = 0; k < idxs.length; k++) out.push({ i: idxs[k], u: arr[idxs[k]] });
+            return out;
+        }
+
+        function pump() {
+            while (active < CONC && nextW <= b) fetchWeek(nextW++);
+            if (!finished && active === 0 && nextW > b) {
+                finished = true;
+                cb(results);
+            }
+        }
+
+        function fetchWeek(w) {
+            active++;
+            var shapes = shapeList(w);
+            var done = false;
+            function step(k) {
+                if (done) return;
+                if (k >= shapes.length) { done = true; active--; pump(); return; }
+                fetchDoc(shapes[k].u, function (html) {
+                    if (done) return;
+                    var list = parseHtmlCourses(html, w);
+                    if (list && list.length) {
+                        done = true;
+                        winShape = shapes[k].i;
+                        results.push({ w: w, list: list });
+                        active--;
+                        pump();
+                        return;
+                    }
+                    step(k + 1);
+                });
+            }
+            step(0);
+        }
+        pump();
+    }
+
+    function weekCountLog(results) {
+        var cnt = [];
+        for (var i = 0; i < results.length; i++) cnt.push(results[i].w + ':' + results[i].list.length);
+        return cnt.join(' ');
+    }
+
+    function mergeAndDeliver(extraList, tagLog) {
+        var merged = buildMerged(lastList, extraList);
+        if (merged.length <= lastList.length) return false;
+        log(tagLog + '：新增 ' + (merged.length - lastList.length) + ' 门，合并后共 ' + merged.length + ' 门');
+        deliver(merged, '[JS] 整学期课表合并完成，共 ' + merged.length + ' 门课程，正在回传');
+        return true;
+    }
+
+    /** 当前周数据已回传后，补齐「只在其他周上课」的课程（第15周这类漏课就在这里补回来） */
+    function supplementAllWeeks() {
+        if (__supplementRunning) return;
+        __supplementRunning = true;
+        var p = findSemesterParams();
+        log('[JS] 整学期补抓开始：xnxqid=' + (p.xq || '缺失') + '，sjmsValue=' + (p.sj ? '已取到' : '缺失'));
+
+        // ① rq=all：一次请求拿整学期，最省流量
+        var allUrls = frameworkUrls('all', p);
+        function tryAll(i) {
+            if (i >= allUrls.length) { log('[JS] rq=all 没返回课表，改用逐周抓取'); weeks(); return; }
+            fetchDoc(allUrls[i], function (html) {
+                var list = parseHtmlCourses(html, 0);
+                if (list && list.length) {
+                    log('[JS] rq=all 返回 ' + list.length + ' 门课程');
+                    if (mergeAndDeliver(list, 'rq=all')) return;
+                    log('[JS] rq=all 的课程与当前周完全一致（参数可能被忽略），改用逐周抓取');
+                }
+                tryAll(i + 1);
+            });
+        }
+
+        // ② 逐周抓首页课表接口（rq=1..N）
+        function weeks() {
+            var maxW = estimateMaxWeek();
+            log('[JS] 逐周抓取第1~' + maxW + '周（首页课表接口）');
+            fetchWeekRange(1, maxW, p, frameworkUrls, function (results) {
+                var loopList = [];
+                for (var i = 0; i < results.length; i++) loopList = loopList.concat(results[i].list);
+                log('[JS] 逐周结果（周:条数）: ' + weekCountLog(results));
+                if (mergeAndDeliver(loopList, '逐周抓取')) return;
+                log('[JS] 逐周抓取没得到新课程，改试课表查询页');
+                xskb();
+            });
+        }
+
+        // ③ 课表查询页（结构不同：div.kbcontent）
+        function xskb() {
+            var maxW = estimateMaxWeek();
+            log('[JS] 逐周抓取第1~' + maxW + '周（课表查询页）');
+            fetchWeekRange(1, maxW, p, xskbUrls, function (results) {
+                var loopList = [];
+                for (var i = 0; i < results.length; i++) loopList = loopList.concat(results[i].list);
+                log('[JS] 课表查询页逐周结果（周:条数）: ' + weekCountLog(results));
+                if (mergeAndDeliver(loopList, '课表查询页逐周抓取')) return;
+                log('[JS] 三种接口都没拿到更多课程，课表仍以当前周数据为准');
+            });
+        }
+
+        tryAll(0);
     }
 
     /**
@@ -517,18 +1114,15 @@
                 var tables = findTables();
                 if (!tables.length) return;
                 QUIET = true;
-                var n = parseTables(tables).length;
+                var list = collectCourses(tables);
                 QUIET = false;
-                if (n > lastSent) {
-                    lastSent = n;
-                    log('[JS] 延时复检：课程增至 ' + n + ' 门，重新回传');
-                    AndroidBack.onCourses(JSON.stringify(lastList));
+                if (list.length > lastSent) {
+                    log('[JS] 延时复检：课程增至 ' + list.length + ' 门，重新回传');
+                    deliver(list, '[JS] 延时复检回传，共 ' + list.length + ' 门课程');
                 }
             } catch (_) { QUIET = false; }
         }, delay);
     }
-
-    var lastSent = 0;
 
     var start = Date.now();
     function run() {
@@ -554,10 +1148,13 @@
                     }
                 }
             } catch (_) {}
-            parseTables(tables);
-            lastSent = lastList.length;
+            // 先回传当前周课表（保证 App 立即可用）
+            var list = collectCourses(tables);
+            deliver(list, '[JS] 当前周课表解析完成，共 ' + list.length + ' 门课程（表格 ' + tables.length + ' 个），正在回传');
             recheck(2500);
             recheck(7000);
+            // 再拉整学期课表，把只在其他周上课的课程补进来（否则第15周这类课会查不到）
+            setTimeout(supplementAllWeeks, 800);
             return;
         }
         if (Date.now() - start < 8000) {

@@ -29,28 +29,32 @@
             --sub:#87867F;
             --input-bg:#FAF9F5;
             --input-border:#E8E6DC;
-            --secondary:#5E5D59;--glass-hi:rgba(255,255,255,0);--glass-glow:rgba(255,255,255,0);--glass-g1:#F5F4ED;--glass-g2:#F5F4ED;--glass-g3:#F5F4ED;--glass-card:#FAF9F5;--glass-card-soft:#F5F4ED;--glass-border:#E8E6DC;--glass-shadow:rgba(20,20,19,0.08);
+            --secondary:#5E5D59;--glass-hi:rgba(255,255,255,0);--glass-glow:rgba(255,255,255,0);--glass-g1:#F5F4ED;--glass-g2:#F5F4ED;--glass-g3:#F5F4ED;--glass-card:#FAF9F5;--glass-card-soft:#F5F4ED;--glass-border:#E8E6DC;--glass-shadow:rgba(20,20,19,0.08);--glass-edge:rgba(255,255,255,0);--glass-refract:rgba(255,255,255,0);
             --bf: none;
         }
         /* 动态玻璃效果开关：默认关闭=纯实色普通UI；开启=强毛玻璃 */
         html[data-glass="1"]{
             --glass-hi:rgba(255,255,255,0.58);
             --glass-glow:rgba(255,255,255,0.30);
-            --glass-g1:#F2EBDD;--glass-g2:#EFE8DC;--glass-g3:#E8E6DC;
-            --glass-card:rgba(255,255,255,0.20);
-            --glass-card-soft:rgba(255,255,255,0.13);
+            --glass-g1:#F3EBDF;--glass-g2:#EFE7DA;--glass-g3:#E9E5DA;
+            --glass-card:rgba(250,249,245,0.52);
+            --glass-card-soft:rgba(250,249,245,0.40);
             --glass-border:rgba(255,255,255,0.55);
-            --glass-shadow:rgba(20,20,19,0.14);
-            --bf: blur(22px) saturate(175%);
+            --glass-shadow:rgba(20,20,19,0.12);
+            --glass-edge:rgba(255,255,255,0.55);
+            --glass-refract:rgba(255,255,255,0.20);
+            --bf: blur(22px) saturate(138%);
         }
         html[data-glass="0"] body::before { content: none; }
-        /* 液态玻璃动态背景（仅玻璃模式）：低饱和平滑渐变，缓慢连贯漂移 */
+        /* 玻璃模式背景：暖奶油纸面 + 赤陶微光，与主界面完全一致 */
         html[data-glass="1"] body::before {
             background:
-                radial-gradient(120vmax 90vmax at 50% 118%, rgba(255,255,255,0.30), rgba(255,255,255,0) 62%),
-                linear-gradient(125deg, #F2EBDD 0%, #EFE8DC 26%, #E8E6DC 48%, #F0EAE0 72%, #F2EBDD 100%);
+                radial-gradient(120vmax 90vmax at 50% 118%, rgba(255,255,255,0.26), rgba(255,255,255,0) 62%),
+                radial-gradient(80vmax 80vmax at 12% -10%, rgba(201,100,66,0.10), rgba(201,100,66,0) 55%),
+                linear-gradient(125deg, #F3EBDF 0%, #EFE7DA 26%, #E9E5DA 48%, #F0E9DE 72%, #F3EBDF 100%);
             background-size: 100% 100%;
             animation: lg-flow 40s ease-in-out infinite alternate;
+            will-change: transform;
         }
         @keyframes lg-flow {
             0% { transform: translate3d(0,0,0); }
@@ -117,7 +121,8 @@
             outline: none;
             border-color: var(--primary);
             background: var(--card);
-            box-shadow: 0 0 0 3px var(--primary-soft);
+            /* 与主界面一致：用内发光，聚焦时外框尺寸不变，学号框与密码框严格等宽 */
+            box-shadow: inset 0 0 0 2px var(--primary-soft);
         }
         button {
             width: 100%;
@@ -148,7 +153,7 @@
             text-align: center;
         }
         .tip.ok { display: none; }
-        .tip.err { background: #FBEAEA; color: #B53333; }
+        .tip.err { background: #ffebee; color: #c62828; }
 
         .hidden { display: none; }
         .course-list {
@@ -223,7 +228,7 @@
             border: 1px solid var(--input-border);
             border-radius: 12px;
             padding: 14px 16px;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
             box-shadow: 0 0 0 1px rgba(201,100,66,0.10), rgba(0,0,0,0.04) 0 2px 10px;
         }
         .g-top {
@@ -333,8 +338,42 @@
             cursor: pointer;
         }
         .clear-btn:active { opacity: 0.7; }
-        .pwd-wrap { position: relative; }
+        .pwd-wrap { position: relative; width: 100%; }
         .pwd-wrap input { padding-right: 42px; }
+        /* 密码掩码：与主界面一致，不再依赖字体圆点字形。
+           原生文字设为透明，由 .pwd-dots 自绘等距圆点，任何机型都不会挤成一坨 */
+        .pwd-wrap input[type="password"] {
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+            caret-color: var(--text);
+            letter-spacing: normal;
+            -webkit-text-stroke: 0;
+        }
+        .pwd-wrap input[type="password"]::placeholder {
+            color: var(--sub);
+            -webkit-text-fill-color: var(--sub);
+        }
+        .pwd-dots {
+            position: absolute;
+            left: 17px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            height: 18px;
+            max-width: calc(100% - 64px);
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .pwd-dots.hidden { display: none; }
+        .pwd-dots i {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text);
+            flex: 0 0 7px;
+        }
         .pwd-eye {
             position: absolute;
             right: 10px;
@@ -407,7 +446,7 @@
             border: 1px solid var(--glass-border);
             backdrop-filter: var(--bf);
             -webkit-backdrop-filter: var(--bf);
-            box-shadow: 0 10px 34px var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 rgba(255,255,255,0.10);
+            box-shadow: 0 14px 42px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.80), inset 0 -1px 0 rgba(255,255,255,0.20), inset 1px 0 0 var(--glass-refract);
             position: relative;
             overflow: hidden;
         }
@@ -417,22 +456,33 @@
             pointer-events: none;
             background: linear-gradient(180deg, var(--glass-glow), rgba(255,255,255,0));
         }
-        .gcard {
+        html[data-glass="1"] .gcard {
             background: var(--glass-card-soft);
             border: 1px solid var(--glass-border);
             backdrop-filter: var(--bf);
             -webkit-backdrop-filter: var(--bf);
-            box-shadow: inset 0 1px 0 var(--glass-hi);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 26px var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 1px 0 0 var(--glass-refract), inset -1px 0 0 rgba(255,255,255,0.12);
         }
         .btn { box-shadow: inset 0 1px 0 rgba(255,255,255,0.28); }
-        /* 玻璃模式：按钮与内容区强化毛玻璃质感 */
-        html[data-glass="1"] button:not(.clear-btn):not(.copy-log-link) {
+        /* 玻璃模式：按钮与内容区强化毛玻璃质感。
+           确认弹窗按钮等带实色底的按钮排除在外，保留原色，避免白字被浅色渐变压掉 */
+        html[data-glass="1"] button:not(.clear-btn):not(.copy-log-link):not(.confirm-btn) {
             border-radius: 12px;
             background: linear-gradient(180deg, rgba(255,255,255,0.46), rgba(255,255,255,0.22));
             box-shadow: 0 6px 18px var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.62), inset 0 -1px 0 rgba(255,255,255,0.16);
         }
+        /* 玻璃层里的按钮文字改用纯色填充、取消全局细描边：
+           描边+ backdrop-filter 在部分 WebView 重绘时会漏画字形，表现为文字偶发空白 */
+        html[data-glass="1"] button {
+            -webkit-text-stroke: 0;
+            -webkit-text-fill-color: currentColor;
+        }
+        /* 按下时不再叠加 filter，避免与 backdrop-filter 同层重绘时丢失文字 */
+        html[data-glass="1"] button:active { filter: none; }
         html[data-glass="1"] .course-list:not(.wk) {
-            background: var(--glass-card-soft);
+            background: rgba(250,249,245,0.34);
             border: 1px solid var(--glass-border);
             backdrop-filter: var(--bf);
             -webkit-backdrop-filter: var(--bf);
@@ -476,7 +526,7 @@
 <body>
 <div class="container">
     <div class="card" id="login-page">
-        <h1>📊 查询成绩</h1>
+        <h1>查询成绩</h1>
         <div class="input-group">
             <label>学号</label>
             <input type="text" id="username" placeholder="请输入学号" autocomplete="off">
@@ -485,6 +535,7 @@
             <label>密码</label>
             <div class="pwd-wrap">
                 <input type="password" id="password" placeholder="请输入密码">
+                <div class="pwd-dots hidden" id="pwdDots"></div>
                 <span id="pwdEye" class="pwd-eye"></span>
             </div>
         </div>
@@ -508,7 +559,7 @@
     <div class="card hidden" id="timetable-page">
         <h1>我的成绩</h1>
         <div style="display:flex;gap:10px;margin-bottom:12px;">
-            <select id="termSelect" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--text);font-size:14px;">
+            <select id="termSelect" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--glass-border);background:var(--glass-card-soft);backdrop-filter:var(--bf);-webkit-backdrop-filter:var(--bf);color:var(--text);font-size:14px;">
                 <option value="">全部学期</option>
             </select>
             <button id="termQueryBtn" style="flex:1;margin:0;padding:10px;font-size:14px;">查询</button>
@@ -552,10 +603,14 @@
     const lpBars = [document.getElementById('loginProgress'), document.getElementById('gradeProgress')];
     const lpTexts = [document.getElementById('lpText'), document.getElementById('gpText')];
     let lpHideTimer = null;
+    // 当前进度百分比：之后的日志文字会自动带上「xx%」，不会把百分比顶掉
+    let lpPct = -1;
     function showProgress(t) {
         if (lpHideTimer) { clearTimeout(lpHideTimer); lpHideTimer = null; }
         lpBars.forEach(function(el){ if (el) el.classList.remove('idle'); });
-        if (t) lpTexts.forEach(function(el){ if (el) el.textContent = t; });
+        if (t) lpTexts.forEach(function(el){
+            if (el) el.textContent = t + ((lpPct >= 0 && t.indexOf('%') < 0) ? ' ' + lpPct + '%' : '');
+        });
         lpBars.forEach(function(el){ if (el) el.classList.remove('hidden'); });
     }
     function hideProgress(delay) {
@@ -571,6 +626,18 @@
         lpTexts.forEach(function(el){ if (el && t) el.textContent = t; });
         if (lpBars[0]) lpBars[0].classList.add('idle');
     }
+
+    // 登录/查询进度：Java 在关键节点调用，文字后面带百分比（0-100）
+    window.mimiLoginProgress = function(pct, text) {
+        try {
+            var p = Math.round(Number(pct) || 0);
+            if (p < 0) p = 0;
+            if (p > 100) p = 100;
+            lpPct = p;
+            showProgress(String(text || '正在登录教务系统…'));
+            if (p >= 100) { lpPct = -1; hideProgress(900); }
+        } catch(e) {}
+    };
 
     function pad2(n) { return ('0' + n).slice(-2); }
     function nowStamp() {
@@ -717,8 +784,30 @@
     pwdEye.onclick = function() {
         passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
         setEyeIcon();
+        syncPwdDots();
     };
     setEyeIcon();
+    // 密码圆点：原生掩码文字透明，按字符数自绘等距圆点（与主界面同一实现）
+    const pwdDots = document.getElementById('pwdDots');
+    function syncPwdDots() {
+        if (!pwdDots) return;
+        const n = passwordInput.value ? passwordInput.value.length : 0;
+        if (passwordInput.type !== 'password' || n === 0) {
+            pwdDots.innerHTML = '';
+            pwdDots.__n = 0;
+            pwdDots.classList.add('hidden');
+            return;
+        }
+        if (pwdDots.__n !== n) {
+            let h = '';
+            const cnt = n > 40 ? 40 : n;
+            for (let i = 0; i < cnt; i++) h += '<i></i>';
+            pwdDots.innerHTML = h;
+            pwdDots.__n = n;
+        }
+        pwdDots.classList.remove('hidden');
+    }
+    passwordInput.addEventListener('input', syncPwdDots, false);
 
     // 渲染成绩（按学期分组）
     let gradeList = [];
@@ -963,6 +1052,7 @@
                         usernameInput.value = cred.username;
                         if (cred.password && cred.password !== 'null') {
                             passwordInput.value = cred.password;
+                            syncPwdDots();
                         }
                         rememberCheckbox.checked = true;
                         clearCredentialsBtn.style.display = 'inline-block';
@@ -1011,6 +1101,7 @@
                 Android.clearSavedCredentials();
                 usernameInput.value = '';
                 passwordInput.value = '';
+                syncPwdDots();
                 rememberCheckbox.checked = true;
                 clearCredentialsBtn.style.display = 'none';
                 showTip('已清空保存的账号密码', false);

@@ -36,8 +36,8 @@
 
 **课表**
 
-- 按周次查看当日课程，支持周次切换与全屏
-- 全屏模式可横向滑动，网格不再被压窄
+- 按周次查看当日课程，支持「全部周次」与全屏
+- 全屏一屏完整显示 7 天 × 6 节次，无需横向滚动
 - 第九至十二节全部支持，晚课卡片标注「晚七 / 晚九」
 - 跨格日程框：有课时透明透出，整段无课才实底展开详情
 
@@ -48,6 +48,7 @@
 
 **校园生活**
 
+- **校园公告** —— 汇总学校官网与 13 个二级学院公告，可按来源筛选、查看正文与图片
 - **公交查询** —— 武夷山公交线路与到站信息
 - **校园地图标注** —— 填入自备的高德 Key，同学共同标注校园地点，支持搜索、举报与一键导航
 - **日程管理** —— 倒计日、单点提醒，卡片右滑标记完成
@@ -67,7 +68,7 @@
 | 应用 ID | `com.mimi.kebiao`（源码包 `com.wuyi.kebiao`） |
 | 最低 / 目标版本 | Android 5.0（API 21）/ Android 14（API 34） |
 | 构建 | AGP 8.5.2 · Gradle 8.9 · JDK 17 |
-| 当前版本 | 3.3（versionCode 23） |
+| 当前版本 | 3.4（versionCode 29） |
 | 核心依赖 | AppCompat 1.6.1 · Material 1.11.0 · Navigation 2.7.7 · OkHttp 4.12.0 · Gson 2.10.1 |
 
 登录与取数都由 WebView 走教务系统本身完成（`AndroidBack.login()` 提交，`CookieManager` 维持登录状态）。更新检查与 APK 下载走 OkHttp，公告和反馈走 `HttpURLConnection`——都不碰教务的请求。
@@ -163,19 +164,20 @@ sequenceDiagram
 
 ## 功能模块
 
-App 底部有四个标签，各自对应一个页面：
+App 底部有五个标签，各自对应一个页面：
 
 ```mermaid
 flowchart LR
-    M["主界面<br/>底部四个标签"]
+    M["主界面<br/>底部五个标签"]
 
     M --> HM["课表<br/>兼成绩"]
     M --> SC["日程"]
-    M --> AS["小助手<br/>公交 · 校园地图"]
+    M --> AS["小助手<br/>公告 · 公交 · 校园地图"]
     M --> PF["我的<br/>公告 · 反馈 · 更新"]
 
     HM --> H1["课表页"]
     HM --> H2["成绩页"]
+    AS --> A0["公告页"]
     AS --> A1["公交页"]
     AS --> A2["地图页"]
 
@@ -211,6 +213,7 @@ app/src/main/
 └── assets/www/
     ├── index.html            # 课表页面（注入教务系统后由前端解析渲染）
     ├── grade.html            # 成绩页面
+    ├── notice.html           # 校园公告页面（列表 / 详情 / 图片预览）
     ├── bus.html              # 公交查询页面
     ├── map.html              # 校园地图标注页面（高德 JS API）
     ├── schedule.html         # 日程页面
@@ -228,7 +231,7 @@ app/src/main/
 | `HomeFragment.java` | **核心页面**。用 WebView 承载教务系统，注入 JS 抓取课表与成绩，负责登录状态、超时判定与数据缓存 |
 | `GradeFragment.java` | 成绩页。继承 `HomeFragment`，仅切换为成绩模式 |
 | `ScheduleFragment.java` | 日程页。倒计日与提醒的时间选择、卡片右滑标记完成 |
-| `AssistantFragment.java` | 小助手页。公交查询与校园地图入口，管理高德 Key 与导航跳转 |
+| `AssistantFragment.java` | 小助手页。校园公告、公交查询与校园地图入口；公告通过 `MimiBridge` 访问自家接口，地图管理高德 Key 与导航跳转 |
 | `ProfileFragment.java` | 「我的」页面：公告、版本更新、意见反馈、打赏入口 |
 
 ### 日程与对话框

@@ -7,6 +7,17 @@
         <TextView android:textSize="13.0sp" android:textColor="@color/cl_stone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:layout_marginBottom="20.0dp" android:text="常用校园工具，逐步上线" />
 
         <LinearLayout android:orientation="vertical" android:background="@drawable/bg_cl_card" android:clipToOutline="true" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <LinearLayout android:orientation="horizontal" android:id="@+id/layout_campus_notice" android:background="?selectableItemBackground" android:padding="16.0dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <ImageView android:background="@drawable/bg_icon_circle" android:padding="8.0dp" android:layout_width="36.0dp" android:layout_height="36.0dp" android:layout_marginEnd="12.0dp" android:layout_gravity="center_vertical" android:src="@drawable/ic_notice" />
+                <LinearLayout android:orientation="vertical" android:layout_width="0.0dp" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <TextView android:textSize="16.0sp" android:textColor="@color/cl_ink" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="校园公告" />
+                    <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:maxLines="1" android:ellipsize="end" android:text="学校通知与学院公告，实时更新" />
+                </LinearLayout>
+                <ImageView android:layout_width="18.0dp" android:layout_height="18.0dp" android:layout_gravity="center_vertical" android:layout_marginStart="8.0dp" android:src="@drawable/ic_arrow_forward" android:tint="@color/cl_stone" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout android:orientation="vertical" android:background="@drawable/bg_cl_card" android:clipToOutline="true" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12.0dp">
             <LinearLayout android:orientation="horizontal" android:id="@+id/layout_bus_query" android:background="?selectableItemBackground" android:padding="16.0dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content">
                 <ImageView android:background="@drawable/bg_icon_circle" android:padding="8.0dp" android:layout_width="36.0dp" android:layout_height="36.0dp" android:layout_marginEnd="12.0dp" android:layout_gravity="center_vertical" android:src="@drawable/ic_bus" />
                 <LinearLayout android:orientation="vertical" android:layout_width="0.0dp" android:layout_height="wrap_content" android:layout_weight="1.0">

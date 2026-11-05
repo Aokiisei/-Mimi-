@@ -28,6 +28,7 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.WebViewDatabase;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -76,6 +77,15 @@ public class HomeFragment extends Fragment {
     private boolean hasInjectedLogin = false;
     private Runnable timeoutRunnable = null;
     private int retryCount = 0;
+    // 静默登录：由"有缓存的后台自动更新"触发，失败时不弹窗、不覆盖正在看的缓存课表
+    private boolean pendingQuietLogin = false;
+    private boolean attemptQuiet = false;
+    // 本次尝试是否为静默更新：静默更新不显示登录进度百分比
+    private boolean lastAttemptQuiet = false;
+    // 延迟重试任务：新的登录开始时必须取消，否则旧任务会把新尝试打断
+    private Runnable retryRunnable = null;
+    // 尝试序号：旧的尝试迟到触发的加载/超时回调据此作废，不会干扰新一次登录
+    private int crawlSeq = 0;
     private boolean bgHappened = false;
     // bgHappened 置位的时间，用于判断该标记是否"刚回前台"（仅对紧随其后的自动登录有效）
     private long bgFlagSetTime = 0L;
@@ -120,6 +130,7 @@ public class HomeFragment extends Fragment {
     }
 
     public void notifyFrontGrades(String str) {
+        notifyFrontProgress(100, "查询完成");
         String strReplace = str.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("'", "\\'");
         WebView webView = this.webView;
         if (webView == null) {
@@ -164,6 +175,7 @@ public class HomeFragment extends Fragment {
         webView.stopLoading();
         this.crawlerView.loadUrl("https://jwxt.wuyiu.edu.cn/jsxsd/kscj/cjcx_frm");
         notifyGradeLog("[A] 开始加载成绩页 cjcx_frm");
+        notifyFrontProgress(90, "正在读取成绩…");
         Runnable runnable = this.timeoutRunnable;
         if (runnable != null) {
             this.mainHandler.removeCallbacks(runnable);
@@ -298,25 +310,40 @@ public class HomeFragment extends Fragment {
         return false;
     }
 
-    // 用于"页面文本"的账密错误判定：比 onError 的判定更严格，
-    // 不含「验证码」等登录页常态文案，避免把会话超时误判成账密错误
+    // 用于"页面文本"的账密错误判定：只认教务明确返回的错误措辞。
+    // 不能把「账号或密码」「用户名或密码」这种短语算进来：SSO 登录页的标签页本身就是
+    // 「用户名密码登录」，这样写会把"还停在登录页/超时"直接判成账密错误。
     private static boolean isCredentialErrorInPage(String str) {
         if (str == null) {
             return false;
         }
-        return str.contains("账号或密码") || str.contains("用户名或密码")
-                || str.contains("密码错误") || str.contains("密码不正确")
+        return str.contains("密码错误") || str.contains("密码不正确")
                 || str.contains("密码输入错误") || str.contains("密码有误")
                 || str.contains("账号不存在") || str.contains("用户不存在");
+    }
+
+    // 教务提示"错误次数过多/账号被锁定"：与密码错误区分开，避免用户一直重试把锁定时间拖长
+    private static boolean isLockedInPage(String str) {
+        if (str == null) {
+            return false;
+        }
+        return str.contains("锁定") || str.contains("次数过多") || str.contains("频繁")
+                || str.contains("暂时无法登录");
     }
 
     public static boolean isCredentialError(String str) {
         if (str == null) {
             return false;
         }
-        return str.contains("账号或密码") || str.contains("用户名或密码")
-                || str.contains("密码错误") || str.contains("密码不正确") || str.contains("密码输入错误")
-                || str.contains("账号不存在") || str.contains("用户不存在") || str.contains("验证码");
+        // App 自己上报的流程错误（页面没加载出来/找不到按钮/登录页超时）不是教务的账密提示，
+        // 不能当成"账号密码错误"，否则用户把密码改对了之后还会看到同样的误导提示
+        if (str.startsWith("超时：") || str.startsWith("登录页加载超时")
+                || str.contains("未找到登录按钮") || str.contains("未找到账号输入框")) {
+            return false;
+        }
+        return str.contains("密码错误") || str.contains("密码不正确") || str.contains("密码输入错误")
+                || str.contains("密码有误") || str.contains("账号不存在") || str.contains("用户不存在")
+                || str.contains("验证码");
     }
 
     private void initHomeUI(View view) {
@@ -451,6 +478,7 @@ public class HomeFragment extends Fragment {
     }
 
     void doAutoLogin(String str, String str2) {
+        this.pendingQuietLogin = true; // 自动登录属于后台行为：失败不弹窗
         this.pendingUser = str;
         this.pendingPass = str2;
         startCrawl();
@@ -550,6 +578,22 @@ public class HomeFragment extends Fragment {
         @JavascriptInterface
         public void login(String str, String str2) {
             Log.d(HomeFragment.TAG, "前台请求登录: " + str);
+            HomeFragment.this.pendingQuietLogin = false;
+            HomeFragment.this.pendingUser = str;
+            HomeFragment.this.pendingPass = str2;
+            HomeFragment.this.mainHandler.post(new Runnable() {
+                @Override
+                public final void run() {
+                    HomeFragment.this.startCrawl();
+                }
+            });
+        }
+
+        /** 自动登录（静默）：开屏带缓存的后台更新走这里，失败时不弹窗、不打断正在看的课表 */
+        @JavascriptInterface
+        public void loginAuto(String str, String str2) {
+            Log.d(HomeFragment.TAG, "前台请求自动登录（静默）: " + str);
+            HomeFragment.this.pendingQuietLogin = true;
             HomeFragment.this.pendingUser = str;
             HomeFragment.this.pendingPass = str2;
             HomeFragment.this.mainHandler.post(new Runnable() {
@@ -562,22 +606,31 @@ public class HomeFragment extends Fragment {
 
         @JavascriptInterface
         public void refresh() {
+            doRefresh(false);
+        }
+
+        /** 30 分钟定时自动更新走这里：失败同样静默处理 */
+        @JavascriptInterface
+        public void refreshAuto() {
+            doRefresh(true);
+        }
+
+        private void doRefresh(boolean quiet) {
+            HomeFragment.this.pendingQuietLogin = quiet;
             HomeFragment homeFragment = HomeFragment.this;
             homeFragment.pendingUser = homeFragment.prefs.getString(HomeFragment.KEY_USERNAME, null);
             HomeFragment homeFragment2 = HomeFragment.this;
             homeFragment2.pendingPass = homeFragment2.prefs.getString(HomeFragment.KEY_PASSWORD, null);
-            String str = HomeFragment.this.pendingUser;
-            HomeFragment homeFragment3 = HomeFragment.this;
-            if (str == null) {
-                homeFragment3.notifyFrontError("请先输入账号密码登录");
-            } else {
-                homeFragment3.mainHandler.post(new Runnable() {
-                    @Override
-                    public final void run() {
-                        HomeFragment.this.startCrawl();
-                    }
-                });
+            if (HomeFragment.this.pendingUser == null) {
+                HomeFragment.this.notifyFrontError("请先输入账号密码登录");
+                return;
             }
+            HomeFragment.this.mainHandler.post(new Runnable() {
+                @Override
+                public final void run() {
+                    HomeFragment.this.startCrawl();
+                }
+            });
         }
 
         @JavascriptInterface
@@ -671,11 +724,33 @@ public class HomeFragment extends Fragment {
     }
 
     public void startCrawl() {
+        // 新的登录请求接管上一次没跑完的尝试：不取消旧超时/旧重试，
+        // 用户改对账密后的新登录会被旧任务打断，看起来就像"密码还是错的"
         if (this.isCrawling) {
-            return;
+            Log.d(TAG, "收到新的登录请求，中止上一次未完成的抓取");
+            cancelPendingRetry();
+            cancelLoginTimeout();
+            try {
+                if (this.crawlerView != null) {
+                    this.crawlerView.stopLoading();
+                }
+            } catch (Throwable th) {
+            }
         }
         this.isCrawling = true;
         this.hasInjectedLogin = false;
+        this.retryCount = 0; // 用户重新登录：重试预算重新计算
+        this.attemptQuiet = this.pendingQuietLogin;
+        this.pendingQuietLogin = false;
+        // 手动登录：重建抓取 WebView。上一轮失败（尤其是账密错误）留在页面会话里的
+        // linkid/失败计数清 Cookie 清不掉，重建后才和"杀掉 App 重进"一样干净
+        if (!this.attemptQuiet) {
+            resetCrawlerSession();
+        }
+        this.lastAttemptQuiet = this.attemptQuiet;
+        Log.d(TAG, "登录尝试开始: 用户=" + this.pendingUser + " 密码长度="
+                + (this.pendingPass == null ? -1 : this.pendingPass.length())
+                + " quiet=" + this.attemptQuiet + " seq=" + (this.crawlSeq + 1));
         // "曾切后台"标记只对"刚回前台时立刻触发的那次自动登录"有意义。
         // 若该标记置位已超过 10 秒，说明是用户回到前台后又手动发起的登录（例如手输错密码），
         // 此时必须清除，否则本次登录超时会被误判为"登录超时"。
@@ -686,26 +761,97 @@ public class HomeFragment extends Fragment {
             this.bgFlagSetTime = 0L;
         }
         this.webView.evaluateJavascript("document.getElementById('login-page').classList.add('active');document.getElementById('timetable-page').classList.remove('active');var btn=document.querySelector('.btn .txt');if(btn)btn.textContent='登录中...';var spin=document.querySelector('.btn .loading');if(spin)spin.classList.remove('hidden');var lp=document.getElementById('loginProgress');if(lp)lp.classList.remove('hidden');", null);
-        Runnable runnable = this.timeoutRunnable;
-        if (runnable != null) {
-            this.mainHandler.removeCallbacks(runnable);
-        }
-        Runnable runnable2 = new Runnable() {
+        Log.d(TAG, "后台清除旧Cookie，重新登录...");
+        armLoginTimeout();
+        notifyFrontProgress(10, "正在连接教务系统…");
+        clearCookiesThenLoad(++this.crawlSeq);
+    }
+
+    /** 登录阶段的超时：只兜底"登录"本身（含 SSO 跳转），进入教务主页后由解析超时接管。
+     *  20 秒：账密错误时教务一般 2-4 秒就会返回提示，超时只做最坏情况的兜底。 */
+    private void armLoginTimeout() {
+        cancelLoginTimeout();
+        Runnable runnable = new Runnable() {
             @Override
             public final void run() {
                 onLoginTimeout();
             }
         };
-        this.timeoutRunnable = runnable2;
-        this.mainHandler.postDelayed(runnable2, 20000L);
-        Log.d(TAG, "后台清除旧Cookie，重新登录...");
-        CookieManager cookieManager = CookieManager.getInstance();
-        cookieManager.removeAllCookies(null);
-        cookieManager.removeSessionCookies(null);
-        this.mainHandler.postDelayed(new StartLoadRunnable(this), 300L);
+        this.timeoutRunnable = runnable;
+        this.mainHandler.postDelayed(runnable, 20000L);
     }
 
-    void onLoginTimeout() {
+    private void cancelLoginTimeout() {
+        if (this.timeoutRunnable != null) {
+            this.mainHandler.removeCallbacks(this.timeoutRunnable);
+            this.timeoutRunnable = null;
+        }
+    }
+
+    private void cancelPendingRetry() {
+        if (this.retryRunnable != null) {
+            this.mainHandler.removeCallbacks(this.retryRunnable);
+            this.retryRunnable = null;
+        }
+    }
+
+    /** 延迟自动重试：保留引用，新的登录开始时能取消掉 */
+    private void scheduleRetry(long delayMs) {
+        cancelPendingRetry();
+        Runnable runnable = new Runnable() {
+            @Override
+            public final void run() {
+                retryRunnable = null;
+                retryCrawl();
+            }
+        };
+        this.retryRunnable = runnable;
+        this.mainHandler.postDelayed(runnable, delayMs);
+    }
+
+    /**
+     * 先清空 Cookie、再加载教务入口页。
+     * removeAllCookies 是异步的：固定等 300ms 在慢设备上会残留上一次的 SSO 会话，
+     * 导致改对账密后第二次登录仍落在旧的失败页面。这里等回调完成后再加载，并留 500ms 兜底。
+     */
+    private void clearCookiesThenLoad(final int seq) {
+        final boolean[] started = new boolean[]{false};
+        final Runnable loadOnce = new Runnable() {
+            @Override
+            public void run() {
+                // 迟到的旧尝试回调直接丢弃，避免两次登录互相打断
+                if (started[0] || !isCrawling || seq != crawlSeq) {
+                    return;
+                }
+                started[0] = true;
+                try {
+                    if (crawlerView != null) {
+                        crawlerView.clearFormData();
+                    }
+                } catch (Throwable th) {
+                }
+                mainHandler.postDelayed(new StartLoadRunnable(HomeFragment.this), 0L);
+            }
+        };
+        try {
+            CookieManager cookieManager = CookieManager.getInstance();
+            ValueCallback<Boolean> callback = new ValueCallback<Boolean>() {
+                @Override
+                public void onReceiveValue(Boolean value) {
+                    HomeFragment.this.mainHandler.post(loadOnce);
+                }
+            };
+            cookieManager.removeAllCookies(callback);
+            cookieManager.removeSessionCookies(callback);
+        } catch (Throwable th) {
+            this.mainHandler.post(loadOnce);
+        }
+        // 兜底：个别 ROM 的 Cookie 回调不触发，500ms 后照常开始加载
+        this.mainHandler.postDelayed(loadOnce, 500L);
+    }
+
+    public void onLoginTimeout() {
+        final int seq = this.crawlSeq;
         if (this.isCrawling) {
             Log.e(TAG, "登录超时，终止登录");
             this.isCrawling = false;
@@ -719,11 +865,15 @@ public class HomeFragment extends Fragment {
             this.bgHappened = false;
             this.bgFlagSetTime = 0L;
             // 关键判据：直接读取爬虫页面文本，看教务是否真的返回了账号/密码错误提示。
-            // 有提示 → 账密错误（无论此前是否切过后台）；无提示且非后台超时 → 仍在登录页则按账密错误处理。
+            // 有提示 → 账密错误；没有明确提示 → 一律按"超时"处理，不能凭"还停在登录页"就断定密码错。
             if (webView != null) {
                 webView.evaluateJavascript(READ_PAGE_TEXT_JS, new ValueCallback<String>() {
                     @Override
                     public void onReceiveValue(String value) {
+                        // 回调是异步的：若用户这时已经发起新的登录，旧的超时结果直接丢弃
+                        if (seq != crawlSeq) {
+                            return;
+                        }
                         finishLoginFailure(jsonToText(value), wasInBg);
                     }
                 });
@@ -733,11 +883,15 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    // 读取爬虫页面上的错误/提示文本（含常见提示容器，兜底取整页正文）
+    // 读取爬虫页面上的错误/提示文本。
+    // 上一次失败留下的旧提示（data-mimi-stale）必须排除，否则超时会读到上一轮的
+    // 「密码错误」把本次登录误判成账密错误。
     private static final String READ_PAGE_TEXT_JS =
-            "(function(){try{var t='';var sels=['.error','.err','.tip','.msg','.login-error','#msg','#errorMsg','#tip','.ant-message','.el-message'];"
-            + "for(var i=0;i<sels.length;i++){var e=document.querySelector(sels[i]);if(e&&e.innerText&&e.innerText.trim()){t+=e.innerText.trim()+' ';}}"
-            + "if(!t){t=document.body?document.body.innerText:'';}return t.substring(0,800);}catch(x){return '';}})()";
+            "(function(){try{var t='';"
+            + "var sels=['.ant-alert-message','.ant-alert-error','.ant-form-item-explain-error','.ant-message-notice','#msg','#errorMsg','.login-error','.error','.err'];"
+            + "for(var i=0;i<sels.length;i++){var ns=document.querySelectorAll(sels[i]);for(var j=0;j<ns.length;j++){var e=ns[j];if(e.getAttribute('data-mimi-stale'))continue;var x=(e.innerText||'').trim();if(x){t+=x+' ';}}}"
+            + "if(!t&&document.body){var c=document.body.cloneNode(true);var ss=c.querySelectorAll('[data-mimi-stale]');for(var k=0;k<ss.length;k++){if(ss[k].parentNode)ss[k].parentNode.removeChild(ss[k]);}t=(c.textContent||'').replace(/\\s+/g,' ');}"
+            + "return t.substring(0,1200);}catch(x){return '';}})()";
 
     // evaluateJavascript 返回的是 JSON 字符串，做基本反转义后用于关键词匹配
     private static String jsonToText(String json) {
@@ -753,13 +907,88 @@ public class HomeFragment extends Fragment {
                 .replace("\\u003c", "<").replace("\\u003e", ">").replace("\\u0026", "&");
     }
 
-    // 登录收尾：按"页面是否真有账密错误提示 / 是否长时间后台"决定提示文案
+    /**
+     * 把抓取用的 WebView 整个重建，并清空 WebView 级的页面存储。
+     * 为什么必须重建：账密错误后 SSO 会把 linkid/失败计数等留在 sessionStorage 里，
+     * 只清 Cookie 页面会话还在，重新输入正确密码仍然会被判错——效果等同于"杀掉 App 重进"。
+     */
+    private void resetCrawlerSession() {
+        try {
+            WebView old = this.crawlerView;
+            ViewGroup parent = old != null ? (ViewGroup) old.getParent() : null;
+            if (old != null && parent != null) {
+                old.stopLoading();
+                parent.removeView(old);
+                WebView crawler = new WebView(requireContext());
+                crawler.setLayoutParams(new ViewGroup.LayoutParams(0, 0));
+                crawler.setVisibility(8);
+                parent.addView(crawler);
+                this.crawlerView = crawler;
+                setupCrawlerView();
+                old.destroy();
+                Log.d(TAG, "已重建爬虫 WebView（清空页面内会话）");
+            }
+        } catch (Throwable th) {
+            Log.e(TAG, "重建爬虫 WebView 失败: " + th.getMessage());
+        }
+        // 注意：不能用 WebStorage.deleteAllData()，它是 App 全局的，
+        // 会把主界面 localStorage 里的"记住密码/自动登录/课表记忆"勾选状态一起清掉。
+        // 页面级 sessionStorage 已经随 WebView 重建失效，这里只清表单/HTTP 认证残留。
+        try {
+            WebViewDatabase db = WebViewDatabase.getInstance(requireContext());
+            db.clearFormData();
+            db.clearHttpAuthUsernamePassword();
+        } catch (Throwable th) {
+        }
+    }
+
+    /** 登录明确失败（账号或密码错误）：清掉账号/密码/Cookie 与课表缓存，回到登录页让用户重新输入 */
+    private void clearAuthStateAndCache(final String tipMsg) {
+        this.pendingUser = null;
+        this.pendingPass = null;
+        try {
+            this.prefs.edit().remove(KEY_USERNAME).remove(KEY_PASSWORD).remove(KEY_COOKIES).apply();
+            Log.d(TAG, "账密错误：已清除保存的账号密码与 Cookie");
+        } catch (Throwable th) {
+        }
+        // 重建抓取 WebView（等同杀掉 App 重进），否则 SSO 页面会话里的失败状态会一直残留
+        resetCrawlerSession();
+        try {
+            CookieManager cookieManager = CookieManager.getInstance();
+            cookieManager.removeAllCookies(null);
+            cookieManager.removeSessionCookies(null);
+            cookieManager.flush();
+        } catch (Throwable th) {
+        }
+        // 桌面小组件的课表缓存也清掉，避免登录页已清空但桌面还挂着旧课表
+        try {
+            Context context = getContext();
+            if (context != null) {
+                CourseWidgetService.saveCourses(context, "[]");
+                CourseWidgetService.refreshAll(context);
+            }
+        } catch (Throwable th) {
+        }
+        WebView webView = this.webView;
+        if (webView == null) {
+            return;
+        }
+        String msg = tipMsg == null ? "" : tipMsg.replace("\\", "\\\\").replace("'", "\\'");
+        // 前端负责清课表缓存、清空输入框、切回登录页
+        webView.evaluateJavascript("window.mimiForceRelogin&&window.mimiForceRelogin('" + msg + "');", null);
+    }
+
+    // 登录收尾：只有教务页面真的返回了账密错误提示才算密码错；其余一律按超时处理
     public void finishLoginFailure(String pageText, boolean wasInBg) {
+        boolean locked = isLockedInPage(pageText);
         boolean credErr = isCredentialErrorInPage(pageText);
-        boolean onLoginPage = isOnLoginPage();
         final String tipText;
         final String dlgTitle;
-        if (credErr) {
+        if (locked) {
+            // 教务提示"错误次数过多/账号锁定"：别再让用户连续试，越试锁定越久
+            tipText = "账号可能已被临时锁定，请等 5-10 分钟后再登录";
+            dlgTitle = "登录失败";
+        } else if (credErr) {
             // 教务确实返回了账密错误提示（含手输错密码）
             tipText = "账号或密码输入错误，请重新输入";
             dlgTitle = "登录失败";
@@ -767,15 +996,26 @@ public class HomeFragment extends Fragment {
             // 长时间后台导致会话失效
             tipText = "登录超时，请返回主界面重新登录即可";
             dlgTitle = "登录超时";
-        } else if (onLoginPage) {
-            // 停在登录页但页面上抓不到明确错误文本 → 按账密错误处理
-            tipText = "账号或密码输入错误，请重新输入";
-            dlgTitle = "登录失败";
         } else {
-            tipText = "登录超时，请返回主界面重新登录即可";
+            // 页面没有明确错误提示：绝不能凭"还停在登录页"就判定成密码错误
+            tipText = "登录超时，请重试";
             dlgTitle = "登录超时";
         }
-        Log.d(TAG, "登录收尾: credErr=" + credErr + " wasInBg=" + wasInBg + " onLoginPage=" + onLoginPage);
+        Log.d(TAG, "登录收尾: credErr=" + credErr + " locked=" + locked + " wasInBg=" + wasInBg
+                + " 页面文本=" + pageText);
+        final boolean quiet = this.attemptQuiet;
+        this.attemptQuiet = false;
+        if (quiet) {
+            // 后台自动更新失败：不弹窗、不覆盖已显示的缓存课表，只在日志里留一条
+            Log.d(TAG, "后台自动更新失败（静默）: " + tipText);
+            notifyFrontStatus("自动更新失败：" + tipText);
+            return;
+        }
+        // 账密明确错误：清空账号/密码/课表缓存并回到登录页，让用户重新输入
+        // （锁定不算在内：锁定期间账密可能是对的，清掉反而让用户没法直接重试）
+        if (credErr && !locked) {
+            clearAuthStateAndCache("账号或密码输入错误，请重新输入");
+        }
         notifyFrontError(tipText);
         try {
             Context context = getContext();
@@ -794,10 +1034,10 @@ public class HomeFragment extends Fragment {
         Log.d(TAG, "执行重试，当前重试次数: " + this.retryCount);
         this.isCrawling = true;
         this.hasInjectedLogin = false;
-        CookieManager cookieManager = CookieManager.getInstance();
-        cookieManager.removeAllCookies(null);
-        cookieManager.removeSessionCookies(null);
-        this.mainHandler.postDelayed(new StartLoadRunnable(this), 300L);
+        // 重试也必须重新武装超时：否则页面卡住时 isCrawling 会一直是 true，
+        // 之后用户手动输入正确账密点登录会被这个状态直接吞掉
+        armLoginTimeout();
+        clearCookiesThenLoad(++this.crawlSeq);
     }
 
     class CrawlerClient extends WebViewClient {
@@ -818,11 +1058,12 @@ public class HomeFragment extends Fragment {
                         return;
                     }
                     Log.d(str2, "后台检测到登录页，启动自动登录...");
-                    HomeFragment.this.notifyTimetableLog("[A] 检测到统一登录页，正在自动登录...");
+                    HomeFragment.this.notifyFrontProgress(30, "正在登录统一认证…");
                     HomeFragment.this.hasInjectedLogin = true;
                     webView.postDelayed(new Runnable() {
                         @Override
                         public final void run() {
+                            HomeFragment.this.notifyFrontProgress(45, "正在填写账号密码…");
                             HomeFragment.this.injectAutoLogin(webView);
                         }
                     }, 1000L);
@@ -837,13 +1078,16 @@ public class HomeFragment extends Fragment {
                     }
                 }
                 Log.d(str2, "后台到达课表页，准备提取...");
-                HomeFragment.this.notifyTimetableLog("[A] 已进入教务系统，正在读取课表...");
+                HomeFragment.this.notifyFrontProgress(85, HomeFragment.this.isGradeMode() ? "登录成功，正在读取成绩…" : "登录成功，正在读取课表…");
                 webView.postDelayed(new Runnable() {
                     @Override
                     public final void run() {
                         if (HomeFragment.this.isGradeMode()) {
                             HomeFragment.this.startGradeCrawl();
                         } else {
+                            // 已进入教务主页，登录阶段结束：取消 20 秒登录超时，
+                            // 后面交给解析超时兜底，避免正常解析被误报成「登录超时」
+                            HomeFragment.this.cancelLoginTimeout();
                             HomeFragment.this.injectParser(webView);
                         }
                     }
@@ -859,25 +1103,86 @@ public class HomeFragment extends Fragment {
     }
 
     public boolean isLoginPage(String str) {
-        if (str.contains("sso.wuyiu.edu.cn")) {
-            return str.contains("/linkid/") || str.contains("/login") || str.contains("统一认证");
+        if (str == null) {
+            return false;
         }
-        return false;
+        // 统一认证的地址可能是 /login、/linkid/xxx，也可能只是带 service 参数的根路径。
+        // 只要还停在 sso 域名上就按登录页处理：认证成功会跳回 jwxt.wuyiu.edu.cn。
+        // 之前要求 URL 必须含 /linkid/ 或 /login，某些跳转会漏判 → 不注入 → 超时后误报失败。
+        return str.contains("sso.wuyiu.edu.cn");
     }
+
+    // 清除 SSO 登录页上一次残留的错误提示，并打上 stale 标记：
+    // 这样超时读页面文本时不会把上一轮「密码错误」当成这一轮的判定依据
+    public void clearSsoErrorNotice(final WebView webView) {
+        String js = "(function(){try{var sels=['.ant-message-notice','.ant-alert-message','.ant-alert-error','.ant-form-item-explain-error','.ant-message','.ant-form-item-explain'];"
+                + "for(var i=0;i<sels.length;i++){var ns=document.querySelectorAll(sels[i]);for(var j=0;j<ns.length;j++){var e=ns[j];var t=(e.innerText||'').trim();if(t&&(t.indexOf('密码')>=0||t.indexOf('验证码')>=0||t.indexOf('错误')>=0||t.indexOf('失败')>=0)){e.setAttribute('data-mimi-stale','1');e.style.display='none';}}}"
+                + "}catch(_){}})();";
+        webView.evaluateJavascript(js, null);
+    }
+
+    // 网络证据：捕获登录请求的提交内容与教务返回体，写进 App 内置日志（可一键复制发给开发者）
+    // 只关心登录相关 URL，密码字段一律隐藏，避免日志外泄
+    private static final String LOGIN_HOOK_JS =
+            "(function(){try{if(window.__mimiLoginHook)return;window.__mimiLoginHook=1;"
+            + "var log=function(m){try{AndroidBack.onLoginSignal(m);}catch(e){}};"
+            + "var mask=function(s){var o=String(s||'');"
+            + "o=o.replace(/(password|pwd|passwd|pass|mm)=([^&]*)/gi,'$1=<已隐藏>');"
+            + "o=o.replace(/password([\"']?\\s*:\\s*)([\"'])([^\"']*)\\2/gi,'password$1$2<已隐藏>$2');"
+            + "return o.substring(0,400);};"
+            + "var cap=function(u,b,r){try{var us=String(u||'');if(!/login|auth|sso|linkid|doLogin/i.test(us))return;"
+            + "var rs=String(r||'').replace(/\\s+/g,' ');"
+            + "log('[网络] '+us+' | 提交 '+mask(b)+' | 返回 '+rs.substring(0,200));}catch(e){}};"
+            + "try{var oo=XMLHttpRequest.prototype.open;var os=XMLHttpRequest.prototype.send;"
+            + "XMLHttpRequest.prototype.open=function(m,u){this.__mUrl=u;return oo.apply(this,arguments);};"
+            + "XMLHttpRequest.prototype.send=function(b){var x=this;x.addEventListener('load',function(){"
+            + "var t='';try{if(!x.responseType||x.responseType==='text')t=x.responseText;}catch(e){}cap(x.__mUrl,b,t);});"
+            + "return os.apply(this,arguments);};}catch(e){}"
+            + "try{if(window.fetch){var of=window.fetch;window.fetch=function(i,init){"
+            + "var u=(typeof i==='string')?i:(i&&i.url)||'';var b=(init&&init.body)?String(init.body):'';"
+            + "return of.apply(this,arguments).then(function(r){try{r.clone().text().then(function(t){cap(u,b,t);});}catch(e){}return r;});};}}catch(e){}"
+            + "}catch(e){}})();";
 
     public void injectAutoLogin(WebView webView) {
         String str = this.pendingUser;
         if (str == null || this.pendingPass == null) {
             return;
         }
-        webView.evaluateJavascript("(function() {    var username = '" + str.replace("'", "\\'") + "';    var password = '" + this.pendingPass.replace("'", "\\'") + "';    var maxWait = 10000;    var startTime = Date.now();    var log = function(msg) { AndroidBack.onLog(msg); };    var error = function(msg) { AndroidBack.onError(msg); };    var ensureUsernameTab = function() {        if (document.getElementById('nameInput')) return true;        var tabs = document.querySelectorAll('.ant-tabs-tab, [role=\"tab\"]');        for (var i = 0; i < tabs.length; i++) {            var tx = tabs[i].textContent;            if (tx.indexOf('用户名密码') >= 0 || tx.indexOf('账号登录') >= 0) {                tabs[i].click();                log('已切换到用户名密码登录方式');                return false;            }        }        return false;    };    var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;    var fillInput = function(el, val) {        nativeSetter.call(el, val);        el.dispatchEvent(new Event('input', { bubbles: true }));        el.dispatchEvent(new Event('change', { bubbles: true }));        if (el._valueTracker) el._valueTracker.setValue(val);    };    var tryClickLogin = function() {        var btn = document.getElementById('submitBtn');        if (!btn) {            error('未找到登录按钮 submitBtn');            return false;        }        log('找到登录按钮，当前 disabled: ' + btn.disabled);        btn.disabled = false;        btn.classList.remove('disabled');        log('已移除禁用属性');        btn.click();        log('已点击登录按钮');        return true;    };    var watchLoginError = function() {        var wstart = Date.now();        var kws = ['账号或密码', '用户名或密码', '密码错误', '密码不正确', '账号不存在', '用户不存在', '验证码错误', '验证码不正确'];        var check = function() {            if (!document.getElementById('normalLoginForm') && !document.getElementById('nameInput')) return;            var msg = '';            var els = document.querySelectorAll('.ant-message-notice, .ant-alert-message, .ant-alert-error, .ant-form-item-explain-error');            for (var i = 0; i < els.length; i++) {                var t = (els[i].textContent || '').trim();                if (t) { msg = t; break; }            }            var bt = document.body ? (document.body.innerText || '') : '';            for (var k = 0; k < kws.length; k++) {                if (msg && msg.indexOf(kws[k]) >= 0) { error(msg); return; }                if (bt.indexOf(kws[k]) >= 0) { error(kws[k]); return; }            }            if (Date.now() - wstart < 15000) setTimeout(check, 500);        };        setTimeout(check, 800);    };    var loop = function() {        ensureUsernameTab();        var usernameInput = document.getElementById('nameInput');        var passwordInput = document.querySelector('input[type=\"password\"]');        if (usernameInput && passwordInput) {            log('找到输入框，开始填充');            fillInput(usernameInput, username);            fillInput(passwordInput, password);            log('账号密码已填充');            setTimeout(function() {                if (!tryClickLogin()) {                    var form = document.getElementById('normalLoginForm');                    if (form) {                        log('尝试触发表单 submit 事件');                        var ev = new Event('submit', { bubbles: true, cancelable: true });                        form.dispatchEvent(ev);                        if (!ev.defaultPrevented) form.submit();                    }                }                watchLoginError();            }, 500);        } else {            var elapsed = Date.now() - startTime;            if (elapsed < maxWait) {                log('等待输入框出现... 已过 ' + elapsed + 'ms');                setTimeout(loop, 500);            } else {                error('超时：未找到用户名或密码输入框');            }        }    };    loop();})();", null);
+        // 用 Gson 生成合法的 JS 字符串字面量：账号或密码里含单引号/反斜杠/换行时，
+        // 手工拼接会把整段注入脚本写坏（脚本静默失败 → 超时 → 误报密码错误）
+        String jsUser = this.gson.toJson(str);
+        String jsPass = this.gson.toJson(this.pendingPass);
+        // 先装网络钩子，捕获登录请求提交了什么、教务回了什么
+        webView.evaluateJavascript(LOGIN_HOOK_JS, null);
+        // 上一次失败留下的错误提示先隐藏并标记，避免它干扰本次判定
+        clearSsoErrorNotice(webView);
+        webView.evaluateJavascript("(function() {    var username = " + jsUser + ";    var password = " + jsPass + ";    var maxWait = 12000;    var startTime = Date.now();    var log = function(msg) { AndroidBack.onLog(msg); };    var error = function(msg) { AndroidBack.onError(msg); };    var ensureUsernameTab = function() {        if (document.getElementById('nameInput')) return true;        var tabs = document.querySelectorAll('.ant-tabs-tab, [role=\"tab\"]');        for (var i = 0; i < tabs.length; i++) {            var tx = tabs[i].textContent;            if (tx.indexOf('用户名密码') >= 0 || tx.indexOf('账号登录') >= 0) {                tabs[i].click();                log('已切换到用户名密码登录方式');                return false;            }        }        return false;    };    var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;    var fillInput = function(el, val) {        nativeSetter.call(el, val);        el.dispatchEvent(new Event('input', { bubbles: true }));        el.dispatchEvent(new Event('change', { bubbles: true }));        if (el._valueTracker) el._valueTracker.setValue(val);    };    var tryClickLogin = function() {        var btn = document.getElementById('submitBtn');        if (!btn) {            error('未找到登录按钮 submitBtn');            return false;        }        log('找到登录按钮，当前 disabled: ' + btn.disabled);        btn.disabled = false;        btn.classList.remove('disabled');        log('已移除禁用属性');        btn.click();        log('已点击登录按钮');        return true;    };    var watchLoginError = function() {        var wstart = Date.now();        var kws = ['密码错误', '密码不正确', '账号不存在', '用户不存在', '验证码错误', '验证码不正确'];        var check = function() {            if (!document.getElementById('normalLoginForm') && !document.getElementById('nameInput')) return;            var msg = '';            var els = document.querySelectorAll('.ant-message-notice, .ant-alert-message, .ant-alert-error, .ant-form-item-explain-error');            for (var i = 0; i < els.length; i++) {                var t = (els[i].textContent || '').trim();                if (t) { msg = t; break; }            }            var bt = document.body ? (document.body.innerText || '') : '';            for (var k = 0; k < kws.length; k++) {                if (msg && msg.indexOf(kws[k]) >= 0) { error(msg); return; }                if (bt.indexOf(kws[k]) >= 0) { error(kws[k]); return; }            }            if (Date.now() - wstart < 15000) setTimeout(check, 500);        };        setTimeout(check, 800);    };    var loop = function() {        ensureUsernameTab();        var usernameInput = document.getElementById('nameInput');        var passwordInput = document.querySelector('input[type=\"password\"]');        if (usernameInput && passwordInput) {            var cap = document.querySelector('input#captcha, input[name=\"captcha\"], input[id*=\"captcha\"], input[id*=\"validateCode\"], input[name*=\"validateCode\"], input[id*=\"verifyCode\"], input[name*=\"verifyCode\"], input[placeholder*=\"验证码\"]');            if (cap) {                var rc = cap.getBoundingClientRect();                if (rc.width > 0 && rc.height > 0) {                    error('需要验证码');                    return;                }            }            log('找到输入框，开始填充');            fillInput(usernameInput, username);            fillInput(passwordInput, password);            log('已填充账号 ' + username + '，密码长度 ' + password.length);            setTimeout(function() {                if (!tryClickLogin()) {                    var form = document.getElementById('normalLoginForm');                    if (form) {                        log('尝试触发表单 submit 事件');                        var ev = new Event('submit', { bubbles: true, cancelable: true });                        form.dispatchEvent(ev);                        if (!ev.defaultPrevented) form.submit();                    }                }                watchLoginError();            }, 500);        } else {            var elapsed = Date.now() - startTime;            if (elapsed < maxWait) {                log('等待输入框出现... 已过 ' + elapsed + 'ms');                setTimeout(loop, 500);            } else {                error('登录页加载超时：未找到账号输入框');            }        }    };    loop();})();", null);
+        // 2.5 秒后读一次页面上的实际值：确认提交的确实是刚填进去的账密，
+        // 排查"密码改对了仍提示密码错误"时，可直接从内置日志看到账号/密码长度/当前地址
+        this.mainHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                WebView wv = HomeFragment.this.crawlerView;
+                if (wv == null || !HomeFragment.this.isCrawling) {
+                    return;
+                }
+                wv.evaluateJavascript("(function(){try{var u=document.getElementById('nameInput');"
+                        + "var p=document.querySelector('input[type=\"password\"]');"
+                        + "AndroidBack.onLoginSignal('提交值自检：账号='+(u?u.value:'无')+'，密码长度='+(p?p.value.length:-1)+'，当前地址='+String(location.href).substring(0,90));"
+                        + "}catch(e){}})()", null);
+            }
+        }, 2500L);
     }
 
     private void injectParser(WebView webView) {
+        final int seq = this.crawlSeq;
         this.mainHandler.postDelayed(new Runnable() {
             @Override
             public final void run() {
-                onParseTimeout();
+                // 旧尝试的解析超时不要作用到新一次登录上
+                if (seq == crawlSeq) {
+                    onParseTimeout();
+                }
             }
         }, 10000L);
         webView.evaluateJavascript("(function(){try{function dwk(doc){try{var re=/第\\s*(\\d{1,2})\\s*周(?!\\s*[-—~至])/;var i,m,t;var ss=doc.querySelectorAll('select');for(i=0;i<ss.length;i++){var so=ss[i].options[ss[i].selectedIndex];t=so?(so.text||''):'';m=t.match(re);if(m)return{n:parseInt(m[1],10),src:'select'};}var els=doc.querySelectorAll('button,span,div,a,li,td,th');for(i=0;i<els.length;i++){try{var cl=String(els[i].className||'');if(!/(cur|active|select|value|now|text|title)/i.test(cl))continue;t=(els[i].innerText||'').replace(/\\s+/g,'');if(t.length<2||t.length>8)continue;m=t.match(/^第(\\d{1,2})周$/);if(m)return{n:parseInt(m[1],10),src:'curcls'};}catch(_){}}for(i=0;i<els.length;i++){try{t=(els[i].innerText||'').replace(/\\s+/g,'');if(t.length<2||t.length>8)continue;m=t.match(/^第(\\d{1,2})周$/);if(!m)continue;var p=els[i].parentElement;var bad=0;for(var g=0;g<2&&p;g++){var pt=p.innerText||'';var re2=/第\\s*\\d{1,2}\\s*周/g;var c=0;while(re2.exec(pt)!==null)c++;if(c>=3){bad=1;break;}p=p.parentElement;}if(bad)continue;return{n:parseInt(m[1],10),src:'leaf'};}catch(_){}}var bt=(doc.body&&doc.body.innerText)||'';m=re.exec(bt);if(m)return{n:parseInt(m[1],10),src:'body'};}catch(_){}return null;}var n=0;var f=function(){var r=null;try{var docs=[document];var fr=document.getElementById(\"person\");if(!fr){var fl=document.querySelectorAll(\"iframe,frame\");if(fl&&fl.length){fr=fl[0];}}try{if(fr&&fr.contentDocument&&fr.contentDocument.body){docs.push(fr.contentDocument);}}catch(_){}for(var i=0;i<docs.length&&r===null;i++){r=dwk(docs[i]);}}catch(_){}if(r!==null){try{AndroidBack.onTimetableLog&&AndroidBack.onTimetableLog('[JS] 首页周次检测: 第'+r.n+'周 ('+r.src+')');}catch(_){}try{AndroidBack.onWeekNo(String(r.n));}catch(_){}}else if(++n<10){setTimeout(f,600);}};f();}catch(_){}})();", null);
@@ -921,18 +1226,14 @@ public class HomeFragment extends Fragment {
                 Log.w(TAG, "解析超时，第 " + this.retryCount + " 次重试...");
                 this.isCrawling = false;
                 this.hasInjectedLogin = false;
-                this.mainHandler.postDelayed(new Runnable() {
-                    @Override
-                    public final void run() {
-                        retryCrawl();
-                    }
-                }, 2000L);
+                scheduleRetry(2000L);
                 return;
             }
-            notifyFrontError("解析超时，请重试");
+            notifyFrontErrorOrStatus("解析超时，请重试");
             dismissLoginProgress();
             this.isCrawling = false;
             this.hasInjectedLogin = false;
+            this.attemptQuiet = false;
         }
     }
 
@@ -998,6 +1299,7 @@ public class HomeFragment extends Fragment {
                 }
                 HomeFragment.this.isCrawling = false;
                 HomeFragment.this.hasInjectedLogin = false;
+                HomeFragment.this.attemptQuiet = false;
                 HomeFragment.this.bgHappened = false; // 本次抓取已结束，清除"曾切后台"标记
                 HomeFragment.this.saveCookies();
                 if (HomeFragment.this.pendingUser != null && HomeFragment.this.pendingPass != null) {
@@ -1017,19 +1319,17 @@ public class HomeFragment extends Fragment {
             }
             HomeFragment.this.retryCount++;
             Log.w(HomeFragment.TAG, "解析到空课表，第 " + HomeFragment.this.retryCount + " 次重试...");
-            HomeFragment.this.notifyFrontError("获取课表为空，正在重试...");
+            HomeFragment.this.notifyFrontErrorOrStatus("获取课表为空，正在重试...");
             HomeFragment.this.isCrawling = false;
             HomeFragment.this.hasInjectedLogin = false;
-            HomeFragment.this.mainHandler.postDelayed(new Runnable() {
-                @Override
-                public final void run() {
-                    HomeFragment.this.retryCrawl();
-                }
-            }, 2000L);
+            HomeFragment.this.scheduleRetry(2000L);
         }
 
         void deliverCourses(String str, boolean z) {
             HomeFragment.this.dismissLoginProgress();
+            if (z) {
+                HomeFragment.this.notifyFrontProgress(100, "更新完成");
+            }
             String strReplace = str.replace("'", "\\'");
             HomeFragment.this.webView.evaluateJavascript("window.receiveFromAndroid('courses', '" + strReplace + "');", null);
             HomeFragment homeFragment = HomeFragment.this;
@@ -1043,19 +1343,63 @@ public class HomeFragment extends Fragment {
         @JavascriptInterface
         public void onError(final String str) {
             Log.e(HomeFragment.TAG, "后台错误: " + str);
-            HomeFragment homeFragment = HomeFragment.this;
-            // 教务返回的账号/密码错误 → 直接显示，不触发重试
-            if (HomeFragment.isCredentialError(str)) {
-                if (homeFragment.timeoutRunnable != null) {
-                    HomeFragment.this.mainHandler.removeCallbacks(HomeFragment.this.timeoutRunnable);
-                }
+            // 本次尝试已经结束（可能已提示过一次）：忽略同一页面上重复上报的错误，避免连环弹窗
+            if (!HomeFragment.this.isCrawling) {
+                return;
+            }
+            // 页面出现了验证码：自动填写无法完成，直接说明原因，别当成"密码错误"
+            if (str.contains("需要验证码")) {
+                HomeFragment.this.cancelLoginTimeout();
                 HomeFragment.this.isCrawling = false;
                 HomeFragment.this.hasInjectedLogin = false;
                 HomeFragment.this.bgHappened = false;
+                final boolean quietCap = HomeFragment.this.attemptQuiet;
+                HomeFragment.this.attemptQuiet = false;
                 HomeFragment.this.mainHandler.post(new Runnable() {
                     @Override
                     public final void run() {
-                        deliverError(str);
+                        HomeFragment.this.dismissLoginProgress();
+                        if (quietCap) {
+                            HomeFragment.this.notifyFrontStatus("自动更新失败：教务要求验证码");
+                        } else {
+                            HomeFragment.this.showFrontError("教务要求验证码，请稍后再试");
+                            try {
+                                Context context = HomeFragment.this.getContext();
+                                if (context != null) {
+                                    MimiDialogBuilder builder = new MimiDialogBuilder(context);
+                                    builder.setTitle("需要验证码");
+                                    builder.setMessage("教务系统要求输入验证码。请稍后重试，或先在手机浏览器打开教务系统登录一次再回来。");
+                                    builder.setPositiveButton("好的", (DialogInterface.OnClickListener) null);
+                                    builder.show();
+                                }
+                            } catch (Throwable th) {
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+            HomeFragment homeFragment = HomeFragment.this;
+            // 教务返回的账号/密码错误 → 直接显示，不触发重试
+            if (HomeFragment.isCredentialError(str)) {
+                HomeFragment.this.cancelLoginTimeout();
+                HomeFragment.this.isCrawling = false;
+                HomeFragment.this.hasInjectedLogin = false;
+                HomeFragment.this.bgHappened = false;
+                final boolean quiet = HomeFragment.this.attemptQuiet;
+                HomeFragment.this.attemptQuiet = false;
+                HomeFragment.this.mainHandler.post(new Runnable() {
+                    @Override
+                    public final void run() {
+                        if (quiet) {
+                            HomeFragment.this.dismissLoginProgress();
+                            HomeFragment.this.notifyFrontStatus("自动更新失败：" + str);
+                        } else {
+                            // 账密明确错误：清空账号/密码/课表缓存并回到登录页，让用户重新输入
+                            HomeFragment.this.dismissLoginProgress();
+                            HomeFragment.this.clearAuthStateAndCache("账号或密码输入错误，请重新输入");
+                            deliverError(str);
+                        }
                     }
                 });
                 return;
@@ -1065,28 +1409,28 @@ public class HomeFragment extends Fragment {
             if (i < 1) {
                 homeFragment.retryCount++;
                 Log.w(HomeFragment.TAG, "解析错误，第 " + HomeFragment.this.retryCount + " 次重试...");
-                HomeFragment.this.notifyFrontError("获取失败，正在重试...");
+                HomeFragment.this.notifyFrontErrorOrStatus("获取失败，正在重试...");
                 HomeFragment.this.isCrawling = false;
                 HomeFragment.this.hasInjectedLogin = false;
-                HomeFragment.this.mainHandler.postDelayed(new Runnable() {
-                    @Override
-                    public final void run() {
-                        HomeFragment.this.retryCrawl();
-                    }
-                }, 2000L);
+                HomeFragment.this.scheduleRetry(2000L);
                 return;
             }
             // 重试后仍失败 → 显示错误
-            if (homeFragment.timeoutRunnable != null) {
-                HomeFragment.this.mainHandler.removeCallbacks(HomeFragment.this.timeoutRunnable);
-            }
+            HomeFragment.this.cancelLoginTimeout();
             HomeFragment.this.isCrawling = false;
             HomeFragment.this.hasInjectedLogin = false;
             HomeFragment.this.bgHappened = false;
+            final boolean quiet = HomeFragment.this.attemptQuiet;
+            HomeFragment.this.attemptQuiet = false;
             HomeFragment.this.mainHandler.post(new Runnable() {
                 @Override
                 public final void run() {
-                    deliverError(str);
+                    if (quiet) {
+                        HomeFragment.this.dismissLoginProgress();
+                        HomeFragment.this.notifyFrontStatus("自动更新失败：" + str);
+                    } else {
+                        deliverError(str);
+                    }
                 }
             });
         }
@@ -1102,6 +1446,21 @@ public class HomeFragment extends Fragment {
         public void onLog(String str) {
             Log.d(HomeFragment.TAG, "后台JS: " + str);
         }
+
+        @JavascriptInterface
+        public void onLoginSignal(final String str) {
+            Log.d(HomeFragment.TAG, "登录信号: " + str);
+            // 只把关键的登录证据写进内置日志（可一键复制），其余仍留在 logcat
+            if (str == null || (!str.startsWith("[网络]") && !str.startsWith("提交值自检"))) {
+                return;
+            }
+            HomeFragment.this.mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    HomeFragment.this.notifyTimetableLog("[A] " + str);
+                }
+            });
+        }
     }
 
     public void notifyFrontError(final String str) {
@@ -1111,6 +1470,48 @@ public class HomeFragment extends Fragment {
                 showFrontError(str);
             }
         });
+    }
+
+    /** 登录进度：给前端发百分比，前端显示成「正在登录统一认证… 30%」 */
+    void notifyFrontProgress(final int pct, final String text) {
+        if (this.lastAttemptQuiet) {
+            return;
+        }
+        final String safe = text == null ? "" : text.replace("\\", "\\\\").replace("'", "\\'");
+        this.mainHandler.post(new Runnable() {
+            @Override
+            public final void run() {
+                WebView webView = HomeFragment.this.webView;
+                if (webView == null) {
+                    return;
+                }
+                webView.evaluateJavascript("window.mimiLoginProgress&&window.mimiLoginProgress(" + pct + ",'" + safe + "');", null);
+            }
+        });
+    }
+
+    /** 静默登录失败时用：只回传一条状态消息写进日志，不碰登录页提示、不弹窗 */
+    public void notifyFrontStatus(final String str) {
+        this.mainHandler.post(new Runnable() {
+            @Override
+            public final void run() {
+                WebView webView = HomeFragment.this.webView;
+                if (webView == null) {
+                    return;
+                }
+                String strReplace = str.replace("\\", "\\\\").replace("'", "\\'");
+                webView.evaluateJavascript("window.receiveFromAndroid('status', '" + strReplace + "');", null);
+            }
+        });
+    }
+
+    /** 按当前尝试类型选择提示通道：后台自动更新只写日志，手动登录才显示错误 */
+    void notifyFrontErrorOrStatus(final String str) {
+        if (this.attemptQuiet) {
+            notifyFrontStatus(str);
+        } else {
+            notifyFrontError(str);
+        }
     }
 
     void showFrontError(String str) {

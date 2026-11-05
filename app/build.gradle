@@ -10,8 +10,8 @@ android {
         applicationId "com.mimi.kebiao"
         minSdk 21
         targetSdk 34
-        versionCode 23
-        versionName "3.3"
+        versionCode 29
+        versionName "3.4"
 
         vectorDrawables {
             useSupportLibrary false
@@ -67,3 +67,4 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }
+
