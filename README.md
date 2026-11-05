@@ -69,7 +69,7 @@
 | 应用 ID | `com.mimi.kebiao`（源码包 `com.wuyi.kebiao`） |
 | 最低 / 目标版本 | Android 5.0（API 21）/ Android 14（API 34） |
 | 构建 | AGP 8.5.2 · Gradle 8.9 · JDK 17 |
-| 当前版本 | 3.4（versionCode 29） |
+| 当前版本 | 3.4（versionCode 30） |
 | 核心依赖 | AppCompat 1.6.1 · Material 1.11.0 · Navigation 2.7.7 · OkHttp 4.12.0 · Gson 2.10.1 |
 
 登录与取数都由 WebView 走教务系统本身完成（`AndroidBack.login()` 提交，`CookieManager` 维持登录状态）。更新检查与 APK 下载走 OkHttp，公告和反馈走 `HttpURLConnection`——都不碰教务的请求。
