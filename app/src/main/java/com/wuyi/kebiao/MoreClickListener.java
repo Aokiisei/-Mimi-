@@ -26,7 +26,7 @@ public class MoreClickListener implements View.OnClickListener {
     }
 
     /** 组标题：灰色小字，如「设置」「工具」 */
-    private static TextView groupHeader(Context context, String text, float density) {
+    static TextView groupHeader(Context context, String text, float density) {
         TextView header = new TextView(context);
         header.setText(text);
         header.setTextSize(13.0f);
@@ -38,7 +38,7 @@ public class MoreClickListener implements View.OnClickListener {
     }
 
     /** 可点击的文字入口行：带按压反馈 */
-    private static TextView entryRow(Context context, String text, float density, View.OnClickListener listener) {
+    static TextView entryRow(Context context, String text, float density, View.OnClickListener listener) {
         TextView row = new TextView(context);
         row.setText(text);
         row.setTextSize(16.0f);
@@ -54,7 +54,7 @@ public class MoreClickListener implements View.OnClickListener {
     }
 
     /** 细分隔线 */
-    private static View divider(Context context, float density) {
+    static View divider(Context context, float density) {
         View line = new View(context);
         line.setLayoutParams(new LinearLayout.LayoutParams(-1, Math.max(1, (int) (density + 0.5f))));
         line.setBackgroundColor(0x14000000);
@@ -62,8 +62,8 @@ public class MoreClickListener implements View.OnClickListener {
     }
 
     /** 开关行（标题 + CheckBox）及其下方说明文字 */
-    private static void addSwitch(Context context, LinearLayout parent, String title, String sub,
-                                  boolean checked, CompoundButton.OnCheckedChangeListener listener, float density) {
+    static void addSwitch(Context context, LinearLayout parent, String title, String sub,
+                          boolean checked, CompoundButton.OnCheckedChangeListener listener, float density) {
         LinearLayout row = new LinearLayout(context);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(16);
@@ -105,6 +105,11 @@ public class MoreClickListener implements View.OnClickListener {
                     "1".equals(ThemeH.glass), new GlassSwitchListener(), density);
             addSwitch(context, content, "课表自动轮播", "开启后同格多张卡片每 5 秒自动切换",
                     "1".equals(ThemeH.autoCarousel), new CarouselSwitchListener(), density);
+            content.addView(divider(context, density));
+
+            // ===== 通知 =====
+            content.addView(groupHeader(context, "通知", density));
+            content.addView(entryRow(context, "通知设置", density, new NotificationSettingsClickListener(fragment)));
             content.addView(divider(context, density));
 
             // ===== 工具 =====

@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
+import com.wuyi.kebiao.reminder.CourseReminderScheduler;
 import com.wuyi.kebiao.widget.CourseWidgetService;
 
 public class HomeFragment extends Fragment {
@@ -562,6 +563,8 @@ public class HomeFragment extends Fragment {
                 CourseWidgetService.saveWeekNo(ctx, w);
                 CourseWidgetService.saveTotalWeek(ctx, Math.max(CourseWidgetService.DEFAULT_TOTAL_WEEK, w));
                 CourseWidgetService.refreshAll(ctx);
+                // 教学周变化后重排上课提醒，避免用旧周次匹配课程
+                CourseReminderScheduler.reschedule(ctx);
             } catch (Exception e) {
                 Log.w(HomeFragment.TAG, "回传教学周失败: " + str);
             }
@@ -966,6 +969,7 @@ public class HomeFragment extends Fragment {
             if (context != null) {
                 CourseWidgetService.saveCourses(context, "[]");
                 CourseWidgetService.refreshAll(context);
+                CourseReminderScheduler.reschedule(context);
             }
         } catch (Throwable th) {
         }
@@ -1552,6 +1556,8 @@ public class HomeFragment extends Fragment {
             CourseWidgetService.saveWeekNo(ctx, weekNo);
             CourseWidgetService.saveTotalWeek(ctx, totalWeek);
             CourseWidgetService.refreshAll(ctx);
+            // 课表更新后重排未来 7 天的上课提醒与每日汇总提醒
+            CourseReminderScheduler.reschedule(ctx);
             Log.d(TAG, "小组件已更新：共 " + list.size() + " 门课程，当前第 " + weekNo + "/" + totalWeek + " 周");
         } catch (Exception e) {
             Log.e(TAG, "保存小组件数据失败", e);

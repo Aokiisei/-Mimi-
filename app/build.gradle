@@ -10,7 +10,7 @@ android {
         applicationId "com.mimi.kebiao"
         minSdk 21
         targetSdk 34
-        versionCode 29
+        versionCode 30
         versionName "3.4"
 
         vectorDrawables {

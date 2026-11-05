@@ -22,6 +22,7 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.wuyi.kebiao.reminder.CourseReminderScheduler;
 
 public class MainActivity extends AppCompatActivity {
     private static final int[] TAB_IDS = {
@@ -60,7 +61,16 @@ public class MainActivity extends AppCompatActivity {
                 ThemeH.applySerifFont(bottomNav);
             }
         });
+        initCourseReminders();
         showChangelogIfNeeded();
+    }
+
+    /** 启动时恢复课表提醒的闹钟；通知权限在「我的 → 更多 → 通知设置」中按需申请 */
+    private void initCourseReminders() {
+        try {
+            CourseReminderScheduler.reschedule(this);
+        } catch (Throwable ignored) {
+        }
     }
 
     /** ViewPager2 适配器：按底部导航顺序提供五个页面 */
