@@ -186,7 +186,7 @@ flowchart LR
     classDef web fill:#FBEEEA,stroke:#D98A6C,color:#5A2A1C
     class M bar
     class HM,SC,AS,PF frag
-    class H1,H2,A1,A2 web
+    class H1,H2,A0,A1,A2 web
 ```
 
 ## 构建
