@@ -236,6 +236,8 @@ echo "sdk.dir=/your/path/to/Android/sdk" > local.properties
 > 国内网络已配置腾讯镜像加速；内置的 `android-sdk/`（约 437M）未入库，需自行安装 Android SDK 并配置 `local.properties`。
 >
 > Release 构建开启了 R8 压缩与资源缩减，保留规则写在 `app/proguard-rules.pro`，构建时请勿删除该文件。
+>
+> `res/` 只放项目自有资源。AndroidX / Material 的布局、图片与样式由 Gradle 依赖自动提供，不要再手工拷进仓库：同名资源会以本地副本优先，反而会覆盖库里的正确版本。
 
 ## 源码结构
 
