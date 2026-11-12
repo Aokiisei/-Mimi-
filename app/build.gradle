@@ -10,8 +10,8 @@ android {
         applicationId "com.mimi.kebiao"
         minSdk 21
         targetSdk 34
-        versionCode 30
-        versionName "3.4"
+        versionCode 33
+        versionName "3.5"
 
         vectorDrawables {
             useSupportLibrary false
@@ -45,7 +45,9 @@ signingConfigs {
     buildTypes {
         release {
             signingConfig signingConfigs.release
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
@@ -59,10 +61,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.fragment:fragment:1.6.2'
     implementation 'androidx.core:core:1.9.0'
-    implementation 'androidx.recyclerview:recyclerview:1.1.0'
     implementation 'androidx.viewpager2:viewpager2:1.0.0'
-    implementation 'androidx.navigation:navigation-fragment:2.7.7'
-    implementation 'androidx.navigation:navigation-ui:2.7.7'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'

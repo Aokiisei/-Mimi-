@@ -3,7 +3,7 @@ package com.wuyi.kebiao;
 /**
  * 本文件职责：
  * 「小助手」页面 Fragment（底部导航第三个入口）。
- * 罗列校园实用工具入口：校园公告、武夷山公交查询、校园地图标注。
+ * 罗列校园实用工具入口：校园公告、快递身份码、校园地图标注、武夷实时公交。
  */
 
 import android.Manifest;
@@ -48,13 +48,15 @@ import java.net.URLEncoder;
 public class AssistantFragment extends Fragment {
 
     private static final String MAP_PREFS = "mimi_map";
-    // 校园公告接口：只允许访问自家服务器的公告接口，避免页面拿到任意请求能力
-    private static final String NOTICE_API_PREFIX = "https://aokiisei.vxni.ink/mimi.php?action=notice";
+    // 校园公告接口：只允许访问自家服务器接口和学校官网页面，避免页面拿到任意请求能力
+    private static final String NOTICE_API_PREFIX = "https://aokiisei.xyz/mimi.php?action=notice";
+    private static final String NOTICE_SCHOOL_PREFIX = "https://www.wuyiu.edu.cn/";
 
     private Dialog busDialog;
     private Dialog mapDialog;
     private Dialog noticeDialog;
     private WebView noticeWebView;
+    private ParcelCodeDialog parcelDialog;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -95,7 +97,28 @@ public class AssistantFragment extends Fragment {
                 }
             });
         }
+        View parcelRow = view.findViewById(R.id.layout_parcel_code);
+        if (parcelRow != null) {
+            parcelRow.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showParcelCodes();
+                }
+            });
+        }
         return view;
+    }
+
+    // 快递身份码：菜鸟 / 淘宝 / 拼多多三个官方网页，登录与出码都在官方页面内完成
+    private void showParcelCodes() {
+        if (getContext() == null) {
+            return;
+        }
+        if (parcelDialog != null) {
+            parcelDialog.dismiss();
+        }
+        parcelDialog = new ParcelCodeDialog(getContext());
+        parcelDialog.show();
     }
 
     // 校园公告：列表与正文都在网页里渲染，数据走自家服务器接口
@@ -159,7 +182,7 @@ public class AssistantFragment extends Fragment {
         // 异步请求接口：网页侧传入回调函数名，结果通过 evaluateJavascript 回传
         @JavascriptInterface
         public void requestJson(String url, String callback) {
-            if (url == null || !url.startsWith(NOTICE_API_PREFIX)) {
+            if (url == null || (!url.startsWith(NOTICE_API_PREFIX) && !url.startsWith(NOTICE_SCHOOL_PREFIX))) {
                 reply(null, callback);
                 return;
             }
@@ -440,10 +463,14 @@ public class AssistantFragment extends Fragment {
         if (noticeDialog != null && noticeDialog.isShowing()) {
             noticeDialog.dismiss();
         }
+        if (parcelDialog != null) {
+            parcelDialog.dismiss();
+        }
         busDialog = null;
         mapDialog = null;
         noticeDialog = null;
         noticeWebView = null;
+        parcelDialog = null;
         super.onDestroyView();
     }
 }

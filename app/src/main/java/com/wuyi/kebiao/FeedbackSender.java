@@ -28,7 +28,7 @@ public class FeedbackSender implements Runnable {
     public void run() {
         String str;
         try {
-            HttpURLConnection httpURLConnection = (HttpURLConnection) new URL("https://aokiisei.vxni.ink/mimi/feedback.php").openConnection();
+            HttpURLConnection httpURLConnection = (HttpURLConnection) new URL("https://aokiisei.xyz/mimi/feedback.php").openConnection();
             httpURLConnection.setRequestMethod("POST");
             httpURLConnection.setDoOutput(true);
             httpURLConnection.setConnectTimeout(10000);

@@ -4,7 +4,9 @@
     <LinearLayout android:orientation="vertical" android:padding="16.0dp" android:layout_width="match_parent" android:layout_height="wrap_content">
 
         <TextView android:id="@+id/tv_page_title" android:textSize="20.0sp" android:fontFamily="serif" android:textColor="@color/cl_ink" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="小助手" />
-        <TextView android:textSize="13.0sp" android:textColor="@color/cl_stone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:layout_marginBottom="20.0dp" android:text="常用校园工具，逐步上线" />
+        <TextView android:textSize="13.0sp" android:textColor="@color/cl_stone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:layout_marginBottom="16.0dp" android:text="常用校园工具，逐步上线" />
+
+        <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="2.0dp" android:layout_marginBottom="8.0dp" android:text="校园" />
 
         <LinearLayout android:orientation="vertical" android:background="@drawable/bg_cl_card" android:clipToOutline="true" android:layout_width="match_parent" android:layout_height="wrap_content">
             <LinearLayout android:orientation="horizontal" android:id="@+id/layout_campus_notice" android:background="?selectableItemBackground" android:padding="16.0dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content">
@@ -15,25 +17,38 @@
                 </LinearLayout>
                 <ImageView android:layout_width="18.0dp" android:layout_height="18.0dp" android:layout_gravity="center_vertical" android:layout_marginStart="8.0dp" android:src="@drawable/ic_arrow_forward" android:tint="@color/cl_stone" />
             </LinearLayout>
-        </LinearLayout>
 
-        <LinearLayout android:orientation="vertical" android:background="@drawable/bg_cl_card" android:clipToOutline="true" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12.0dp">
-            <LinearLayout android:orientation="horizontal" android:id="@+id/layout_bus_query" android:background="?selectableItemBackground" android:padding="16.0dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content">
-                <ImageView android:background="@drawable/bg_icon_circle" android:padding="8.0dp" android:layout_width="36.0dp" android:layout_height="36.0dp" android:layout_marginEnd="12.0dp" android:layout_gravity="center_vertical" android:src="@drawable/ic_bus" />
+            <View android:layout_width="match_parent" android:layout_height="1.0px" android:layout_marginStart="64.0dp" android:background="#14000000" />
+
+            <LinearLayout android:orientation="horizontal" android:id="@+id/layout_parcel_code" android:background="?selectableItemBackground" android:padding="16.0dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <ImageView android:background="@drawable/bg_icon_circle" android:padding="8.0dp" android:layout_width="36.0dp" android:layout_height="36.0dp" android:layout_marginEnd="12.0dp" android:layout_gravity="center_vertical" android:src="@drawable/ic_parcel" />
                 <LinearLayout android:orientation="vertical" android:layout_width="0.0dp" android:layout_height="wrap_content" android:layout_weight="1.0">
-                    <TextView android:textSize="16.0sp" android:textColor="@color/cl_ink" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="武夷山公交查询" />
-                    <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:maxLines="1" android:ellipsize="end" android:text="查询公交线路与到站信息" />
+                    <TextView android:textSize="16.0sp" android:textColor="@color/cl_ink" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="快递身份码" />
+                    <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:maxLines="1" android:ellipsize="end" android:text="四个平台，一键出示取件码" />
                 </LinearLayout>
                 <ImageView android:layout_width="18.0dp" android:layout_height="18.0dp" android:layout_gravity="center_vertical" android:layout_marginStart="8.0dp" android:src="@drawable/ic_arrow_forward" android:tint="@color/cl_stone" />
             </LinearLayout>
-        </LinearLayout>
 
-        <LinearLayout android:orientation="vertical" android:background="@drawable/bg_cl_card" android:clipToOutline="true" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12.0dp">
+            <View android:layout_width="match_parent" android:layout_height="1.0px" android:layout_marginStart="64.0dp" android:background="#14000000" />
+
             <LinearLayout android:orientation="horizontal" android:id="@+id/layout_campus_map" android:background="?selectableItemBackground" android:padding="16.0dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content">
                 <ImageView android:background="@drawable/bg_icon_circle" android:padding="8.0dp" android:layout_width="36.0dp" android:layout_height="36.0dp" android:layout_marginEnd="12.0dp" android:layout_gravity="center_vertical" android:src="@drawable/ic_map" />
                 <LinearLayout android:orientation="vertical" android:layout_width="0.0dp" android:layout_height="wrap_content" android:layout_weight="1.0">
                     <TextView android:textSize="16.0sp" android:textColor="@color/cl_ink" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="校园地图标注" />
                     <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:maxLines="1" android:ellipsize="end" android:text="共享地图，标注校园每个角落" />
+                </LinearLayout>
+                <ImageView android:layout_width="18.0dp" android:layout_height="18.0dp" android:layout_gravity="center_vertical" android:layout_marginStart="8.0dp" android:src="@drawable/ic_arrow_forward" android:tint="@color/cl_stone" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="2.0dp" android:layout_marginTop="18.0dp" android:layout_marginBottom="8.0dp" android:text="出行" />
+
+        <LinearLayout android:orientation="vertical" android:background="@drawable/bg_cl_card" android:clipToOutline="true" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <LinearLayout android:orientation="horizontal" android:id="@+id/layout_bus_query" android:background="?selectableItemBackground" android:padding="16.0dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <ImageView android:background="@drawable/bg_icon_circle" android:padding="8.0dp" android:layout_width="36.0dp" android:layout_height="36.0dp" android:layout_marginEnd="12.0dp" android:layout_gravity="center_vertical" android:src="@drawable/ic_bus" />
+                <LinearLayout android:orientation="vertical" android:layout_width="0.0dp" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <TextView android:textSize="16.0sp" android:textColor="@color/cl_ink" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="武夷实时公交" />
+                    <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:maxLines="1" android:ellipsize="end" android:text="实时车辆位置、线路与到站信息" />
                 </LinearLayout>
                 <ImageView android:layout_width="18.0dp" android:layout_height="18.0dp" android:layout_gravity="center_vertical" android:layout_marginStart="8.0dp" android:src="@drawable/ic_arrow_forward" android:tint="@color/cl_stone" />
             </LinearLayout>

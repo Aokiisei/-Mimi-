@@ -69,7 +69,7 @@ public class UpdateChecker {
                 int iOptInt = jSONObject.optInt("versionCode", 0);
                 String strOptString = jSONObject.optString("versionName", HttpUrl.FRAGMENT_ENCODE_SET);
                 String strOptString2 = jSONObject.optString("notes", HttpUrl.FRAGMENT_ENCODE_SET);
-                String strOptString3 = jSONObject.optString("apkUrl", "https://aokiisei.vxni.ink/mimi/mimi-kebiao.apk");
+                String strOptString3 = jSONObject.optString("apkUrl", "https://aokiisei.xyz/mimi/mimi-kebiao.apk");
                 if (strOptString2 == null || strOptString2.length() == 0) {
                     strOptString2 = "暂无更新说明";
                 }
@@ -256,7 +256,7 @@ public class UpdateChecker {
     }
 
     private static void check(Context context, boolean z) {
-        new OkHttpClient().newCall(new Request.Builder().url("https://aokiisei.vxni.ink/mimi/version.json").build()).enqueue(new CheckCallback(context, z));
+        new OkHttpClient().newCall(new Request.Builder().url("https://aokiisei.xyz/mimi/version.json").build()).enqueue(new CheckCallback(context, z));
     }
 
     public static void checkAuto(Context context) {

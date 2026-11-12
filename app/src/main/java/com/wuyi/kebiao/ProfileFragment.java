@@ -61,7 +61,7 @@ public class ProfileFragment extends Fragment {
     }
 
     // 开发者个人网站（原方法为空，导致按钮点了没反应）
-    private static final String CREATOR_WEBSITE = "https://aokiisei.vxni.ink";
+    private static final String CREATOR_WEBSITE = "https://aokiisei.xyz";
 
     private void openCreatorWebsite() {
         try {
@@ -235,7 +235,9 @@ public class ProfileFragment extends Fragment {
         new MimiDialogBuilder(context)
                 .setTitle("鸣谢")
                 .setMessage("感谢以下开源项目与代码：\n\n"
-                        + "· 课表查询与连接教务处：GitHub「Horizon UI」的开源代码")
+                        + "· 课表查询与连接教务处：GitHub「Horizon UI」的开源代码\n\n"
+                        + "· 快递身份码（淘宝 / 拼多多 / 京东 / 菜鸟）：GitHub 用户「xianhe51920」的开源项目 HandyCode（MIT 协议）\n"
+                        + "   https://github.com/xianhe51920/handycode")
                 .setPositiveButton("知道了", (DialogInterface.OnClickListener) null)
                 .show();
     }

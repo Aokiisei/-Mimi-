@@ -649,20 +649,32 @@ public class HomeFragment extends Fragment {
 
         @JavascriptInterface
         public void clearSavedCredentials() {
-            // 除了账号密码，还要清掉已保存的 Cookie，否则教务仍是登录态，下次打开会「没输密码就进去了」
+            // 只清保存的教务凭据与教务 Cookie。
+            // 快递身份码（菜鸟/淘宝/拼多多/京东）在小助手里是独立登录态，
+            // 不受清空账号、清空缓存等操作影响，所以这里不能再 removeAllCookies。
             HomeFragment.this.prefs.edit()
                     .remove(HomeFragment.KEY_USERNAME)
                     .remove(HomeFragment.KEY_PASSWORD)
                     .remove(HomeFragment.KEY_COOKIES)
                     .apply();
-            try {
-                CookieManager cookieManager = CookieManager.getInstance();
-                cookieManager.removeAllCookies(null);
-                cookieManager.flush();
-            } catch (Exception e) {
-                Log.e(HomeFragment.TAG, "清除登录 Cookie 失败: " + e.getMessage());
-            }
-            Log.d(HomeFragment.TAG, "已清除保存的账号密码与登录状态");
+            clearJwLoginCookies();
+            Log.d(HomeFragment.TAG, "已清除保存的账号密码与教务登录状态");
+        }
+
+        /**
+         * 仅清除保存的教务账号与教务会话。
+         * 用于「记住密码未勾选」等自动场景，与 clearSavedCredentials 一样只作用于教务，
+         * 避免把菜鸟/淘宝/拼多多/京东等快递身份码的登录态一起丢失。
+         */
+        @JavascriptInterface
+        public void clearSavedCredentialsOnly() {
+            HomeFragment.this.prefs.edit()
+                    .remove(HomeFragment.KEY_USERNAME)
+                    .remove(HomeFragment.KEY_PASSWORD)
+                    .remove(HomeFragment.KEY_COOKIES)
+                    .apply();
+            clearJwLoginCookies();
+            Log.d(HomeFragment.TAG, "已清除保存的教务账号与教务会话");
         }
 
         @JavascriptInterface
@@ -813,9 +825,10 @@ public class HomeFragment extends Fragment {
     }
 
     /**
-     * 先清空 Cookie、再加载教务入口页。
-     * removeAllCookies 是异步的：固定等 300ms 在慢设备上会残留上一次的 SSO 会话，
-     * 导致改对账密后第二次登录仍落在旧的失败页面。这里等回调完成后再加载，并留 500ms 兜底。
+     * 先清空教务相关 Cookie、再加载教务入口页。
+     * 注意：不能再用 removeAllCookies——它是整个 App 共享的 Cookie 存储，
+     * 会把快递身份码（淘宝/菜鸟/拼多多）等其他登录态一起清掉。
+     * 这里只按教务域名逐个过期，保证只重置教务 SSO 会话。
      */
     private void clearCookiesThenLoad(final int seq) {
         final boolean[] started = new boolean[]{false};
@@ -837,20 +850,53 @@ public class HomeFragment extends Fragment {
             }
         };
         try {
-            CookieManager cookieManager = CookieManager.getInstance();
-            ValueCallback<Boolean> callback = new ValueCallback<Boolean>() {
-                @Override
-                public void onReceiveValue(Boolean value) {
-                    HomeFragment.this.mainHandler.post(loadOnce);
-                }
-            };
-            cookieManager.removeAllCookies(callback);
-            cookieManager.removeSessionCookies(callback);
+            clearJwLoginCookies();
         } catch (Throwable th) {
-            this.mainHandler.post(loadOnce);
         }
-        // 兜底：个别 ROM 的 Cookie 回调不触发，500ms 后照常开始加载
-        this.mainHandler.postDelayed(loadOnce, 500L);
+        // CookieManager.setCookie 是异步落盘的，留一点时间再开始加载
+        this.mainHandler.postDelayed(loadOnce, 250L);
+    }
+
+    /**
+     * 只过期教务系统（jwxt / sso）的 Cookie，保留 App 内其他站点（快递身份码等）的登录态。
+     * Cookie 可能挂在根路径、jsxsd、authserver 等不同 path 上，按常见 path 与域名逐一生效。
+     */
+    private void clearJwLoginCookies() {
+        try {
+            CookieManager cookieManager = CookieManager.getInstance();
+            String[] probes = {
+                    "https://jwxt.wuyiu.edu.cn/",
+                    "https://jwxt.wuyiu.edu.cn/jsxsd/",
+                    "https://sso.wuyiu.edu.cn/",
+                    "https://sso.wuyiu.edu.cn/authserver/"
+            };
+            String[] paths = {"/", "/jsxsd", "/jsxsd/", "/authserver", "/authserver/"};
+            String expire = "=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=";
+            for (String probe : probes) {
+                String raw = cookieManager.getCookie(probe);
+                if (raw == null || raw.isEmpty()) {
+                    continue;
+                }
+                for (String item : raw.split(";")) {
+                    String pair = item.trim();
+                    int eq = pair.indexOf('=');
+                    if (eq <= 0) {
+                        continue;
+                    }
+                    String name = pair.substring(0, eq).trim();
+                    if (name.isEmpty()) {
+                        continue;
+                    }
+                    for (String path : paths) {
+                        cookieManager.setCookie(probe, name + expire + path);
+                        cookieManager.setCookie(probe, name + expire + path + "; domain=.wuyiu.edu.cn");
+                    }
+                }
+            }
+            cookieManager.flush();
+        } catch (Throwable th) {
+            Log.e(TAG, "清除教务 Cookie 失败: " + th.getMessage());
+        }
     }
 
     public void onLoginTimeout() {
@@ -957,10 +1003,8 @@ public class HomeFragment extends Fragment {
         // 重建抓取 WebView（等同杀掉 App 重进），否则 SSO 页面会话里的失败状态会一直残留
         resetCrawlerSession();
         try {
-            CookieManager cookieManager = CookieManager.getInstance();
-            cookieManager.removeAllCookies(null);
-            cookieManager.removeSessionCookies(null);
-            cookieManager.flush();
+            // 只清教务 Cookie，快递身份码等其他站点的登录态不能跟着丢
+            clearJwLoginCookies();
         } catch (Throwable th) {
         }
         // 桌面小组件的课表缓存也清掉，避免登录页已清空但桌面还挂着旧课表
@@ -1622,7 +1666,8 @@ public class HomeFragment extends Fragment {
 
     public void clearAllData() {
         this.prefs.edit().remove(KEY_COOKIES).remove(KEY_USERNAME).remove(KEY_PASSWORD).apply();
-        CookieManager.getInstance().removeAllCookies(null);
+        // 重新登录教务只清教务会话，不影响快递身份码的登录态
+        clearJwLoginCookies();
         this.pendingUser = null;
         this.pendingPass = null;
         this.retryCount = 0;
@@ -1673,7 +1718,7 @@ public class HomeFragment extends Fragment {
                 if (string == null || string.isEmpty()) {
                     return;
                 }
-                HttpURLConnection httpURLConnection = (HttpURLConnection) new URL("https://aokiisei.vxni.ink/mimi/stats.php").openConnection();
+                HttpURLConnection httpURLConnection = (HttpURLConnection) new URL("https://aokiisei.xyz/mimi/stats.php").openConnection();
                 httpURLConnection.setRequestMethod("POST");
                 httpURLConnection.setDoOutput(true);
                 httpURLConnection.setConnectTimeout(8000);

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>武夷山公交查询</title>
+<title>武夷实时公交</title>
 <style>
         @font-face {
             font-family: 'Mi Serif';
@@ -159,7 +159,7 @@
 <div class="sheet">
     <div class="head">
         <div class="head-txt">
-            <div class="title">武夷山公交查询</div>
+            <div class="title">武夷实时公交</div>
             <div class="sub">双向线路，左右滑动查看全部站点</div>
         </div>
         <button class="close" onclick="closeSheet()">✕</button>
@@ -253,7 +253,7 @@
     let current = DEFAULT_ROUTE;
     let touched = false;
     // ===== 实时公交状态 =====
-    const LIVE_URL = 'https://aokiisei.vxni.ink/mimi/live.php';
+    const LIVE_URL = 'https://aokiisei.xyz/mimi/live.php';
     let liveState = { route: null, dir: '1', panelEl: null, timer: null, running: false, lastData: null, failCount: 0, currentReq: 0 };
 
     function esc(t) {
@@ -698,9 +698,14 @@
         if (!touched) initDefault();
     });
     if (document.readyState === 'complete') {
-        initDefault();
+        bootBus();
     } else {
-        window.addEventListener('load', initDefault);
+        window.addEventListener('load', bootBus);
+    }
+    // 打开页面即展示实时公交，收起只能由用户点击「实时」按钮触发
+    function bootBus() {
+        initDefault();
+        if (LIVE_ROUTES[String(current)]) toggleLive(current);
     }
 </script>
 </body>

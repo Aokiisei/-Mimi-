@@ -21,9 +21,9 @@ public class AnnouncementFetcher implements Runnable {
 
     @Override
     public void run() {
-        String str = "暂未获取到公告，请检查网络后重试，或访问 https://aokiisei.vxni.ink/ 查看";
+        String str = "暂未获取到公告，请检查网络后重试，或访问 https://aokiisei.xyz/ 查看";
         try {
-            HttpURLConnection httpURLConnection = (HttpURLConnection) new URL("https://aokiisei.vxni.ink/mimi/announcement.txt").openConnection();
+            HttpURLConnection httpURLConnection = (HttpURLConnection) new URL("https://aokiisei.xyz/mimi/announcement.txt").openConnection();
             httpURLConnection.setConnectTimeout(5000);
             httpURLConnection.setReadTimeout(5000);
             if (httpURLConnection.getResponseCode() == 200) {

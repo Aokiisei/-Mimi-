@@ -198,7 +198,7 @@
 </div>
 
 <script>
-var API = 'https://aokiisei.vxni.ink/mimi.php';
+var API = 'https://aokiisei.xyz/mimi.php';
 var st = { tab: 'school', srcId: '', deptId: 'jdxy', all: [], shown: [], sources: [], depts: [], seq: 0, dseq: 0, cur: null, images: [], imgIndex: 0 };
 
 /* ===== 网络：优先走原生桥（不受 file:// 跨域限制），没有桥再退回 XHR ===== */
@@ -240,6 +240,31 @@ function apiJson(url, ok, fail) {
     };
     x.ontimeout = function () { fail('请求超时，请稍后重试'); };
     x.send();
+}
+
+function apiText(url, ok, fail, ms) {
+    if (window.MimiBridge && typeof MimiBridge.requestJson === 'function') {
+        var name = '__mimiTextCb' + (++cbSeq);
+        var done = false;
+        var timer = setTimeout(function () {
+            if (done) return;
+            done = true;
+            delete cbMap[name];
+            fail('请求超时');
+        }, ms || 16000);
+        cbMap[name] = function (text) {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            delete cbMap[name];
+            if (!text) { fail('网络异常'); return; }
+            ok(text);
+        };
+        window[name] = function (text) { if (cbMap[name]) cbMap[name](text); };
+        try { MimiBridge.requestJson(url, name); } catch (e) { fail('网络异常'); }
+        return;
+    }
+    fail('当前版本不支持读取公告原文');
 }
 
 /* ===== 工具 ===== */
@@ -309,44 +334,158 @@ function load(type, id) {
         var d = res && (res.data || res);
         if (!res || res.ok === false || !d) { showListState('err', '获取公告失败，请稍后重试'); return; }
         var list = dedupe(d.items || []);
-        var deptName = type === 'dept' ? (d.name || '学院') : '官网';
-        st.all = list.map(function (it) {
-            return {
-                title: it.title || '',
-                date: fmtDate(it.date),
-                url: it.url || '',
-                external: !!it.external || isExternal(it.url),
-                source: it.source || deptName,
-                sourceId: it.sourceId || (type === 'dept' ? 'dept' : 'notice'),
-                fresh: isFresh(it.date)
-            };
-        });
-        st.sources = (d.sources && d.sources.length) ? d.sources : [];
-        if (st.sources.length) {
-            var srcOk = false;
-            for (var k = 0; k < st.sources.length; k++) if (st.sources[k].id === st.srcId) srcOk = true;
-            if (!srcOk) st.srcId = '';
+        if (type === 'dept' && list.length) {
+            renderLoaded(d, type, list);
+            supplementDept(list, function (merged) {
+                if (seq !== st.seq) return;
+                renderLoaded(d, type, merged);
+            });
         } else {
-            st.srcId = '';
+            renderLoaded(d, type, list);
         }
-        if (d.depts && d.depts.length) {
-            st.depts = d.depts;
-            var has = false;
-            for (var i = 0; i < d.depts.length; i++) if (d.depts[i].id === st.deptId) has = true;
-            if (!has) st.deptId = d.depts[0].id;
-        }
-        var meta = [];
-        if (d.updatedAt) meta.push(String(d.updatedAt) + ' 更新');
-        meta.push('共 ' + st.all.length + ' 条');
-        document.getElementById('headMeta').innerHTML = esc(meta.join(' · '))
-            + (d.stale ? ' <span class="cache-note">· 官网暂不可达 · 显示缓存数据</span>' : '');
-        document.getElementById('olderNote').classList.toggle('hidden', !d.older);
-        renderChips();
-        renderItems();
     }, function (msg) {
         if (seq !== st.seq) return;
         showListState('err', msg || '获取失败，请检查网络');
     });
+}
+
+/* 服务端每个栏目只返回部分条目，学院公告会漏；这里再补抓学院栏目列表并合并 */
+function supplementDept(list, done) {
+    if (!window.MimiBridge || typeof MimiBridge.requestJson !== 'function') { done(list); return; }
+    var groups = {};
+    for (var i = 0; i < list.length; i++) {
+        var m = String(list[i].url || '').match(/^https?:\/\/[^/]+\/([A-Za-z0-9_-]+)\/\d{4}\/\d{4}\/c(\d+)a\d+\/page\.htm/i);
+        if (!m) continue;
+        var key = m[1] + '|' + m[2];
+        if (!groups[key]) groups[key] = { dept: m[1], cat: m[2], n: 0, sample: list[i].url };
+        groups[key].n++;
+    }
+    var arr = [];
+    for (var k in groups) if (groups.hasOwnProperty(k)) arr.push(groups[k]);
+    if (!arr.length) { done(list); return; }
+    arr.sort(function (a, b) { return b.n - a.n; });
+    arr = arr.slice(0, 2);
+    var left = arr.length;
+    var extra = [];
+    function finish() {
+        if (--left > 0) return;
+        var merged = dedupe(list.concat(extra));
+        merged.sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+        done(merged.slice(0, 60));
+    }
+    for (var c = 0; c < arr.length; c++) {
+        (function (item) {
+            fetchCategory(item, function (items) {
+                extra = extra.concat(items);
+                finish();
+            });
+        })(arr[c]);
+    }
+}
+
+function fetchCategory(item, cb) {
+    var base = 'https://www.wuyiu.edu.cn/' + item.dept + '/' + item.cat + '/list';
+    fetchPages(base, function (items) {
+        if (items.length) { cb(items); return; }
+        resolveCategoryUrl(item.sample, item.cat, function (listUrl) {
+            if (!listUrl) { cb([]); return; }
+            fetchPages(listUrl.replace(/list\d*\.htm.*$/i, 'list'), cb);
+        });
+    });
+}
+
+function fetchPages(base, cb) {
+    var urls = [base + '.htm', base + '2.htm'];
+    var left = urls.length;
+    var out = [];
+    for (var i = 0; i < urls.length; i++) {
+        (function (u) {
+            apiText(u, function (html) {
+                out = out.concat(parseDeptPage(html, u));
+                if (--left === 0) cb(out);
+            }, function () {
+                if (--left === 0) cb(out);
+            }, 8000);
+        })(urls[i]);
+    }
+}
+
+function resolveCategoryUrl(articleUrl, cat, cb) {
+    apiText(articleUrl, function (html) {
+        var doc;
+        try { doc = new DOMParser().parseFromString(html, 'text/html'); } catch (e) { cb(''); return; }
+        var links = doc.querySelectorAll('a[href]');
+        var best = '';
+        for (var i = 0; i < links.length; i++) {
+            var href = links[i].getAttribute('href') || '';
+            if (!/list\d*\.htm/i.test(href) || href.indexOf(cat) === -1) continue;
+            var abs;
+            try { abs = new URL(href, articleUrl).href; } catch (e) { continue; }
+            if (/新闻|动态|公告|快讯|团学|教学|科研/.test((links[i].textContent || '').trim())) { cb(abs); return; }
+            if (!best) best = abs;
+        }
+        cb(best);
+    }, function () { cb(''); }, 8000);
+}
+
+function parseDeptPage(html, pageUrl) {
+    var out = [];
+    if (!html) return out;
+    var doc;
+    try { doc = new DOMParser().parseFromString(html, 'text/html'); } catch (e) { return out; }
+    var links = doc.querySelectorAll('.news_title a');
+    for (var i = 0; i < links.length; i++) {
+        var a = links[i];
+        var href = a.getAttribute('href') || '';
+        if (!href || /^javascript:/i.test(href) || href === '#') continue;
+        var url;
+        try { url = new URL(href, pageUrl).href; } catch (e) { continue; }
+        var title = (a.getAttribute('title') || a.textContent || '').replace(/\s+/g, ' ').trim();
+        if (!title) continue;
+        var li = a.parentNode;
+        while (li && li.tagName && li.tagName.toLowerCase() !== 'li') li = li.parentNode;
+        var meta = li ? li.querySelector('.news_meta') : null;
+        var date = meta ? (meta.textContent || '').replace(/\s+/g, ' ').trim() : '';
+        out.push({ title: title, date: date, url: url });
+    }
+    return out;
+}
+
+function renderLoaded(d, type, list) {
+    var deptName = type === 'dept' ? (d.name || '学院') : '官网';
+    st.all = list.map(function (it) {
+        return {
+            title: it.title || '',
+            date: fmtDate(it.date),
+            url: it.url || '',
+            external: !!it.external || isExternal(it.url),
+            source: it.source || deptName,
+            sourceId: it.sourceId || (type === 'dept' ? 'dept' : 'notice'),
+            fresh: isFresh(it.date)
+        };
+    });
+    st.sources = (d.sources && d.sources.length) ? d.sources : [];
+    if (st.sources.length) {
+        var srcOk = false;
+        for (var k = 0; k < st.sources.length; k++) if (st.sources[k].id === st.srcId) srcOk = true;
+        if (!srcOk) st.srcId = '';
+    } else {
+        st.srcId = '';
+    }
+    if (d.depts && d.depts.length) {
+        st.depts = d.depts;
+        var has = false;
+        for (var i = 0; i < d.depts.length; i++) if (d.depts[i].id === st.deptId) has = true;
+        if (!has) st.deptId = d.depts[0].id;
+    }
+    var meta = [];
+    if (d.updatedAt) meta.push(String(d.updatedAt) + ' 更新');
+    meta.push('共 ' + st.all.length + ' 条');
+    document.getElementById('headMeta').innerHTML = esc(meta.join(' · '))
+        + (d.stale ? ' <span class="cache-note">· 官网暂不可达 · 显示缓存数据</span>' : '');
+    document.getElementById('olderNote').classList.toggle('hidden', !d.older);
+    renderChips();
+    renderItems();
 }
 
 function renderChips() {

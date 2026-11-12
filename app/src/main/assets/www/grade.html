@@ -1008,7 +1008,10 @@
                 if (rememberCheckbox.checked && usernameInput.value && passwordInput.value) {
                     if (Android && Android.saveCredentials) Android.saveCredentials(usernameInput.value.trim(), passwordInput.value);
                 } else if (!rememberCheckbox.checked) {
-                    if (Android && Android.clearSavedCredentials) Android.clearSavedCredentials();
+                    if (Android && Android.clearSavedCredentials) {
+                        if (Android.clearSavedCredentialsOnly) Android.clearSavedCredentialsOnly();
+                        else Android.clearSavedCredentials();
+                    }
                 }
             } catch(e) {}
         } else if (type === 'error') {

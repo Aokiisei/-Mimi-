@@ -47,6 +47,84 @@ public class CourseWidgetService extends RemoteViewsService {
     public static final String KEY_TOTAL_WEEK = "total_week";
     public static final int DEFAULT_TOTAL_WEEK = 18;
 
+    /** 小组件外观：配色序号与不透明度（0~100，0 为全透明） */
+    public static final String KEY_STYLE = "widget_style";
+    public static final String KEY_ALPHA = "widget_alpha";
+    public static final int DEFAULT_STYLE = 0;
+    public static final int DEFAULT_ALPHA = 80;
+
+    /** 小组件可选配色：背景 / 主文字 / 次要文字 / 课程行底板 */
+    public static final class Style {
+        public final String name;
+        public final int bg;
+        public final int text;
+        public final int sub;
+        public final int itemBg;
+
+        Style(String name, int bg, int text, int sub, int itemBg) {
+            this.name = name;
+            this.bg = bg;
+            this.text = text;
+            this.sub = sub;
+            this.itemBg = itemBg;
+        }
+    }
+
+    public static final Style[] STYLES = {
+            new Style("深夜蓝", 0xFF1A1A2E, 0xFFFFFFFF, 0xFFB0BEC5, 0x33FFFFFF),
+            new Style("暖纸", 0xFFF5F4ED, 0xFF141413, 0xFF87867F, 0x14000000),
+            new Style("赤陶", 0xFFC96442, 0xFFFFFFFF, 0xFFF3D8CE, 0x33FFFFFF),
+            new Style("墨黑", 0xFF141413, 0xFFFFFFFF, 0xFFA9A8A2, 0x33FFFFFF),
+            new Style("森林", 0xFF2E4A3F, 0xFFFFFFFF, 0xFFB9CFC4, 0x33FFFFFF),
+            new Style("靛蓝", 0xFF2B3A67, 0xFFFFFFFF, 0xFFB8C3E6, 0x33FFFFFF)
+    };
+
+    public static int getStyleIndex(Context context) {
+        if (context == null) {
+            return DEFAULT_STYLE;
+        }
+        int i = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getInt(KEY_STYLE, DEFAULT_STYLE);
+        return (i < 0 || i >= STYLES.length) ? DEFAULT_STYLE : i;
+    }
+
+    public static Style styleOf(Context context) {
+        return STYLES[getStyleIndex(context)];
+    }
+
+    /** 保存配色并立即刷新桌面小组件 */
+    public static void setStyleIndex(Context context, int index) {
+        if (context == null || index < 0 || index >= STYLES.length) {
+            return;
+        }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putInt(KEY_STYLE, index).apply();
+        refreshAll(context);
+    }
+
+    public static int getAlphaPercent(Context context) {
+        if (context == null) {
+            return DEFAULT_ALPHA;
+        }
+        int a = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getInt(KEY_ALPHA, DEFAULT_ALPHA);
+        return Math.max(0, Math.min(100, a));
+    }
+
+    /** 只保存不透明度，拖动结束后由界面统一刷新一次 */
+    public static void setAlphaPercent(Context context, int percent) {
+        if (context == null) {
+            return;
+        }
+        int a = Math.max(0, Math.min(100, percent));
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putInt(KEY_ALPHA, a).apply();
+    }
+
+    /** 按不透明度缩放颜色 alpha */
+    private static int scaleAlpha(int color, int percent) {
+        int a = (color >>> 24) * percent / 100;
+        return (a << 24) | (color & 0x00FFFFFF);
+    }
+
     private static final String[] DOW_NAMES = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
 
     /** 是否已过晚上 9 点：过后小组件自动展示第二天课程 */
@@ -155,6 +233,43 @@ public class CourseWidgetService extends RemoteViewsService {
         return name.replaceAll("[（(].*?[）)]", "").replaceAll("\\s+", "");
     }
 
+    /**
+     * 清理上课地点：教务系统回传的地点常带重复前缀（如「同文2同文2-106」），
+     * 与前端 cleanLoc 保持一致，避免小组件/通知把地点显示并播报两遍。
+     */
+    public static String cleanLocation(String s) {
+        if (s == null || s.isEmpty()) {
+            return "";
+        }
+        String t = s.trim();
+        for (int pass = 0; pass < 3; pass++) {
+            boolean changed = false;
+            int maxK = Math.min(t.length() / 2, 12);
+            for (int k = maxK; k >= 2; k--) {
+                String head = t.substring(0, k);
+                if (head.equals(t.substring(k, 2 * k)) && hasWideChar(head)) {
+                    t = t.substring(k);
+                    changed = true;
+                    break;
+                }
+            }
+            if (!changed) {
+                break;
+            }
+        }
+        return t;
+    }
+
+    /** 是否含非 Latin-1 字符（对应前端 cleanLoc 的 /[^\x00-\xff]/ 判断） */
+    private static boolean hasWideChar(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) > 0xFF) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** 上课节次序号（1~12）：取 sections（如 "03~04小节"）里的首个数字，无则按中文节次名兜底 */
     public static int slotNoOfCourse(JSONObject c) {
         String s = c.optString("sections", "");
@@ -224,6 +339,15 @@ public class CourseWidgetService extends RemoteViewsService {
                 }
                 if (weekNo > 0 && !courseInWeek(c.optString("weekRange", ""), weekNo)) {
                     continue;
+                }
+                // 地点先去掉重复前缀，小组件与上课提醒共用这份清理后的数据
+                String loc = c.optString("location", "");
+                String cleanLoc = cleanLocation(loc);
+                if (!cleanLoc.equals(loc)) {
+                    try {
+                        c.put("location", cleanLoc);
+                    } catch (Exception ignore) {
+                    }
                 }
                 String key = nameKey(c) + "#" + slotIndexOfCourse(c);
                 JSONObject prev = bestByKey.get(key);
@@ -354,6 +478,13 @@ public class CourseWidgetService extends RemoteViewsService {
         String weekInfo = weekNo > 0 ? "第" + weekNo + "/" + totalWeek + "周" : "";
 
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_course);
+        // 外观：配色 + 不透明度
+        Style style = styleOf(context);
+        int alpha = getAlphaPercent(context);
+        views.setInt(R.id.widget_root, "setBackgroundColor", scaleAlpha(style.bg, alpha));
+        views.setTextColor(R.id.widget_date_info, style.text);
+        views.setTextColor(R.id.widget_week_info, style.sub);
+        views.setTextColor(R.id.widget_empty, style.sub);
         views.setTextViewText(R.id.widget_date_info, dateInfo);
         views.setTextViewText(R.id.widget_week_info, weekInfo);
         views.setTextViewText(R.id.widget_empty,
@@ -413,6 +544,13 @@ public class CourseWidgetService extends RemoteViewsService {
             }
             JSONObject c = todayCourses.get(position);
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_course_item);
+            Style style = styleOf(context);
+            int alpha = getAlphaPercent(context);
+            views.setInt(R.id.widget_item_root, "setBackgroundColor", scaleAlpha(style.itemBg, alpha));
+            views.setTextColor(R.id.widget_item_name, style.text);
+            views.setTextColor(R.id.widget_item_time, style.text);
+            views.setTextColor(R.id.widget_item_location, style.sub);
+            views.setTextColor(R.id.widget_item_teacher, style.sub);
             String time = c.optString("sections", "");
             if (time.isEmpty()) {
                 time = c.optString("timeSlot", "");

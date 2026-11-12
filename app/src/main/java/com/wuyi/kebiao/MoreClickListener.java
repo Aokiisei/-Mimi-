@@ -44,8 +44,8 @@ public class MoreClickListener implements View.OnClickListener {
         row.setTextSize(16.0f);
         row.setTextColor(ThemeH.text);
         int v = (int) (13.0f * density + 0.5f);
-        int h = (int) (4.0f * density + 0.5f);
-        row.setPadding(h, v, h, v);
+        // 左右留白必须与其他标题一致，否则文字会明显右移
+        row.setPadding(0, v, 0, v);
         TypedValue tv = new TypedValue();
         context.getTheme().resolveAttribute(android.R.attr.selectableItemBackground, tv, true);
         row.setBackgroundResource(tv.resourceId);
@@ -105,6 +105,7 @@ public class MoreClickListener implements View.OnClickListener {
                     "1".equals(ThemeH.glass), new GlassSwitchListener(), density);
             addSwitch(context, content, "课表自动轮播", "开启后同格多张卡片每 5 秒自动切换",
                     "1".equals(ThemeH.autoCarousel), new CarouselSwitchListener(), density);
+            content.addView(entryRow(context, "桌面小组件样式（颜色 / 透明度）", density, new WidgetStyleClickListener()));
             content.addView(divider(context, density));
 
             // ===== 通知 =====

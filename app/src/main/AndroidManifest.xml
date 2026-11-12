@@ -14,9 +14,11 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
-    <!-- Android 11+ 包可见性：允许检测并跳转高德地图 -->
+    <!-- Android 11+ 包可见性：允许检测并跳转高德地图、拼多多与淘宝 App -->
     <queries>
         <package android:name="com.autonavi.minimap" />
+        <package android:name="com.xunmeng.pinduoduo" />
+        <package android:name="com.taobao.taobao" />
     </queries>
 
     <permission

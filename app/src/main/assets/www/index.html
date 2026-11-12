@@ -169,8 +169,15 @@
             backdrop-filter: var(--bf);
             -webkit-backdrop-filter: var(--bf);
             border-radius: 12px;
-            padding: 12px 14px;
+            padding: 8px;
             margin: 0 0 12px;
+        }
+        /* 外框内再分两块：上方时间/名言/天气，下方滚动公告，均透明底 */
+        .hello-main {
+            padding: 7px 9px;
+            border: 1px solid var(--glass-border);
+            border-radius: 9px;
+            background: transparent;
         }
         .hello-top { display: flex; align-items: baseline; gap: 10px; }
         .hello-time {
@@ -184,6 +191,7 @@
             font-size: 12.5px; color: var(--sub); line-height: 1.65;
             margin-top: 9px; padding: 8px 10px;
             background: var(--primary-soft); border-radius: 10px;
+            text-align: center;
         }
         .hello-quote .q-src { opacity: .75; font-size: 11px; margin-left: 4px; }
         .hello-weather {
@@ -199,6 +207,55 @@
             transition: transform .15s cubic-bezier(.2,.8,.2,1);
         }
         .hw-city:active { transform: scale(.94); }
+        /* ===== 滚动公告：与问候卡同宽，内容由服务器 notice.txt（或公告首行）控制 ===== */
+        .notice-bar {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            height: 28px;
+            margin: 8px 0 0;
+            padding: 0 6px;
+            border-radius: 9px;
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            box-shadow: none;
+            overflow: hidden;
+        }
+        .notice-bar.show { display: flex; }
+        .notice-tag {
+            flex: 0 0 auto;
+            padding: 2px 8px;
+            border-radius: 7px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        .notice-viewport {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            -webkit-mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+        }
+        .notice-track {
+            display: inline-flex;
+            white-space: nowrap;
+            animation: notice-scroll var(--notice-dur, 18s) linear infinite;
+            will-change: transform;
+        }
+        .notice-track span {
+            display: inline-block;
+            padding-right: 60px;
+            color: var(--text);
+            font-size: 12.5px;
+            white-space: nowrap;
+        }
+        @keyframes notice-scroll {
+            from { transform: translate3d(0, 0, 0); }
+            to { transform: translate3d(-50%, 0, 0); }
+        }
         /* ===== 课表页顶部信息条：默认一条细线框，点击展开为主界面同款问候卡 ===== */
         .tt-hello-slot { margin: 0 2px 12px; }
         .hello-mini-chev { display: none; }
@@ -210,13 +267,21 @@
             background: var(--glass-card-soft);
             box-shadow: inset 0 1px 0 var(--glass-hi);
             overflow: hidden;
+            position: relative;
         }
+        .hello-card.tt-mini:not(.tt-open) .hello-main {
+            display: flex; align-items: baseline; gap: 6px;
+            flex: 1 1 auto; min-width: 0;
+            padding: 0; border: 0; background: transparent;
+        }
+        .hello-card.tt-mini:not(.tt-open) #hhNotice { display: none; }
         .hello-card.tt-mini:not(.tt-open) .hello-top {
             display: flex; align-items: baseline; gap: 6px; flex: 0 0 auto;
         }
         .hello-card.tt-mini:not(.tt-open) .hello-time { font-size: 15px; line-height: 1.15; }
         .hello-card.tt-mini:not(.tt-open) .hello-greet { font-size: 11.5px; white-space: nowrap; }
-        .hello-card.tt-mini:not(.tt-open) .hello-date,
+        .hello-card.tt-mini:not(.tt-open) .hello-date { display: none; }
+        /* 收起后不显示名言，点击展开后再显示，避免被左右时间和天气挤压 */
         .hello-card.tt-mini:not(.tt-open) .hello-quote { display: none; }
         .hello-card.tt-mini:not(.tt-open) .hello-weather {
             margin: 0 0 0 auto; font-size: 11.5px; gap: 5px;
@@ -980,16 +1045,26 @@
     <div class="card" id="login-page">
         <h1>Mimi课表</h1>
         <div class="hello-card" id="hhCard">
-            <div class="hello-top">
-                <span class="hello-time" id="hhTime">--:--</span>
-                <span class="hello-greet" id="hhGreet"></span>
+            <div class="hello-main">
+                <div class="hello-top">
+                    <span class="hello-time" id="hhTime">--:--</span>
+                    <span class="hello-greet" id="hhGreet"></span>
+                </div>
+                <div class="hello-date" id="hhDate"></div>
+                <div class="hello-quote" id="hhQuote"></div>
+                <div class="hello-weather" id="hhWeather">
+                    <span id="hhWIcon"></span>
+                    <span id="hhWText">天气加载中</span>
+                    <span class="hw-city" id="hhWCity">武夷山</span>
+                </div>
             </div>
-            <div class="hello-date" id="hhDate"></div>
-            <div class="hello-quote" id="hhQuote"></div>
-            <div class="hello-weather" id="hhWeather">
-                <span id="hhWIcon"></span>
-                <span id="hhWText">天气加载中</span>
-                <span class="hw-city" id="hhWCity">武夷山</span>
+            <div class="notice-bar" id="hhNotice">
+                <span class="notice-tag">公告</span>
+                <div class="notice-viewport">
+                    <div class="notice-track" id="hhNoticeTrack">
+                        <span id="hhNoticeText"></span><span id="hhNoticeText2"></span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1130,6 +1205,7 @@
     const ttHelloSlot = document.getElementById('ttHelloSlot');
     const hhHomeParent = hhCard ? hhCard.parentNode : null;
     const hhHomeNext = hhCard ? hhCard.nextSibling : null;
+    // 公告已并入问候卡内部，随卡片一起移动，无需单独搬运
     let hhMiniChev = null;
     if (hhCard) {
         hhMiniChev = document.createElement('span');
@@ -2367,7 +2443,7 @@
 
                 // 登录成功后：记住密码未勾选时清除已保存的旧凭据（BackBridge 无条件保存，此处覆盖）
                 if (!prefOn('mimi_remember_pref', rememberCheckbox)) {
-                    try { Android.clearSavedCredentials(); } catch(e) {}
+                    try { if (Android.clearSavedCredentialsOnly) Android.clearSavedCredentialsOnly(); else Android.clearSavedCredentials(); } catch(e) {}
                     timetableLog('[页] 记住密码未勾选，已清除保存的凭据');
                 }
 
@@ -2433,7 +2509,7 @@
                 usernameInput.value = '';
                 passwordInput.value = '';
                 syncPwdDots();
-                try { Android.clearSavedCredentials(); } catch(e2) {}
+                try { if (Android.clearSavedCredentialsOnly) Android.clearSavedCredentialsOnly(); else Android.clearSavedCredentials(); } catch(e2) {}
                 return;
             }
             var didFill = false;
@@ -2592,7 +2668,10 @@
     // 登录明确失败（账号或密码错误）：清空账号缓存与课表缓存，回到登录页让用户重新输入
     window.mimiForceRelogin = function(msg) {
         try {
-            if (Android && Android.clearSavedCredentials) Android.clearSavedCredentials();
+            if (Android && Android.clearSavedCredentials) {
+                if (Android.clearSavedCredentialsOnly) Android.clearSavedCredentialsOnly();
+                else Android.clearSavedCredentials();
+            }
             usernameInput.value = '';
             passwordInput.value = '';
             try {
@@ -2885,6 +2964,7 @@
         __autoLoginFired = false; // 新会话重置自动登录标记
         lpLocked = false; // 重置进度锁，确保新会话日志可见
         loadSchedules(); // 载入本地日程，供课表视图合并显示
+        loadNotice(); // 滚动公告：先读缓存，再联网更新
 
         // 读取三个勾选框真实状态（「记住密码」为总开关）
         var rememberOk = prefOn('mimi_remember_pref', rememberCheckbox);
@@ -2898,7 +2978,7 @@
             passwordInput.value = '';
             syncPwdDots();
             clearCredentialsBtn.style.display = 'none';
-            try { Android.clearSavedCredentials(); } catch(e) {}
+            try { if (Android.clearSavedCredentialsOnly) Android.clearSavedCredentialsOnly(); else Android.clearSavedCredentials(); } catch(e) {}
             showIdle('页面就绪，请登录');
             return;
         }
@@ -3028,7 +3108,8 @@
         if (greetEl) greetEl.textContent = hhGreet(now.getHours());
         if (dateEl) dateEl.textContent = (now.getMonth() + 1) + '月' + now.getDate() + '日 · 星期' + '日一二三四五六'[now.getDay()];
         if (Date.now() - hhLastWx > 30 * 60 * 1000) loadWeather();
-        if (Date.now() - hhLastQuoteTry > 60 * 1000) fetchQuote(); // 语录每 1 分钟自动换一句
+        if (Date.now() - hhLastNoticeTry > 30 * 60 * 1000) loadNotice();
+        if (Date.now() - hhLastQuoteTry > 15 * 1000) fetchQuote(); // 语录每 15 秒自动换一句
     }
     let hhLastQuote = 0, hhLastQuoteTry = 0; // 上次成功拉取/尝试拉取一言的时间戳
     function hhQuoteOfDay() {
@@ -3040,7 +3121,7 @@
         const el = document.getElementById('hhQuote');
         if (el) el.innerHTML = '「' + hhEsc(q[0]) + '」<span class="q-src">—— ' + hhEsc(q[1] || '佚名') + '</span>';
     }
-    // 语录刷新策略：先显示内置每日句，再联网拉一言覆盖；之后每 1 分钟自动换一句
+    // 语录刷新策略：先显示内置每日句，再联网拉一言覆盖；之后每 15 秒自动换一句
     function fetchQuote() {
         hhLastQuoteTry = Date.now();
         try {
@@ -3064,6 +3145,56 @@
     function loadQuote() {
         renderQuote(hhQuoteOfDay());
         fetchQuote();
+    }
+    // ===== 滚动公告：notice.txt 优先，缺省取 announcement.txt 首行 =====
+    let hhLastNoticeTry = 0;
+    function hhXhrText(url, ok, fail) {
+        try {
+            const x = new XMLHttpRequest();
+            x.timeout = 8000;
+            x.onreadystatechange = function() {
+                if (x.readyState !== 4) return;
+                if (x.status === 200 && x.responseText) { ok(x.responseText); return; }
+                fail && fail();
+            };
+            x.open('GET', url, true);
+            x.send();
+        } catch (e) { fail && fail(); }
+    }
+    function applyNotice(text) {
+        const bar = document.getElementById('hhNotice');
+        if (!bar) return;
+        const t = String(text || '').replace(/\s+/g, ' ').trim();
+        if (!t) { bar.classList.remove('show'); return; }
+        const a = document.getElementById('hhNoticeText');
+        const b = document.getElementById('hhNoticeText2');
+        if (a) a.textContent = t;
+        if (b) b.textContent = t;
+        bar.classList.add('show');
+        const track = document.getElementById('hhNoticeTrack');
+        if (track) {
+            // 速度随文字长度调整，更新内容后从头开始滚动
+            track.style.animation = 'none';
+            track.style.setProperty('--notice-dur', Math.max(14, Math.min(60, Math.round(t.length * 0.7))) + 's');
+            void track.offsetWidth;
+            track.style.animation = '';
+        }
+        try { localStorage.setItem('mimi_notice', t); } catch (e) {}
+    }
+    function loadNotice() {
+        hhLastNoticeTry = Date.now();
+        try {
+            const cached = localStorage.getItem('mimi_notice');
+            if (cached) applyNotice(cached);
+        } catch (e) {}
+        hhXhrText('https://aokiisei.xyz/mimi/notice.txt', function(t) {
+            applyNotice(t);
+        }, function() {
+            hhXhrText('https://aokiisei.xyz/mimi/announcement.txt', function(t) {
+                const line = String(t).split(/\r?\n/).map(function(s) { return s.trim(); }).filter(Boolean)[0] || '';
+                applyNotice(line);
+            }, function() {});
+        });
     }
     function hhXhrJson(url, ok, fail) {
         try {
@@ -3102,7 +3233,7 @@
         if (cityEl) cityEl.textContent = d.city;
     }
     function fetchWx(lat, lon, city, cityKey) {
-        hhXhrJson('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code&timezone=auto', function(w) {
+        hhXhrJson('https://aokiisei.xyz/mimi/weather.php?lat=' + lat + '&lon=' + lon, function(w) {
             const cur = w.current || {};
             const info = HH_CODES[cur.weather_code] || ['', 'cloud'];
             const data = { city: city, cityKey: cityKey || city, temp: Math.round(cur.temperature_2m), desc: info[0], icon: info[1], code: cur.weather_code, rain: hhNeedUmbrella(cur.weather_code), t: Date.now() };
@@ -3131,7 +3262,7 @@
         return name.length >= 2 && name.length <= 20 && /^[\u4e00-\u9fa5A-Za-z·\- ]+$/.test(name);
     }
     function hhGeocode(city, ok, fail) {
-        hhXhrJson('https://geocoding-api.open-meteo.com/v1/search?count=1&language=zh&name=' + encodeURIComponent(city), function(g) {
+        hhXhrJson('https://aokiisei.xyz/mimi/weather.php?q=' + encodeURIComponent(city), function(g) {
             if (!g.results || !g.results.length) { fail && fail(); return; }
             ok(g.results[0]);
         }, fail);
