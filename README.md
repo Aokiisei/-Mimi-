@@ -234,6 +234,8 @@ echo "sdk.dir=/your/path/to/Android/sdk" > local.properties
 
 > 仓库已内置 Gradle Wrapper（Gradle 8.9，适配 AGP 8.5.2），首次构建会自动下载 Gradle，
 > 国内网络已配置腾讯镜像加速；内置的 `android-sdk/`（约 437M）未入库，需自行安装 Android SDK 并配置 `local.properties`。
+>
+> Release 构建开启了 R8 压缩与资源缩减，保留规则写在 `app/proguard-rules.pro`，构建时请勿删除该文件。
 
 ## 源码结构
 
@@ -274,6 +276,7 @@ app/src/main/
 | `ScheduleCleanupClickListener.java` | 清理过期日程的入口 |
 | `MimiDialogBuilder.java` | 统一样式的自定义对话框 |
 | `MimiSystemDialogBuilder.java` | 系统风格对话框，用于需要原生外观的场景 |
+| `ParcelCodeDialog.java` | 快递身份码对话框：承载淘宝、拼多多、京东、菜鸟的网页登录与取件码展示，四家各自独立维护登录状态 |
 | `CarouselSwitchListener.java` | 首页轮播开关，保存用户偏好 |
 
 ### 主题与视觉
@@ -326,6 +329,7 @@ app/src/main/
 | :-- | :-- |
 | `widget/CourseWidgetProvider.java` | 小组件生命周期入口，收到系统更新时触发重绘 |
 | `widget/CourseWidgetService.java` | 读取已缓存的课表数据，按当前教学周过滤并渲染；同一时段的多条记录合并为一条 |
+| `WidgetStyleClickListener.java` | 「更多 → 桌面小组件样式」入口：6 套配色与 0%～100% 透明度设置，改完立即刷新小组件 |
 
 ### 提醒
 
@@ -353,7 +357,7 @@ app/src/main/
 本项目以 **Apache License, Version 2.0** 发布。
 
 - 许可证全文见仓库根目录的 [LICENSE](LICENSE) 文件。
-- 第三方组件的版权与署名见 [NOTICE](NOTICE) 文件（AndroidX、Material、Gson、OkHttp 等均为 Apache 2.0）。
+- 第三方组件的版权与署名见 [NOTICE](NOTICE) 文件（AndroidX、Material、Gson、OkHttp 为 Apache 2.0；快递身份码参考的 HandyCode 为 MIT）。
 - 在遵守本许可证的前提下，你可以自由地使用、修改、分发本项目的代码。
 
 
