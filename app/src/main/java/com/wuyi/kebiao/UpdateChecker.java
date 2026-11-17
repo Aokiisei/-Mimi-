@@ -12,8 +12,10 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.widget.Toast;
 import androidx.core.content.FileProvider;
 import java.io.File;
@@ -154,6 +156,8 @@ public class UpdateChecker {
                     }
                 }
             } catch (Throwable unused) {
+                a(new DismissRunnable(this.b));
+                a(new ToastRunnable(this.a, "下载失败，请检查网络后重试"));
             }
         }
     }
@@ -170,9 +174,32 @@ public class UpdateChecker {
         @Override
         public void onClick(DialogInterface dialogInterface, int i) {
             try {
+                dialogInterface.dismiss();
+            } catch (Throwable unused) {
+            }
+            UpdateChecker.startDownload(this.a, this.b);
+        }
+    }
+
+    public static class BrowserClickListener implements DialogInterface.OnClickListener {
+        private final Context a;
+        private final String b;
+
+        public BrowserClickListener(Context context, String str) {
+            this.a = context;
+            this.b = str;
+        }
+
+        @Override
+        public void onClick(DialogInterface dialogInterface, int i) {
+            try {
+                dialogInterface.dismiss();
+            } catch (Throwable unused) {
+            }
+            try {
                 this.a.startActivity(new Intent("android.intent.action.VIEW", Uri.parse(this.b)));
             } catch (Throwable th) {
-                Toast.makeText(this.a, "无法打开浏览器，请手动访问网站下载", 1).show();
+                Toast.makeText(this.a, "无法打开浏览器，请手动访问网站下载", Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -247,7 +274,8 @@ public class UpdateChecker {
                 MimiSystemDialogBuilder builder = new MimiSystemDialogBuilder(this.a);
                 builder.setTitle("发现新版本 " + this.b);
                 builder.setMessage(this.c);
-                builder.setPositiveButton("去浏览器下载", new DownloadClickListener(this.a, this.d));
+                builder.setPositiveButton("在应用内更新", new DownloadClickListener(this.a, this.d));
+                builder.setNeutralButton("去浏览器更新", new BrowserClickListener(this.a, this.d));
                 builder.setNegativeButton("取消", (DialogInterface.OnClickListener) null);
                 builder.show();
             } catch (Throwable unused) {
@@ -268,11 +296,24 @@ public class UpdateChecker {
     }
 
     public static void installApk(Context context, File file) {
-        Uri uriForFile = FileProvider.getUriForFile(context, "com.mimi.kebiao.fileprovider", file);
-        Intent intent = new Intent("android.intent.action.VIEW");
-        intent.setDataAndType(uriForFile, "application/vnd.android.package-archive");
-        intent.addFlags(268435457);
-        context.startActivity(intent);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    && !context.getPackageManager().canRequestPackageInstalls()) {
+                Toast.makeText(context, "请允许安装未知来源应用后重试", Toast.LENGTH_LONG).show();
+                Intent setting = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:" + context.getPackageName()));
+                setting.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(setting);
+                return;
+            }
+            Uri uriForFile = FileProvider.getUriForFile(context, "com.mimi.kebiao.fileprovider", file);
+            Intent intent = new Intent("android.intent.action.VIEW");
+            intent.setDataAndType(uriForFile, "application/vnd.android.package-archive");
+            intent.addFlags(268435457);
+            context.startActivity(intent);
+        } catch (Throwable th) {
+            Toast.makeText(context, "安装失败，请到下载目录手动打开安装包", Toast.LENGTH_LONG).show();
+        }
     }
 
     public static void startDownload(Context context, String str) {

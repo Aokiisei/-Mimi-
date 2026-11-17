@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>武夷有轨电车</title>
+<style>
+        @font-face {
+            font-family: 'Mi Serif';
+            src: url('../fonts/mi-serif.otf') format('opentype');
+            font-display: block;
+        }
+        :root {
+            --primary: #C96442; --bg: #F5F4ED; --card: #FAF9F5; --ink: #141413;
+            --sub: #87867F; --border: #E8E6DC; --accent: #D97757; --soft: #FDF1EC;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; height: 100%; background: transparent; }
+        body {
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+            -webkit-text-stroke: 0.32px currentColor;
+            color: var(--ink);
+        }
+        .sheet {
+            height: calc(100% - 16px); margin: 8px; overflow-y: auto;
+            display: flex; flex-direction: column;
+            background: var(--card); border-radius: 18px;
+            box-shadow: 0 0 0 1px rgba(201,100,66,0.14), 0 12px 40px rgba(20,20,19,0.20), inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+        /* 内容超高时让整页滚动，别把站点时间轴压缩成 0 高度 */
+        .sheet > * { flex: 0 0 auto; }
+        .head { display: flex; align-items: flex-start; padding: 16px 16px 0; }
+        .title { font-size: 18px; font-weight: 500; letter-spacing: .2px; }
+        .sub { margin-top: 4px; font-size: 11.5px; color: var(--sub); }
+        .close {
+            flex: 0 0 auto; margin-left: auto; width: 28px; height: 28px; border-radius: 50%;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--sub);
+            font-size: 15px; line-height: 26px; text-align: center; padding: 0;
+            font-family: inherit;
+        }
+        .tabs { display: flex; gap: 7px; padding: 12px 16px 0; }
+        .tab {
+            flex: 1; min-width: 0; height: 34px; padding: 0 8px; border-radius: 9px;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--sub);
+            font-family: inherit; font-size: 11.5px; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .tab.on { background: var(--soft); border-color: rgba(201,100,66,0.42); color: var(--primary); }
+        .times {
+            display: flex; align-items: center; gap: 12px; padding: 10px 18px 0;
+            font-size: 12px; color: var(--sub); flex-wrap: wrap;
+        }
+        .times b { color: var(--ink); font-weight: 500; }
+        .times .warn { color: #B4553A; }
+        .scroller { overflow-x: auto; overflow-y: hidden; padding: 10px 0 4px; min-height: 66px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .scroller::-webkit-scrollbar { height: 0; display: none; }
+        .rail { position: relative; display: flex; width: max-content; --pad: 24px; padding: 0 var(--pad); }
+        .rail::before {
+            content: ''; position: absolute; left: calc(var(--pad) + 42px); right: calc(var(--pad) + 42px); top: 9px;
+            height: 2px; background: var(--border); border-radius: 1px;
+        }
+        .stop { flex: 0 0 84px; width: 84px; display: flex; flex-direction: column; align-items: center; }
+        .dot {
+            width: 9px; height: 9px; border-radius: 50%; margin-top: 5px;
+            background: #FFFFFF; border: 2px solid var(--primary); position: relative; z-index: 1;
+        }
+        .stop.start .dot, .stop.end .dot { background: var(--primary); }
+        .name { margin-top: 8px; font-size: 10.5px; line-height: 1.28; text-align: center; color: var(--ink); word-break: break-all; }
+        .note { padding: 8px 18px 0; font-size: 10.5px; color: var(--sub); line-height: 1.6; }
+        .live-panel { margin: 10px 14px 14px; padding-top: 10px; border-top: 1px dashed var(--border); }
+        .live-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: var(--sub); margin-bottom: 8px; }
+        .live-meta b { color: var(--ink); font-weight: 500; }
+        .live-meta .warn { color: #B4553A; }
+        .live-row { display: flex; align-items: flex-start; gap: 8px; padding: 7px 2px; border-bottom: 1px dashed var(--border); }
+        .live-row:last-child { border-bottom: none; }
+        .live-num { flex: 0 0 20px; font-size: 10.5px; color: var(--sub); text-align: right; padding-top: 1px; font-variant-numeric: tabular-nums; }
+        .live-name { flex: 1 1 auto; min-width: 0; font-size: 12.5px; }
+        .live-name .lst { font-size: 10.5px; color: var(--sub); margin-left: 4px; }
+        .live-cars { flex: 0 0 auto; min-width: 106px; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+        .car { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--soft); color: var(--primary); border: 1px solid rgba(201,100,66,0.3); line-height: 1.5; text-align: right; }
+        .car .cs { color: var(--sub); font-size: 10px; margin-left: 3px; }
+        .empty { padding: 18px 0; text-align: center; color: var(--sub); font-size: 12px; }
+        .empty.warn { color: #B4553A; }
+</style>
+</head>
+<body>
+<div class="sheet">
+    <div class="head">
+        <div>
+            <div class="title">武夷有轨电车</div>
+            <div class="sub">武夷山站 ↔ 南平市高铁站 · 实时到站</div>
+        </div>
+        <button class="close" onclick="closeSheet()">✕</button>
+    </div>
+
+    <div class="tabs" id="tabs"></div>
+    <div class="times" id="times"></div>
+    <div class="scroller"><div class="rail" id="rail"></div></div>
+    <div class="note">票价 5–10 元，分段计价；数据来自掌上公交，如有调整以现场为准。</div>
+    <div class="live-panel" id="live"><div class="empty">正在连接实时数据…</div></div>
+</div>
+<script>
+    const LIVE_URL = 'https://aokiisei.xyz/mimi/live.php';
+    const LINE_NAME = '武夷有轨电车';
+    const DIRS = {
+        '1': { name: '武夷山站 → 南平市高铁站', stops: ['武夷山站（景区南入口）', '南源岭站（民宿村）', '东山埔站', '仙店站', '黄土站', '兴田站', '枫坡站', '城村站（汉城考古遗址公园）', '固县站', '南平市高铁站'] },
+        '2': { name: '南平市高铁站 → 武夷山站', stops: ['南平市高铁站', '固县站', '城村站（汉城考古遗址公园）', '枫坡站', '兴田站', '黄土站', '仙店站', '东山埔站', '南源岭站（民宿村）', '武夷山站（景区南入口）'] }
+    };
+    let dir = '1';
+    let timer = null;
+    let running = false;
+    let reqSeq = 0;
+    let lastData = null;
+    let failCount = 0;
+
+    function esc(t) {
+        return String(t).replace(/[&<>"]/g, function (c) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+        });
+    }
+
+    function buildTabs() {
+        document.getElementById('tabs').innerHTML = Object.keys(DIRS).map(function (d) {
+            return '<button class="tab' + (d === dir ? ' on' : '') + '" onclick="switchDir(\'' + d + '\')">' +
+                esc(DIRS[d].name) + '</button>';
+        }).join('');
+    }
+
+    function buildRail() {
+        const stops = DIRS[dir].stops;
+        document.getElementById('rail').innerHTML = stops.map(function (name, i) {
+            const cls = i === 0 ? 'stop start' : (i === stops.length - 1 ? 'stop end' : 'stop');
+            return '<div class="' + cls + '"><div class="dot"></div><div class="name">' + esc(name) + '</div></div>';
+        }).join('');
+    }
+
+    function switchDir(d) {
+        if (dir === d) return;
+        dir = d;
+        buildTabs();
+        buildRail();
+        lastData = null;
+        failCount = 0;
+        document.getElementById('live').innerHTML = '<div class="empty">切换方向，刷新中…</div>';
+        startPoll();
+    }
+
+    function startPoll() {
+        stopPoll();
+        running = true;
+        tick();
+        timer = setTimeout(function loop() {
+            if (!running) return;
+            tick();
+            timer = setTimeout(loop, 5000);
+        }, 5000);
+    }
+
+    function stopPoll() {
+        running = false;
+        if (timer) { clearTimeout(timer); timer = null; }
+    }
+
+    async function tick() {
+        const my = ++reqSeq;
+        try {
+            const res = await fetch(LIVE_URL + '?name=' + encodeURIComponent(LINE_NAME) + '&dir=' + dir, {
+                headers: { 'Accept': 'application/json' }
+            });
+            const body = await res.json();
+            if (my !== reqSeq) return;
+            if (!res.ok || !body.ok) throw new Error((body && body.error) || ('HTTP ' + res.status));
+            lastData = body;
+            failCount = 0;
+            render(body);
+        } catch (e) {
+            if (my !== reqSeq) return;
+            failCount++;
+            renderError(e.message);
+        }
+    }
+
+    function render(data) {
+        const cars = data.buses || [];
+        const stations = data.stations || [];
+        document.getElementById('times').innerHTML =
+            '<span>首班 <b>' + esc(data.beginTime || '--') + '</b></span>' +
+            '<span>末班 <b>' + esc(data.endTime || '--') + '</b></span>' +
+            '<span>在线 <b>' + cars.length + '</b> 列</span>' +
+            '<span>' + new Date(data.updatedAt).toLocaleTimeString('zh-CN', { hour12: false }) + ' 更新</span>' +
+            (failCount > 0 ? '<span class="warn">数据可能延迟</span>' : '');
+
+        if (!cars.length) {
+            document.getElementById('live').innerHTML =
+                '<div class="empty">当前方向暂无在线列车</div>';
+            return;
+        }
+
+        const map = {};
+        cars.forEach(function (b) {
+            const i = b.stationIndex;
+            if (!map[i]) map[i] = [];
+            map[i].push(b);
+        });
+
+        document.getElementById('live').innerHTML = stations.map(function (s, idx) {
+            const list = map[idx] || [];
+            const carHtml = list.map(function (b) {
+                const m = b.meters;
+                const dist = m >= 1000 ? (m / 1000).toFixed(1) + ' km' : m + ' m';
+                return '<div class="car">' + esc(b.plate) + '<span class="cs">' + esc(b.state) + ' · ' + dist + '</span></div>';
+            }).join('');
+            return '<div class="live-row">' +
+                '<div class="live-num">' + (idx + 1) + '</div>' +
+                '<div class="live-name">' + esc(s.name) +
+                (idx === 0 ? '<span class="lst">（起）</span>' : (idx === stations.length - 1 ? '<span class="lst">（终）</span>' : '')) +
+                '</div><div class="live-cars">' + carHtml + '</div></div>';
+        }).join('');
+    }
+
+    function renderError(msg) {
+        if (lastData) {
+            render(lastData);
+            document.getElementById('times').innerHTML += '<span class="warn">请求失败，显示上次数据</span>';
+        } else {
+            document.getElementById('live').innerHTML =
+                '<div class="empty warn">实时数据加载失败：' + esc(msg) + '</div>';
+        }
+    }
+
+    function closeSheet() {
+        stopPoll();
+        if (window.MimiBridge && window.MimiBridge.close) {
+            window.MimiBridge.close();
+        }
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible' && running) {
+            startPoll();
+        }
+    });
+
+    buildTabs();
+    buildRail();
+    startPoll();
+</script>
+</body>
+</html>

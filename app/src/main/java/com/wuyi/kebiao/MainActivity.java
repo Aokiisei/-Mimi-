@@ -235,30 +235,80 @@ public class MainActivity extends AppCompatActivity {
     private void showChangelogIfNeeded() {
         try {
             String cur = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
-            SharedPreferences sp = getSharedPreferences("mimi_changelog", Context.MODE_PRIVATE);
-            String last = sp.getString("last_version", "");
-            if (!cur.equals(last)) {
-                sp.edit().putString("last_version", cur).apply();
-                String notes = "V3.3 更新日志（3.2 → 3.3）\n\n"
-                        + "本次重点：修复晚上 19:00 的课程不显示，小助手新增校园地图标注。\n\n"
-                        + "【课表】晚课修复\n"
-                        + "· 第九、十节（19:00-20:40）的课程现在能正常显示在「晚七」行\n"
-                        + "· 课表解析改为按节次编号识别，兼容「第九、十节」「第9-10节」「晚上」等不同写法\n"
-                        + "· 教务课表分成多张表格时自动合并，不再整段漏抓\n"
-                        + "· 课程卡片的「晚七」别名、点击时间弹窗与日视图排序同步修正\n\n"
-                        + "【小助手 · 校园地图标注】\n"
-                        + "· 新增校园地图：接入你自己的高德地图 Key（Web端 JS API），打开即定位到武夷学院\n"
-                        + "· 点地图任意位置即可标注，写下「这里是什么」，标注会同步给所有同学\n"
-                        + "· 点地图上的标记可查看地点名称、补充说明与添加者，支持拖动微调位置\n"
-                        + "· 自己加的标注可随时删除；觉得别人标错了可以举报，超过 5 票自动删除（每人只计一票）\n"
-                        + "· Key 只保存在本机，随时可在页面右上角更换或清除";
-                new MimiSystemDialogBuilder(this)
-                        .setTitle("更新公告")
-                        .setMessage(notes)
-                        .setPositiveButton("知道了", null)
-                        .show();
+            final SharedPreferences sp = getSharedPreferences("mimi_changelog", Context.MODE_PRIVATE);
+            if (cur.equals(sp.getString("last_version", ""))) {
+                return;
+            }
+            final String version = cur;
+            // 优先用服务器公告，取不到再退回安装包内置的 changelog.txt
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    String notes = fetchAnnouncement();
+                    if (notes.trim().isEmpty()) {
+                        notes = readAsset("changelog.txt");
+                    }
+                    final String text = notes;
+                    if (text.trim().isEmpty()) {
+                        return;
+                    }
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (isFinishing()) {
+                                return;
+                            }
+                            sp.edit().putString("last_version", version).apply();
+                            new MimiSystemDialogBuilder(MainActivity.this)
+                                    .setTitle("更新公告")
+                                    .setMessage(text)
+                                    .setPositiveButton("知道了", null)
+                                    .show();
+                        }
+                    });
+                }
+            }).start();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** 拉取服务器公告，失败返回空串 */
+    private String fetchAnnouncement() {
+        try {
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
+                    new java.net.URL("https://aokiisei.xyz/mimi/announcement.txt").openConnection();
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(4000);
+            if (conn.getResponseCode() == 200) {
+                java.io.InputStream in = conn.getInputStream();
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    out.write(buf, 0, n);
+                }
+                in.close();
+                return new String(out.toByteArray(), "UTF-8").trim();
             }
         } catch (Throwable ignored) {
+        }
+        return "";
+    }
+
+    /** 读取 assets 内的更新日志，避免每次发版都要改 Java 字符串 */
+    private String readAsset(String name) {
+        try {
+            java.io.InputStream in = getAssets().open(name);
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                out.write(buf, 0, n);
+            }
+            in.close();
+            return new String(out.toByteArray(), "UTF-8");
+        } catch (Throwable th) {
+            return "";
         }
     }
 }

@@ -7,3 +7,7 @@
 # 保留行号，崩溃日志仍可定位
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# 学习通签到：ZXing 二维码解码内部会按格式反射创建 Reader
+-keep class com.google.zxing.** { *; }
+-dontwarn com.google.zxing.**

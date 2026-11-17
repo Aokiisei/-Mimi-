@@ -90,6 +90,25 @@ public class NotificationSettingsClickListener implements View.OnClickListener {
                     }
                 }, density);
 
+        MoreClickListener.addSwitch(context, content, "刷课进度通知",
+                "刷课时在通知栏显示当前课程、章节、视频播放百分比；关闭后只保留一条最简的「后台运行」通知，刷课不会中断",
+                XxtStore.studyNotify(appContext),
+                new CompoundButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                        XxtStore.setStudyNotify(appContext, isChecked);
+                        Toast.makeText(appContext, isChecked ? "已开启刷课进度通知" : "已关闭刷课进度通知",
+                                Toast.LENGTH_SHORT).show();
+                        if (isChecked) {
+                            requestNotificationPermission();
+                        }
+                        // 保活服务不能停：关掉进度通知时刷新一下通知内容即可
+                        if (XxtStudyEngine.isRunning()) {
+                            XxtStudyService.start(appContext);
+                        }
+                    }
+                }, density);
+
         if (!hasNotificationPermission()) {
             TextView note = new TextView(context);
             note.setText("通知权限未开启，需在系统设置中允许通知后才能收到提醒");

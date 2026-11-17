@@ -6,6 +6,10 @@ package com.wuyi.kebiao;
  * 负责公告展示、版本更新检查、意见反馈与赞助支持。
  */
 
+import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -13,6 +17,10 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -24,11 +32,17 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
+import java.io.InputStream;
+import java.io.OutputStream;
 import okhttp3.OkHttpClient;
 
 public class ProfileFragment extends Fragment {
     // 开发者反馈邮箱
     private static final String FEEDBACK_EMAIL = "lin_648@qq.com";
+    // QQ 交流群
+    private static final String QQ_GROUP_NUMBER = "961401372";
+    private static final String QQ_GROUP_NAME = "Mimi课表交流群";
+    private static final int RC_SAVE_QQ_QR = 7501;
     // 彩蛋：连续点击「开发者」右侧蓝色名字的次数
     private int creatorClickCount = 0;
     private static final int EGG_CLICK_TARGET = 10;
@@ -54,7 +68,7 @@ public class ProfileFragment extends Fragment {
     public void notifyAnnouncement(String str) {
         try {
             if (isAdded()) {
-                showAnnouncementDialog("公告", str);
+                showAnnouncementDialog("更新公告", str);
             }
         } catch (Throwable th) {
         }
@@ -111,6 +125,187 @@ public class ProfileFragment extends Fragment {
                 Toast.makeText(context, th.toString(), 1).show();
             }
         }
+    }
+
+    // ------------------------------------------------------------ QQ 交流群
+    void showQqGroupDialog() {
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        float density = context.getResources().getDisplayMetrics().density;
+        int padH = (int) (24 * density + 0.5f);
+        LinearLayout box = new LinearLayout(context);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        box.setPadding(padH, (int) (8 * density + 0.5f), padH, 0);
+
+        ImageView qr = new ImageView(context);
+        qr.setImageResource(R.drawable.qq_group);
+        qr.setAdjustViewBounds(true);
+        qr.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        qr.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                saveQqQr();
+                return true;
+            }
+        });
+        box.addView(qr, new LinearLayout.LayoutParams((int) (220 * density + 0.5f), -2));
+
+        TextView number = new TextView(context);
+        number.setText("群号 961401372");
+        number.setTextSize(15.0f);
+        number.setTextColor(0xFF141413);
+        number.setGravity(android.view.Gravity.CENTER);
+        LinearLayout.LayoutParams numberLp = new LinearLayout.LayoutParams(-2, -2);
+        numberLp.topMargin = (int) (14 * density + 0.5f);
+        box.addView(number, numberLp);
+
+        TextView tip = new TextView(context);
+        tip.setText("扫二维码进群 · 长按图片可保存到相册");
+        tip.setTextSize(12.0f);
+        tip.setTextColor(0xFF87867F);
+        tip.setGravity(android.view.Gravity.CENTER);
+        LinearLayout.LayoutParams tipLp = new LinearLayout.LayoutParams(-2, -2);
+        tipLp.topMargin = (int) (6 * density + 0.5f);
+        box.addView(tip, tipLp);
+
+        new MimiDialogBuilder(context)
+                .setTitle(QQ_GROUP_NAME)
+                .setView(box)
+                .setNeutralButton("复制群号", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        copyQqGroupNumber();
+                    }
+                })
+                .setPositiveButton("完成", (DialogInterface.OnClickListener) null)
+                .show();
+    }
+
+    private void copyQqGroupNumber() {
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        try {
+            ClipboardManager cm = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm != null) {
+                cm.setPrimaryClip(ClipData.newPlainText("QQ群号", QQ_GROUP_NUMBER));
+                Toast.makeText(context, "群号已复制：" + QQ_GROUP_NUMBER, Toast.LENGTH_SHORT).show();
+            }
+        } catch (Throwable th) {
+            Toast.makeText(context, "复制失败，请手动记下群号 " + QQ_GROUP_NUMBER, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    // 长按图片保存：Android 10+ 直接写入相册；旧系统走系统保存对话框（无需存储权限）
+    private void saveQqQr() {
+        final Context context = getContext();
+        final FragmentActivity host = getActivity();
+        if (context == null || host == null) {
+            return;
+        }
+        final Context app = context.getApplicationContext();
+        Toast.makeText(context, "正在保存图片…", Toast.LENGTH_SHORT).show();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    try {
+                        ContentValues values = new ContentValues();
+                        values.put(MediaStore.Images.Media.DISPLAY_NAME, "Mimi课表交流群.jpg");
+                        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+                        values.put(MediaStore.Images.Media.RELATIVE_PATH,
+                                Environment.DIRECTORY_PICTURES + "/Mimi课表");
+                        Uri uri = app.getContentResolver().insert(
+                                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+                        if (uri == null) {
+                            throw new IllegalStateException("无法创建相册文件");
+                        }
+                        OutputStream out = app.getContentResolver().openOutputStream(uri);
+                        if (out == null) {
+                            throw new IllegalStateException("无法写入相册");
+                        }
+                        copyQqQr(app, out);
+                        out.close();
+                        toastOnUi(app, "已保存到相册：Pictures/Mimi课表");
+                    } catch (Throwable th) {
+                        toastOnUi(app, "保存失败：" + th.getMessage());
+                    }
+                    return;
+                }
+                host.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                            intent.addCategory(Intent.CATEGORY_OPENABLE);
+                            intent.setType("image/jpeg");
+                            intent.putExtra(Intent.EXTRA_TITLE, "Mimi课表交流群.jpg");
+                            startActivityForResult(intent, RC_SAVE_QQ_QR);
+                        } catch (Throwable th) {
+                            Toast.makeText(app, "保存失败：" + th.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+            }
+        }).start();
+    }
+
+    private void copyQqQr(Context context, OutputStream out) throws Exception {
+        InputStream in = context.getResources().openRawResource(R.drawable.qq_group);
+        try {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                out.write(buf, 0, n);
+            }
+            out.flush();
+        } finally {
+            in.close();
+        }
+    }
+
+    private void toastOnUi(final Context context, final String text) {
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(context, text, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != RC_SAVE_QQ_QR || resultCode != Activity.RESULT_OK
+                || data == null || data.getData() == null) {
+            return;
+        }
+        final Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        final Context app = context.getApplicationContext();
+        final Uri uri = data.getData();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    OutputStream out = app.getContentResolver().openOutputStream(uri);
+                    if (out == null) {
+                        throw new IllegalStateException("无法写入文件");
+                    }
+                    copyQqQr(app, out);
+                    out.close();
+                    toastOnUi(app, "图片已保存");
+                } catch (Throwable th) {
+                    toastOnUi(app, "保存失败：" + th.getMessage());
+                }
+            }
+        }).start();
     }
 
     void showSponsorDialog() {
@@ -189,12 +384,12 @@ public class ProfileFragment extends Fragment {
                     }
                 });
             }
-            View viewFindViewByIdThanks = view.findViewById(R.id.layout_thanks);
-            if (viewFindViewByIdThanks != null) {
-                viewFindViewByIdThanks.setOnClickListener(new View.OnClickListener() {
+            View viewFindViewByIdQq = view.findViewById(R.id.layout_qq_group);
+            if (viewFindViewByIdQq != null) {
+                viewFindViewByIdQq.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public final void onClick(View view2) {
-                        showThanksDialog();
+                        showQqGroupDialog();
                     }
                 });
             }
@@ -227,7 +422,7 @@ public class ProfileFragment extends Fragment {
     }
 
     // 鸣谢弹窗：列出本项目用到的开源代码
-    private void showThanksDialog() {
+    void showThanksDialog() {
         Context context = getContext();
         if (context == null) {
             return;
@@ -318,12 +513,27 @@ public class ProfileFragment extends Fragment {
     }
 
     public void showUpdateDialog(String str, final String str2) {
-        new MimiDialogBuilder(requireContext()).setTitle("发现新版本 v" + str).setMessage("是否前往下载更新？").setPositiveButton("去更新", new DialogInterface.OnClickListener() {
-            @Override
-            public final void onClick(DialogInterface dialogInterface, int i) {
-                openUpdateUrl(str2, dialogInterface, i);
-            }
-        }).setNegativeButton("稍后", (DialogInterface.OnClickListener) null).show();
+        new MimiDialogBuilder(requireContext()).setTitle("发现新版本 v" + str)
+                .setMessage("可直接在应用内下载安装，也可用浏览器下载。")
+                .setPositiveButton("在应用内更新", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        dialogInterface.dismiss();
+                        if (str2.isEmpty()) {
+                            Toast.makeText(requireContext(), "暂无下载链接，请稍后再试", 0).show();
+                            return;
+                        }
+                        UpdateChecker.startDownload(requireContext(), str2);
+                    }
+                })
+                .setNeutralButton("去浏览器", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        dialogInterface.dismiss();
+                        openUpdateUrl(str2, dialogInterface, i);
+                    }
+                })
+                .setNegativeButton("取消", (DialogInterface.OnClickListener) null).show();
     }
 
     void openUpdateUrl(String str, DialogInterface dialogInterface, int i) {

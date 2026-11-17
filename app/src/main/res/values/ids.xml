@@ -52,7 +52,7 @@
     <id name="layout_announcement" />
     <id name="layout_creator" />
     <id name="layout_feedback" />
-    <id name="layout_thanks" />
+    <id name="layout_qq_group" />
     <id name="layout_version" />
     <id name="layout_weather" />
     <id name="nav_graph" />

@@ -21,6 +21,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,6 +31,8 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
@@ -53,10 +56,13 @@ public class AssistantFragment extends Fragment {
     private static final String NOTICE_SCHOOL_PREFIX = "https://www.wuyiu.edu.cn/";
 
     private Dialog busDialog;
+    private Dialog tramDialog;
+    private Dialog restRoomDialog;
     private Dialog mapDialog;
     private Dialog noticeDialog;
     private WebView noticeWebView;
     private ParcelCodeDialog parcelDialog;
+    private XxtSignDialog xxtSignDialog;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -76,6 +82,24 @@ public class AssistantFragment extends Fragment {
                 @Override
                 public void onClick(View v) {
                     showBusRoutes();
+                }
+            });
+        }
+        View restRoomRow = view.findViewById(R.id.layout_rest_room);
+        if (restRoomRow != null) {
+            restRoomRow.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showRestRooms();
+                }
+            });
+        }
+        View tramRow = view.findViewById(R.id.layout_tram_query);
+        if (tramRow != null) {
+            tramRow.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showTram();
                 }
             });
         }
@@ -106,7 +130,92 @@ public class AssistantFragment extends Fragment {
                 }
             });
         }
+        View xxtRow = view.findViewById(R.id.layout_xxt_sign);
+        if (xxtRow != null) {
+            xxtRow.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showXxtSign();
+                }
+            });
+        }
         return view;
+    }
+
+    // 学习通签到：账号、Cookie 与巡检设置都存在本地，与快递身份码一致独立弹窗
+    private void showXxtSign() {
+        if (getActivity() == null) {
+            return;
+        }
+        if (xxtSignDialog != null) {
+            xxtSignDialog.dismiss();
+        }
+        xxtSignDialog = new XxtSignDialog(getActivity(), new XxtSignDialog.Host() {
+            @Override
+            public void xxtStartForResult(Intent intent, int requestCode) {
+                startActivityForResult(intent, requestCode);
+            }
+
+            @Override
+            public void xxtRequestNotificationPermission(int requestCode) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                        && getActivity() != null
+                        && ContextCompat.checkSelfPermission(requireActivity(),
+                        Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, requestCode);
+                }
+            }
+
+            @Override
+            public void xxtRequestCameraPermission(int requestCode) {
+                requestPermissions(new String[]{Manifest.permission.CAMERA}, requestCode);
+            }
+
+            @Override
+            public void xxtRequestLocationPermission(int requestCode) {
+                requestPermissions(new String[]{
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION}, requestCode);
+            }
+        });
+        xxtSignDialog.show();
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (xxtSignDialog != null) {
+            xxtSignDialog.handleActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == XxtSignDialog.RC_QR_SCAN && xxtSignDialog != null) {
+            xxtSignDialog.handleCameraPermission(grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED);
+        } else if (requestCode == XxtSignDialog.RC_PHOTO_CAMERA && xxtSignDialog != null) {
+            xxtSignDialog.handlePhotoCameraPermission(grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED);
+        } else if (requestCode == XxtSignDialog.RC_LOCATION && xxtSignDialog != null) {
+            xxtSignDialog.handleLocationPermission(grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED);
+        }
+    }
+
+    // 离开再回来时恢复巡检：服务被系统回收后设置里仍然是开启状态
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (getContext() != null && XxtStore.autoEnabled(getContext())
+                && !XxtMonitorService.isRunning()) {
+            XxtMonitorService.start(getContext());
+        }
+        // 从学习通官方 App 做完人脸回来，自动继续之前被拦住的那次签到
+        if (xxtSignDialog != null) {
+            xxtSignDialog.onHostResume();
+        }
     }
 
     // 快递身份码：菜鸟 / 淘宝 / 拼多多三个官方网页，登录与出码都在官方页面内完成
@@ -300,6 +409,123 @@ public class AssistantFragment extends Fragment {
         }
     }
 
+    // 武夷有轨电车：仍走掌上公交代理，但按线路名查询
+    private void showTram() {
+        if (getContext() == null) {
+            return;
+        }
+        WebView webView = new WebView(getContext());
+        webView.setBackgroundColor(Color.TRANSPARENT);
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setSupportZoom(false);
+        webView.addJavascriptInterface(new TramBridge(), "MimiBridge");
+        webView.loadUrl("file:///android_asset/www/tram.html");
+
+        tramDialog = new Dialog(getContext());
+        tramDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        tramDialog.setContentView(webView);
+        Window window = tramDialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.setDimAmount(0.32f);
+        }
+        tramDialog.setOnDismissListener(dialog -> webView.destroy());
+        tramDialog.show();
+        if (window != null) {
+            DisplayMetrics dm = getResources().getDisplayMetrics();
+            window.setLayout(Math.round(dm.widthPixels * 0.96f), Math.round(dm.heightPixels * 0.82f));
+        }
+    }
+
+    private class TramBridge {
+        @JavascriptInterface
+        public void close() {
+            if (tramDialog != null && tramDialog.isShowing()) {
+                tramDialog.dismiss();
+            }
+        }
+    }
+
+    // 空闲教室：直接打开教务的「空闲教室」页面，复用同一 WebView 登录态
+    private void showRestRooms() {
+        if (getContext() == null) {
+            return;
+        }
+        WebView webView = new WebView(getContext());
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setLoadWithOverviewMode(true);
+        settings.setUseWideViewPort(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                view.evaluateJavascript(
+                        "(function(){"
+                                + "if(window.__mimiRest){return;}window.__mimiRest=1;"
+                                + "var last='',tries=0;"
+                                + "function tick(){var h=location.hash||'';"
+                                + "if(h.indexOf('restRooms')>=0){return;}"
+                                + "if(h.indexOf('login')>=0){last=h;return;}"
+                                + "if(h!==last&&tries<5){last=h;tries++;location.hash='/restRooms/index';}"
+                                + "}"
+                                + "setTimeout(tick,1200);setInterval(tick,1500);"
+                                + "})();", null);
+            }
+        });
+        webView.loadUrl("https://jwxt.wuyiu.edu.cn/wyxy/#/loginSso");
+
+        FrameLayout root = new FrameLayout(getContext());
+        root.addView(webView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        TextView close = new TextView(getContext());
+        close.setText("✕");
+        close.setTextSize(15);
+        close.setTextColor(Color.parseColor("#87867F"));
+        close.setGravity(Gravity.CENTER);
+        close.setBackgroundResource(R.drawable.bg_icon_circle);
+        int size = dp(34);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(size, size,
+                Gravity.TOP | Gravity.END);
+        lp.setMargins(0, dp(10), dp(10), 0);
+        close.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (restRoomDialog != null && restRoomDialog.isShowing()) {
+                    restRoomDialog.dismiss();
+                }
+            }
+        });
+        root.addView(close, lp);
+
+        restRoomDialog = new Dialog(getContext());
+        restRoomDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        restRoomDialog.setContentView(root);
+        Window window = restRoomDialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.setDimAmount(0.32f);
+        }
+        restRoomDialog.setOnDismissListener(dialog -> webView.destroy());
+        restRoomDialog.show();
+        if (window != null) {
+            DisplayMetrics dm = getResources().getDisplayMetrics();
+            window.setLayout(Math.round(dm.widthPixels * 0.96f), Math.round(dm.heightPixels * 0.9f));
+        }
+    }
+
+    private int dp(int value) {
+        return Math.round(getResources().getDisplayMetrics().density * value);
+    }
+
     // 校园地图标注：用户自备高德 JS API Key，地图上人人可加点、看点
     private void showCampusMap() {
         if (getContext() == null) {
@@ -457,6 +683,12 @@ public class AssistantFragment extends Fragment {
         if (busDialog != null && busDialog.isShowing()) {
             busDialog.dismiss();
         }
+        if (tramDialog != null && tramDialog.isShowing()) {
+            tramDialog.dismiss();
+        }
+        if (restRoomDialog != null && restRoomDialog.isShowing()) {
+            restRoomDialog.dismiss();
+        }
         if (mapDialog != null && mapDialog.isShowing()) {
             mapDialog.dismiss();
         }
@@ -466,11 +698,17 @@ public class AssistantFragment extends Fragment {
         if (parcelDialog != null) {
             parcelDialog.dismiss();
         }
+        if (xxtSignDialog != null) {
+            xxtSignDialog.dismiss();
+        }
         busDialog = null;
+        tramDialog = null;
+        restRoomDialog = null;
         mapDialog = null;
         noticeDialog = null;
         noticeWebView = null;
         parcelDialog = null;
+        xxtSignDialog = null;
         super.onDestroyView();
     }
 }

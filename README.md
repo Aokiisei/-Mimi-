@@ -22,7 +22,7 @@
   <img src="https://img.shields.io/github/stars/Aokiisei/-Mimi-?style=flat-square&label=Stars&color=BA7517" alt="Stars" />
 </p>
 
-## 旧版本已停止维护，请升级到 3.5
+## 旧版本已停止维护，请升级到 3.6
 
 2026 年 11 月，App 使用的服务域名换掉了：
 
@@ -45,11 +45,13 @@
 
 课表和成绩走的是学校教务系统，不受这次更换影响；但也正因如此，老版本看起来还能用，加上**它已经不会自己提醒你升级**，很容易一直留在旧版上。
 
-**所以 v3.4 及更早版本停止维护，不会再为它们单独发修复包。** 修这个问题本来就得重新打包，装上 3.5 就是修好的版本。
+**所以 v3.4 及更早版本停止维护，不会再为它们单独发修复包。** 修这个问题本来就得重新打包，装上 3.5 及以上就是修好的版本；当前最新版为 3.6。
 
-点上面的 **下载 APK** 按钮安装 3.5，直接覆盖安装即可，不用卸载，账号和本地课表数据都会保留。如果你之前是从别处拿的旧安装包或旧链接，也请改用本仓库的 [Releases](https://github.com/Aokiisei/-Mimi-/releases)。
+点上面的 **下载 APK** 按钮安装 3.6（当前最新版），直接覆盖安装即可，不用卸载，账号和本地课表数据都会保留。如果你之前是从别处拿的旧安装包或旧链接，也请改用本仓库的 [Releases](https://github.com/Aokiisei/-Mimi-/releases)。
 
 3.5 除更换域名外，还带了滚动公告、快递身份码、桌面小组件配色与透明度调节，以及 Release 包体积压缩，完整清单见 [v3.5 更新说明](https://github.com/Aokiisei/-Mimi-/releases/tag/v3.5)。
+
+3.6 在此基础上新增学习通助手（多账号签到、后台巡检、视频刷课）、空闲教室与武夷有轨电车，完整清单见 [v3.6 更新说明](https://github.com/Aokiisei/-Mimi-/releases/tag/v3.6)。
 
 ## 下载安装
 
@@ -81,14 +83,24 @@
 - **实时公交** —— 武夷山公交线路与到站信息，打开即显示实时面板
 - **快递身份码** —— 淘宝、拼多多、京东、菜鸟取件码集中管理，各自独立登录
 - **校园地图标注** —— 填入自备的高德 Key，同学共同标注校园地点，支持搜索、举报与一键导航
+- **空闲教室** —— 通过学校统一认证进入教务空闲教室查询页
+- **武夷有轨电车** —— 双向站点、首末班与票价，5 秒刷新实时列车位置与到站距离
 - **日程管理** —— 倒计日、单点提醒，卡片右滑标记完成
+
+**学习通助手（3.6 新增）**
+
+- **多账号** —— 登录态保存在本机，可添加多个账号，Cookie 失效自动重登
+- **签到** —— 支持普通、拍照、位置、二维码、手势、签到码；位置签到优先用老师发布的坐标
+- **后台巡检** —— 自动完成普通签到与已设定位的签到，成功后提醒，失败下一轮继续重试
+- **视频刷课** —— 只处理视频任务点，1.0x–2.0x 倍速串行执行，人脸抓拍与未开放章节自动跳过
 
 **体验**
 
 - **上课提醒** —— 课前 10 分钟提醒课程名、时间与地点；每晚 22:00 汇总明日课表；两类提醒可分别开关，重启或改时间后自动恢复
 - **桌面小组件** —— 主屏直接看当天课程，按当前教学周过滤，同一时段只留一条；6 套配色与 0%～100% 透明度可调
 - **暖纸主题** —— 暖色调纸质视觉，全 App 统一衬线字体
-- **公告与更新** —— 主界面滚动公告（服务器 `notice.txt` 可调），启动拉取公告，检测新版本
+- **公告与更新** —— 主界面滚动公告（服务器 `notice.txt` 可调），启动拉取公告，检测新版本，支持应用内下载安装或浏览器下载
+- **更多设置** —— 个人官网入口、QQ 交流群、通知设置、权限与保活
 - **崩溃日志上报** —— 异常记录日志，可一键反馈
 
 ## 技术栈
@@ -99,7 +111,7 @@
 | 应用 ID | `com.mimi.kebiao`（源码包 `com.wuyi.kebiao`） |
 | 最低 / 目标版本 | Android 5.0（API 21）/ Android 14（API 34） |
 | 构建 | AGP 8.5.2 · Gradle 8.9 · JDK 17 |
-| 当前版本 | 3.5（versionCode 33） |
+| 当前版本 | 3.6（versionCode 35） |
 | 核心依赖 | AppCompat 1.6.1 · Material 1.11.0 · ViewPager2 1.0.0 · OkHttp 4.12.0 · Gson 2.10.1（Release 开启 R8 压缩） |
 
 登录与取数都由 WebView 走教务系统本身完成（`AndroidBack.login()` 提交，`CookieManager` 维持登录状态）。更新检查与 APK 下载走 OkHttp，公告和反馈走 `HttpURLConnection`——都不碰教务的请求。
@@ -203,7 +215,7 @@ flowchart LR
 
     M --> HM["课表<br/>兼成绩"]
     M --> SC["日程"]
-    M --> AS["小助手<br/>公告 · 公交 · 校园地图"]
+    M --> AS["小助手<br/>公告 · 公交 · 校园地图<br/>学习通助手 · 空闲教室 · 有轨电车"]
     M --> PF["我的<br/>公告 · 反馈 · 更新"]
 
     HM --> H1["课表页"]
@@ -245,6 +257,7 @@ echo "sdk.dir=/your/path/to/Android/sdk" > local.properties
 app/src/main/
 ├── java/com/wuyi/kebiao/     # 见下方文件说明
 ├── res/                      # 界面布局、图标、主题
+├── assets/changelog.txt      # 版本更新日志（应用内「更新日志」读取）
 └── assets/www/
     ├── index.html            # 课表页面（注入教务系统后由前端解析渲染）
     ├── grade.html            # 成绩页面
@@ -255,7 +268,10 @@ app/src/main/
     ├── timetable_parser.js   # 课表解析脚本，注入教务页面执行
     ├── pdd_same_origin.js    # 拼多多 H5 同源映射，供快递身份码 WebView 注入
     ├── wheel.css             # 时间选择滚轮样式（课表页与日程页共用）
-    └── wheel.js              # 时间选择滚轮逻辑，不依赖 CSS scroll-snap
+    ├── wheel.js              # 时间选择滚轮逻辑，不依赖 CSS scroll-snap
+    ├── tram.html             # 武夷有轨电车页面（实时列车位置与到站距离）
+    ├── xxt_sign.html         # 学习通助手页面（账号 / 签到 / 刷课 / 日志四页）
+    └── xxt_map_picker.html   # 签到位置地图选点页面
 ```
 
 ### 界面
@@ -324,6 +340,18 @@ app/src/main/
 | `ConnectionTestClickListener.java` | 「测试连接」的点击入口 |
 | `MoreClickListener.java` | 「更多」对话框（玻璃开关、测试连接、使用说明） |
 | `UsageGuideClickListener.java` | 弹出「使用说明」对话框 |
+
+### 学习通助手（3.6 新增）
+
+| 文件 | 作用 |
+| :-- | :-- |
+| `XxtApi.java` / `XxtWorkApi.java` / `XxtStudyApi.java` | 学习通接口封装：签到活动、章节任务点、视频进度上报 |
+| `XxtSession.java` / `XxtStore.java` / `OcsBank.java` | 多账号登录态、本地持久存储与 Cookie 失效自动重登 |
+| `XxtSignDialog.java` / `XxtSignEngine.java` / `XxtQuizEngine.java` / `XxtQuizRunner.java` | 签到弹层与执行引擎（普通 / 拍照 / 位置 / 二维码 / 手势 / 签到码） |
+| `XxtMonitorService.java` / `XxtPermissionHelper.java` | 后台巡检服务与保活权限检查 |
+| `XxtStudyService.java` / `XxtStudyEngine.java` / `XxtWorkParser.java` | 视频刷课前台服务、播放引擎与任务点解析 |
+| `XxtFontDecoder.java` / `XxtQrUtil.java` / `XxtQrScannerDialog.java` | 字体反混淆、二维码解码与实时取景扫码 |
+| `XxtMapPickerDialog.java` | 位置签到的地图选点对话框 |
 
 ### 桌面小组件
 

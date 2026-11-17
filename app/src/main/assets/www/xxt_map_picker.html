@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>选择签到位置</title>
+<style>
+        @font-face {
+            font-family: 'Mi Serif';
+            src: url('../fonts/mi-serif.otf') format('opentype');
+            font-display: block;
+        }
+        :root {
+            --primary: #C96442; --bg: #F5F4ED; --card: #FAF9F5; --ink: #141413;
+            --sub: #87867F; --border: #E8E6DC; --accent: #D97757; --soft: #FDF1EC;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; height: 100%; background: transparent; }
+        body {
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+            -webkit-text-stroke: 0.32px currentColor;
+            color: var(--ink);
+        }
+        .sheet {
+            height: calc(100% - 16px); margin: 8px; overflow: hidden;
+            display: flex; flex-direction: column;
+            background: var(--card); border-radius: 18px;
+            box-shadow: 0 0 0 1px rgba(201,100,66,0.14), 0 12px 40px rgba(20,20,19,0.20), inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+        .head { display: flex; align-items: flex-start; padding: 14px 16px 10px; }
+        .head .grow { flex: 1; min-width: 0; }
+        .title { font-size: 15.5px; font-weight: 600; letter-spacing: 0.4px; }
+        .sub { margin-top: 3px; font-size: 11.5px; color: var(--sub); }
+        .x {
+            width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 9px;
+            background: #FFFFFF; color: var(--sub); font-size: 16px; line-height: 1;
+            font-family: inherit; cursor: pointer;
+        }
+        #map { flex: 1; min-height: 160px; background: #EDEBE3; }
+        .hint {
+            flex: 1; display: none; align-items: center; justify-content: center;
+            padding: 24px; text-align: center; color: var(--sub);
+            font-size: 12.5px; line-height: 1.9; white-space: pre-line;
+        }
+        .panel { padding: 12px 16px 14px; border-top: 1px solid var(--border); background: var(--card); }
+        .lab { font-size: 10.5px; color: var(--sub); letter-spacing: 1px; }
+        .addr { margin-top: 5px; font-size: 13.5px; line-height: 1.5; min-height: 20px; word-break: break-all; }
+        .coord { margin-top: 3px; font-size: 11px; color: var(--sub); font-variant-numeric: tabular-nums; }
+        .ok {
+            margin-top: 12px; width: 100%; height: 42px; border: none; border-radius: 11px;
+            background: var(--primary); color: #FFFFFF; font-family: inherit;
+            font-size: 14px; font-weight: 600; letter-spacing: 1px; cursor: pointer;
+            box-shadow: 0 6px 16px rgba(201,100,66,0.25);
+        }
+        .ok:disabled { opacity: 0.45; box-shadow: none; }
+</style>
+</head>
+<body>
+<div class="sheet">
+    <div class="head">
+        <div class="grow">
+            <div class="title">选择签到位置</div>
+            <div class="sub">点击地图或拖动图钉，确认后用于位置签到</div>
+        </div>
+        <button class="x" onclick="closeSelf()">×</button>
+    </div>
+    <div id="map"></div>
+    <div class="hint" id="hint"></div>
+    <div class="panel">
+        <div class="lab">签到位置</div>
+        <div class="addr" id="addr">—</div>
+        <div class="coord" id="coord"></div>
+        <button class="ok" id="ok" onclick="confirmPick()">使用这个位置</button>
+    </div>
+</div>
+<script>
+    var cfg = {};
+    try {
+        cfg = JSON.parse(MimiXxtMap.getConfig() || '{}');
+    } catch (e) {
+        cfg = {};
+    }
+    var curLat = parseFloat(cfg.lat);
+    var curLon = parseFloat(cfg.lon);
+    if (!isFinite(curLat) || !isFinite(curLon)) {
+        curLat = 27.72698;
+        curLon = 118.00326;
+    }
+    var curAddr = cfg.address || '';
+    var map = null;
+    var marker = null;
+    var geocoder = null;
+
+    function $(id) { return document.getElementById(id); }
+
+    function paint() {
+        $('addr').textContent = curAddr || '未解析到地址，可继续使用该坐标';
+        $('coord').textContent = curLat.toFixed(6) + ', ' + curLon.toFixed(6);
+        $('ok').disabled = false;
+    }
+
+    function showHint(text) {
+        $('map').style.display = 'none';
+        var hint = $('hint');
+        hint.style.display = 'flex';
+        hint.textContent = text;
+        paint();
+    }
+
+    function reverse(lng, lat) {
+        if (!geocoder) {
+            return;
+        }
+        geocoder.getAddress([lng, lat], function (status, result) {
+            if (status === 'complete' && result && result.regeocode) {
+                curAddr = result.regeocode.formattedAddress || '';
+                $('addr').textContent = curAddr;
+            }
+        });
+    }
+
+    function setPoint(lng, lat, moveMap) {
+        curLon = lng;
+        curLat = lat;
+        if (marker) {
+            marker.setPosition([lng, lat]);
+        }
+        if (map && moveMap) {
+            map.setCenter([lng, lat]);
+        }
+        paint();
+        reverse(lng, lat);
+    }
+
+    function initMap() {
+        map = new AMap.Map('map', {
+            zoom: 17,
+            center: [curLon, curLat],
+            resizeEnable: true,
+            viewMode: '2D'
+        });
+        // 高德默认图钉图标依赖在线图片，WebView 里经常加载失败变成破图；
+        // 这里用内联 SVG 自绘图钉，离线也能正常显示。
+        var pinSvg = '<div style="width:30px;height:40px;line-height:0">'
+            + '<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">'
+            + '<path d="M15 1C7.27 1 1 7.27 1 15c0 10.4 14 24 14 24s14-13.6 14-24C29 7.27 22.73 1 15 1z"'
+            + ' fill="#C96442" stroke="#FFFFFF" stroke-width="2"/>'
+            + '<circle cx="15" cy="14.6" r="5" fill="#FFFFFF"/></svg></div>';
+        marker = new AMap.Marker({
+            position: [curLon, curLat],
+            draggable: true,
+            cursor: 'move',
+            content: pinSvg,
+            offset: new AMap.Pixel(-15, -40)
+        });
+        map.add(marker);
+        marker.on('dragend', function (e) {
+            setPoint(e.lnglat.getLng(), e.lnglat.getLat(), false);
+        });
+        map.on('click', function (e) {
+            setPoint(e.lnglat.getLng(), e.lnglat.getLat(), false);
+        });
+        geocoder = new AMap.Geocoder({ radius: 500, extensions: 'all' });
+        paint();
+        if (curAddr) {
+            reverse(curLon, curLat);
+        }
+    }
+
+    function loadAmap() {
+        if (!cfg.key) {
+            showHint('还没有配置高德地图 Key。\n请先到「小助手 → 校园地图 → 地图设置」填写 JS API Key 与安全密钥，再回来选点。');
+            return;
+        }
+        if (cfg.security) {
+            window._AMapSecurityConfig = { securityJsCode: cfg.security };
+        }
+        var s = document.createElement('script');
+        s.src = 'https://webapi.amap.com/maps?v=2.0&key=' + encodeURIComponent(cfg.key)
+            + '&plugin=AMap.Geocoder&jscode=' + encodeURIComponent(cfg.security || '');
+        s.onload = function () {
+            try {
+                initMap();
+            } catch (e) {
+                showHint('地图初始化失败：' + (e && e.message ? e.message : '未知错误'));
+            }
+        };
+        s.onerror = function () {
+            showHint('高德地图加载失败，请检查网络或 Key 配置。');
+        };
+        document.head.appendChild(s);
+    }
+
+    function confirmPick() {
+        if (!isFinite(curLat) || !isFinite(curLon)) {
+            return;
+        }
+        MimiXxtMap.confirm(curLat.toFixed(6), curLon.toFixed(6), curAddr || '');
+    }
+
+    function closeSelf() {
+        MimiXxtMap.close();
+    }
+
+    paint();
+    loadAmap();
+</script>
+</body>
+</html>

@@ -1,0 +1,2187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>学习通助手</title>
+<style>
+        @font-face {
+            font-family: 'Mi Serif';
+            src: url('../fonts/mi-serif.otf') format('opentype');
+            font-display: block;
+        }
+        :root {
+            --primary: #C96442; --bg: #F5F4ED; --card: #FAF9F5; --ink: #141413;
+            --sub: #87867F; --border: #E8E6DC; --accent: #D97757; --soft: #FDF1EC;
+            --ok: #3F6B4F; --warn: #A8631C;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; height: 100%; background: transparent; }
+        body {
+            font-family: "Mi Serif", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+            color: var(--ink);
+        }
+        input, button, select { font-family: inherit; }
+        .sheet {
+            height: calc(100% - 16px); margin: 8px; overflow: hidden;
+            display: flex; flex-direction: column;
+            background: var(--card); border-radius: 18px;
+            box-shadow: 0 0 0 1px rgba(201,100,66,0.14), 0 12px 40px rgba(20,20,19,0.20), inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+        .head { display: flex; align-items: flex-start; padding: 14px 16px 8px; }
+        .head .grow { flex: 1; min-width: 0; }
+        .title { font-size: 16px; font-weight: 600; letter-spacing: 0.5px; }
+        .sub { margin-top: 3px; font-size: 11px; color: var(--sub); letter-spacing: 0.2px; }
+        .x {
+            width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 9px;
+            background: #FFFFFF; color: var(--sub); font-size: 16px; line-height: 1;
+            font-family: inherit; cursor: pointer;
+        }
+        .tabs { display: flex; gap: 6px; padding: 0 16px 10px; }
+        .tab {
+            flex: 1; height: 32px; border-radius: 9px; border: 1px solid var(--border);
+            background: #FFFFFF; color: var(--sub); font-size: 12.5px; cursor: pointer;
+        }
+        .tab.active { background: var(--soft); color: var(--primary); border-color: rgba(201,100,66,0.35); font-weight: 600; }
+        .body { flex: 1; overflow-y: auto; padding: 0 16px 18px; -webkit-overflow-scrolling: touch; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .card {
+            margin-top: 10px; padding: 13px 14px; background: #FFFFFF;
+            border: 1px solid var(--border); border-radius: 13px;
+        }
+        .card-title { font-size: 13px; font-weight: 600; margin-bottom: 9px; }
+        .field { display: flex; align-items: center; border-bottom: 1px solid var(--border); padding: 7px 0; }
+        .field span { width: 88px; font-size: 12px; color: var(--sub); flex: none; }
+        .field input {
+            flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+            font-size: 13.5px; color: var(--ink); padding: 6px 0;
+        }
+        .btn {
+            width: 100%; height: 40px; margin-top: 12px; border: none; border-radius: 10px;
+            background: var(--primary); color: #FFFFFF; font-size: 13.5px; font-weight: 600;
+            letter-spacing: 0.8px; cursor: pointer; box-shadow: 0 6px 14px rgba(201,100,66,0.22);
+        }
+        .btn.ghost { background: #FFFFFF; color: var(--ink); border: 1px solid var(--border); box-shadow: none; font-weight: 500; }
+        .btn.sm { width: auto; height: 30px; margin: 0; padding: 0 13px; font-size: 11.5px; border-radius: 8px; letter-spacing: 0.3px; }
+        .btn.danger { color: #B4553A; }
+        .toolbar { display: flex; gap: 7px; margin-top: 10px; }
+        .toolbar .btn { margin-top: 0; }
+        .toolbar .btn.sm { height: 34px; flex: none; padding: 0 12px; }
+        .toolbar .btn.grow { flex: 1; }
+        .note { margin-top: 10px; font-size: 10.5px; color: var(--sub); line-height: 1.8; }
+        .hint {
+            margin-top: 10px; padding: 9px 11px; border-radius: 9px; background: var(--soft);
+            color: #9A5236; font-size: 10.8px; line-height: 1.7;
+        }
+        .hint .excl {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 14px; height: 14px; margin-right: 5px; border-radius: 50%;
+            background: var(--accent); color: #FFFFFF; font-size: 10px; font-weight: 700;
+            vertical-align: 1px;
+        }
+        .group { margin-top: 14px; }
+        .group-title { font-size: 12px; color: var(--sub); letter-spacing: 0.4px; display: flex; align-items: center; }
+        .pill {
+            margin-left: 7px; padding: 1px 7px; border-radius: 8px; background: #FFFFFF;
+            border: 1px solid var(--border); font-size: 9.5px; color: var(--sub); letter-spacing: 0;
+        }
+        .act {
+            margin-top: 8px; padding: 11px 12px; background: #FFFFFF; border: 1px solid var(--border);
+            border-radius: 11px;
+        }
+        .act-title { font-size: 13px; line-height: 1.45; }
+        .act-sub { margin-top: 4px; font-size: 10.5px; color: var(--sub); line-height: 1.6; word-break: break-all; }
+        .act-actions { display: flex; align-items: center; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+        .code {
+            height: 30px; width: 120px; border-radius: 8px; border: 1px solid var(--border);
+            padding: 0 9px; font-size: 12px; outline: none; background: #FFFFFF; color: var(--ink);
+        }
+        .tag { font-size: 10px; padding: 3px 8px; border-radius: 7px; background: var(--soft); color: var(--warn); }
+        .row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+        .row:last-child { border-bottom: none; }
+        .row .grow { flex: 1; min-width: 0; }
+        .row .name { font-size: 12.5px; }
+        .row .sub { margin-top: 3px; font-size: 10.5px; color: var(--sub); word-break: break-all; }
+        .row select {
+            height: 30px; border-radius: 8px; border: 1px solid var(--border); background: #FFFFFF;
+            font-size: 12px; color: var(--ink); padding: 0 7px; outline: none;
+        }
+        input[type="checkbox"] { width: 42px; height: 24px; appearance: none; -webkit-appearance: none;
+            background: #E6E3D9; border-radius: 12px; position: relative; outline: none; transition: background 0.2s; }
+        input[type="checkbox"]:checked { background: var(--primary); }
+        input[type="checkbox"]::after {
+            content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%;
+            background: #FFFFFF; top: 3px; left: 3px; transition: left 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+        }
+        input[type="checkbox"]:checked::after { left: 21px; }
+        .logs {
+            margin: 8px 0 0; max-height: 190px; overflow-y: auto; padding: 9px 10px;
+            background: #FBFBF7; border: 1px solid var(--border); border-radius: 9px;
+            font-family: "Mi Serif", monospace; font-size: 10px; line-height: 1.7;
+            color: #55544E; white-space: pre-wrap; word-break: break-all;
+        }
+        .empty { padding: 22px 0; text-align: center; color: var(--sub); font-size: 11.5px; }
+        .empty.small { padding: 10px 0; font-size: 10.5px; }
+        .err {
+            margin-top: 8px; padding: 8px 10px; border-radius: 9px; background: #FCF3F0;
+            color: #B4553A; font-size: 10.5px; line-height: 1.6; word-break: break-all;
+        }
+        .res { display: flex; gap: 8px; padding: 7px 0; border-bottom: 1px dashed var(--border); }
+        .res:last-child { border-bottom: none; }
+        .res .dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex: none; background: var(--sub); }
+        .res .dot.ok { background: var(--ok); }
+        .res .dot.bad { background: #B4553A; }
+        .res-title { font-size: 11.5px; line-height: 1.5; }
+        .res-msg { font-size: 10.5px; color: var(--sub); margin-top: 2px; line-height: 1.5; word-break: break-all; }
+        .mask {
+            position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(245,244,237,0.72);
+            display: none; align-items: center; justify-content: center; flex-direction: column;
+            z-index: 60;
+        }
+        .mask.show { display: flex; }
+        .mask .dot {
+            width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid rgba(201,100,66,0.22);
+            border-top-color: var(--primary); animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #maskText { margin-top: 11px; font-size: 11.5px; color: #6B6A63; letter-spacing: 0.4px; }
+        .toast {
+            position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%);
+            max-width: 88%; padding: 9px 14px; border-radius: 10px; background: rgba(20,20,19,0.88);
+            color: #FFFFFF; font-size: 11.5px; line-height: 1.5; text-align: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.22s; z-index: 80; word-break: break-all;
+        }
+        .toast.show { opacity: 1; }
+        .search { margin-top: 12px; }
+        .search input {
+            width: 100%; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+            background: #FFFFFF; padding: 0 12px; font-size: 12.5px; color: var(--ink); outline: none;
+        }
+        .gesture-pad { position: relative; width: 240px; height: 240px; margin: 8px auto 4px; touch-action: none; }
+        .gesture-pad .dot {
+            position: absolute; width: 56px; height: 56px; border-radius: 50%;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--sub);
+            display: flex; align-items: center; justify-content: center; font-size: 16px;
+        }
+        .gesture-pad .dot.on { background: var(--soft); border-color: var(--primary); color: var(--primary); }
+        .gesture-pad svg { position: absolute; left: 0; top: 0; pointer-events: none; }
+        .gesture-code { text-align: center; font-size: 13px; margin: 4px 0 2px; color: var(--ink); letter-spacing: 2px; }
+        .sheet-mask {
+            position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(20,20,19,0.34);
+            display: none; align-items: flex-end; z-index: 70;
+        }
+        .sheet-mask.show { display: flex; }
+        .action-sheet {
+            width: 100%; max-height: 88vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            padding: 10px 12px 16px; background: var(--card); border-radius: 16px 16px 0 0;
+        }
+        .action-sheet button {
+            width: 100%; height: 44px; margin-top: 6px; border-radius: 11px; border: 1px solid var(--border);
+            background: #FFFFFF; color: var(--ink); font-size: 13px; cursor: pointer;
+        }
+        .action-sheet button.cancel { color: var(--sub); background: transparent; border-color: transparent; }
+        .bar { display: none; height: 6px; margin-top: 9px; border-radius: 3px; background: #EFEDE4; overflow: hidden; }
+        .bar.show { display: block; }
+        .bar > div { height: 100%; width: 0; background: var(--primary); transition: width 0.3s; }
+        .chapter { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+        .chapter:last-child { border-bottom: none; }
+        .chapter input[type="checkbox"] { width: 34px; height: 20px; flex: none; }
+        .chapter input[type="checkbox"]::after { width: 14px; height: 14px; top: 3px; left: 3px; }
+        .chapter input[type="checkbox"]:checked::after { left: 17px; }
+        .chapter .grow { flex: 1; min-width: 0; }
+        .chapter .cname { font-size: 12px; line-height: 1.5; word-break: break-all; }
+        .chapter .csub { margin-top: 2px; font-size: 10px; color: var(--sub); }
+        .nav {
+            flex: none; display: flex; gap: 2px; padding: 7px 6px 9px;
+            border-top: 1px solid var(--border); background: var(--card);
+        }
+        .nav button {
+            flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+            padding: 5px 0; border: none; background: transparent; color: var(--sub);
+            font-family: inherit; font-size: 10.5px; letter-spacing: 0.3px; cursor: pointer;
+        }
+        .nav button .ico {
+            width: 34px; height: 24px; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .nav button.active { color: var(--primary); font-weight: 600; }
+        .nav button.active .ico { background: var(--soft); }
+        .nav button.disabled { color: var(--sub); opacity: 0.45; }
+        .nav button.disabled .ico { background: transparent; }
+        .nav svg { width: 17px; height: 17px; }
+        .big-btn {
+            width: 100%; height: 46px; border: none; border-radius: 12px;
+            background: var(--primary); color: #FFFFFF; font-family: inherit;
+            font-size: 15px; font-weight: 600; letter-spacing: 1.2px; cursor: pointer;
+            box-shadow: 0 6px 14px rgba(201,100,66,0.22);
+        }
+        .link-row {
+            display: flex; align-items: center; gap: 8px; padding: 11px 0 2px;
+            cursor: pointer;
+        }
+        .link-row .name { font-size: 12.5px; color: var(--primary); }
+        .link-row .sub { margin-top: 4px; font-size: 10.5px; color: var(--sub); line-height: 1.6; }
+        .state { margin-top: 12px; font-size: 11.5px; color: var(--sub); }
+        .radio {
+            width: 22px; height: 22px; flex: none; appearance: none; -webkit-appearance: none;
+            border: 2px solid var(--border); border-radius: 50%; background: #FFFFFF;
+            outline: none; position: relative; transition: border-color 0.2s;
+        }
+        .radio:checked { border-color: var(--primary); }
+        .radio:checked::after {
+            content: ''; position: absolute; left: 3px; top: 3px; width: 12px; height: 12px;
+            border-radius: 50%; background: var(--primary);
+        }
+        .radio-label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--sub); }
+        .setting-line {
+            display: flex; align-items: center; gap: 8px; padding: 11px 0;
+            border-bottom: 1px solid var(--border); font-size: 12.5px;
+        }
+        .setting-line:last-child { border-bottom: none; }
+        .setting-line .key { width: 84px; flex: none; color: var(--sub); }
+        .setting-line .val { flex: 1; min-width: 0; word-break: break-all; }
+        .setting-block { padding: 11px 0; border-bottom: 1px solid var(--border); }
+        .setting-block .key { font-size: 12.5px; color: var(--sub); margin-bottom: 8px; }
+        .ocs-input, .ocs-ta {
+            width: 100%; border: 1px solid var(--border); border-radius: 10px;
+            background: #FFFFFF; color: var(--ink); font-family: inherit; outline: none;
+        }
+        .ocs-input { height: 38px; padding: 0 11px; font-size: 12.5px; }
+        .ocs-ta {
+            min-height: 76px; padding: 9px 11px; font-size: 11.5px; line-height: 1.6;
+            resize: vertical; word-break: break-all;
+        }
+        .ocs-sub { margin-top: 7px; font-size: 10.5px; color: var(--sub); line-height: 1.6; word-break: break-all; }
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chips button {
+            width: auto; height: 32px; margin: 0; padding: 0 13px; border-radius: 9px;
+            border: 1px solid var(--border); background: #FFFFFF; color: var(--sub);
+            font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
+        }
+        .chips button.sel {
+            background: var(--soft); color: var(--primary);
+            border-color: rgba(201,100,66,0.45); font-weight: 600;
+        }
+        .vidbox { padding: 2px 0 4px 8px; }
+        .vid { display: flex; gap: 7px; padding: 6px 0; border-top: 1px dashed var(--border); }
+        .vid .vdot { width: 6px; height: 6px; border-radius: 50%; margin-top: 6px; flex: none; background: var(--sub); }
+        .vid .vdot.ok { background: var(--ok); }
+        .vid .vname { font-size: 11.5px; line-height: 1.5; word-break: break-all; }
+        .vid .vsub { margin-top: 2px; font-size: 10px; color: var(--sub); }
+</style>
+</head>
+<body>
+<div class="sheet">
+    <div class="head">
+        <div class="grow">
+            <div class="title" id="headTitle">账号</div>
+            <div class="sub">学习通助手 · 签到、巡检与刷课</div>
+        </div>
+        <button class="x" onclick="closeSelf()">×</button>
+    </div>
+    <div class="body">
+        <!-- 账号 -->
+        <div class="page active" id="page-account">
+            <div class="card">
+                <div class="row">
+                    <div class="grow"><div class="name" id="accountCount">共 0 个账号</div></div>
+                    <button class="btn sm" onclick="toggleAdd()">添加账号</button>
+                </div>
+                <div class="hint"><span class="excl">!</span>账号密码只保存在本机，登录后自动记住，不用每次输入。可以继续添加其他同学的账号，帮同学一起签到：加好后到「签到」页点「立即签到」，所有账号的签到会一并完成。勾选「刷课」决定刷课用哪个账号。</div>
+            </div>
+            <div class="card" id="addCard" style="display:none">
+                <div class="card-title">登录学习通</div>
+                <div class="field"><span>手机号 / 学号</span><input id="phone" type="tel" placeholder="学习通登录账号"></div>
+                <div class="field"><span>密码</span><input id="pwd" type="password" placeholder="学习通密码"></div>
+                <button class="btn" id="loginBtn" onclick="doLogin()">登录并保存</button>
+            </div>
+            <div id="accountList"></div>
+        </div>
+
+        <!-- 签到 -->
+        <div class="page" id="page-sign">
+            <div class="card">
+                <button class="big-btn" onclick="doSignAll()">立即签到</button>
+                <div class="note">点一次会处理所有已添加账号的签到，加了同学的账号就能一起签完。</div>
+                <div class="toolbar">
+                    <button class="btn ghost sm grow" onclick="refreshAll(false)">刷新签到活动</button>
+                </div>
+                <div class="row" style="margin-top:10px">
+                    <div class="grow"><div class="name">后台巡检（自动签普通 / 老师已定位的签到，其余提醒）</div></div>
+                    <input type="checkbox" id="autoSwitch">
+                </div>
+                <div class="link-row" onclick="openSettingSheet()">
+                    <div class="grow">
+                        <div class="name">签到设置（位置 / 拍照 / 频率）</div>
+                        <div class="sub" id="signSummary">位置：未设置　|　拍照：未选　|　巡检：10 秒/轮</div>
+                    </div>
+                    <span style="color:var(--sub)">›</span>
+                </div>
+                <div class="state" id="signState">就绪</div>
+            </div>
+            <div class="hint"><span class="excl">!</span>普通签到和老师已设置定位的签到，开启后台巡检后会自动完成；二维码签到会自动抓取老师发出的二维码，正常情况下不需要扫码。手势、签到码需要输入后点「立即签到」，拍照签到受平台照片校验限制，被拒时只能到学习通官方 App 完成。开启人脸识别的活动无法在本应用完成，请到官方 App 签到。</div>
+            <div id="resultBox"></div>
+            <div id="activityList"><div class="empty">点上方「刷新签到活动」查看进行中的签到</div></div>
+        </div>
+
+        <!-- 刷课 -->
+        <div class="page" id="page-study">
+            <div class="card">
+                <div class="row">
+                    <div class="grow">
+                        <div class="name">刷课账号：<span id="studyAccName">未选择</span></div>
+                        <div class="sub">在「账号」页可切换</div>
+                    </div>
+                </div>
+                <div class="toolbar">
+                    <button class="btn ghost sm" onclick="loadStudyCourses()">刷新课程</button>
+                </div>
+                <div class="toolbar">
+                    <button class="btn sm grow" id="studyStartBtn" onclick="startStudy()">开始刷课</button>
+                    <button class="btn ghost sm" id="studyStopBtn" onclick="stopStudy()" style="display:none">停止</button>
+                </div>
+                <div class="row" style="margin-top:4px">
+                    <div class="grow"><div class="name">倍速</div></div>
+                    <div class="chips" id="speedChips" style="flex:none"></div>
+                </div>
+                <div class="state" id="studyState">就绪</div>
+                <div class="hint" onclick="MimiXxt.openPermissionSettings()"><span class="excl">!</span>后台保活：已用前台服务 + 唤醒锁 + Wi-Fi 高性能锁。开始刷课只检查通知与应用耗电管理（需在耗电行为控制里选「无限制 / 允许完全后台」），相机和定位只在扫码、拍照与位置签到时才需要。</div>
+            </div>
+            <div class="card" id="studyProgressCard" style="display:none" onclick="openStudyDetail()">
+                <div class="card-title" id="studyStatusText">就绪</div>
+                <div class="sub" id="studyVideoText" style="margin-top:4px"></div>
+                <div class="bar" id="studyBarWrap"><div id="studyBar"></div></div>
+                <div class="sub" style="margin-top:6px;color:var(--primary)">任务详细 ›</div>
+            </div>
+            <div class="search">
+                <input id="studySearch" type="search" placeholder="搜索课程名或老师" oninput="renderStudyCourses()">
+            </div>
+            <div id="studyCourseList"><div class="empty">点「刷新课程」读取该账号的课程</div></div>
+        </div>
+
+        <!-- 刷题 -->
+        <div class="page" id="page-quiz">
+            <div class="card">
+                <div class="row">
+                    <div class="grow">
+                        <div class="name">刷题账号：<span id="quizAccName">未选择</span></div>
+                        <div class="sub">在「账号」页可切换</div>
+                    </div>
+                </div>
+                <div class="toolbar">
+                    <button class="btn ghost sm" onclick="loadQuizCourses()">刷新课程</button>
+                    <button class="btn ghost sm" onclick="openQuizSettingSheet()">题库设置</button>
+                </div>
+                <div class="toolbar">
+                    <button class="btn sm grow" id="quizStartBtn" onclick="startQuiz()">开始刷题</button>
+                    <button class="btn ghost sm" id="quizStopBtn" onclick="stopQuiz()" style="display:none">停止</button>
+                </div>
+                <div class="state" id="quizState">就绪</div>
+                <div class="hint"><span class="excl">!</span>刷题只处理章节测验：按勾选的课程逐章检查，已交卷的自动跳过。答案来自「题库设置」里保存的 OCS 题库。</div>
+            </div>
+            <div class="card" id="quizProgressCard" style="display:none">
+                <div class="card-title" id="quizStatusText">就绪</div>
+                <div class="sub" id="quizPaperText" style="margin-top:4px"></div>
+                <div class="bar show"><div id="quizBar"></div></div>
+                <div class="sub" id="quizCountText" style="margin-top:6px;color:var(--primary)"></div>
+            </div>
+            <div class="search">
+                <input id="quizSearch" type="search" placeholder="搜索课程名或老师" oninput="renderQuizCourses()">
+            </div>
+            <div id="quizCourseList"><div class="empty">点「刷新课程」读取该账号的课程</div></div>
+        </div>
+
+        <!-- 日志 -->
+        <div class="page" id="page-logs">
+            <div class="card">
+                <div class="row">
+                    <div class="grow"><div class="name">运行日志</div></div>
+                    <button class="btn ghost sm" onclick="reloadLogs()">刷新</button>
+                    <button class="btn ghost sm" onclick="copyLogs()">复制</button>
+                    <button class="btn ghost sm" onclick="clearLogs()">清空</button>
+                </div>
+                <pre class="logs" id="logBox" style="max-height:none"></pre>
+            </div>
+            <div class="note">签到、巡检与刷课的运行记录都会写在这里，最多保留最近 300 条。</div>
+        </div>
+    </div>
+    <div class="nav">
+        <button id="tab-account" class="active" onclick="switchTab('account')">
+            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6"/></svg></span>账号
+        </button>
+        <button id="tab-sign" onclick="switchTab('sign')">
+            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s6.5-6.2 6.5-11a6.5 6.5 0 1 0-13 0C5.5 14.8 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/></svg></span>签到
+        </button>
+        <button id="tab-study" onclick="switchTab('study')">
+            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><path d="M10 8.7l5 3.3-5 3.3z" fill="currentColor" stroke="none"/></svg></span>刷课
+        </button>
+        <button id="tab-quiz" class="disabled" onclick="quizComingSoon()">
+            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 4h10a2 2 0 0 1 2 2v13l-3-2-3 2-3-2-3 2V6a2 2 0 0 1 2-2z"/><path d="M9.5 9h5M9.5 13h5"/></svg></span>刷题
+        </button>
+        <button id="tab-logs" onclick="switchTab('logs')">
+            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg></span>日志
+        </button>
+    </div>
+</div>
+
+<div class="mask" id="mask"><div class="dot"></div><div id="maskText">处理中…</div></div>
+<div class="toast" id="toast"></div>
+<div class="sheet-mask" id="studyDetailSheet" onclick="hideStudyDetail(event)">
+    <div class="action-sheet">
+        <div class="card-title" style="font-size:15px">任务详细</div>
+        <div class="setting-line"><div class="key">课程</div><div class="val" id="detailCourse">—</div></div>
+        <div class="setting-line"><div class="key">章节</div><div class="val" id="detailChapter">—</div></div>
+        <div class="setting-line"><div class="key">正在播放</div><div class="val" id="detailVideo">—</div></div>
+        <div class="setting-line"><div class="key">视频进度</div>
+            <div class="val" id="detailPercent" style="font-size:20px;font-weight:700;color:var(--primary)">0%</div>
+        </div>
+        <div class="bar" id="detailBarWrap"><div id="detailBar"></div></div>
+        <div class="setting-line"><div class="key">播放时间</div><div class="val" id="detailTime">—</div></div>
+        <div class="setting-line"><div class="key">倍速</div><div class="val" id="detailSpeed">—</div></div>
+        <div class="setting-line"><div class="key">总进度</div><div class="val" id="detailCount">—</div></div>
+        <button class="btn ghost" style="margin-top:12px" onclick="hideStudyDetail()">关闭</button>
+    </div>
+</div>
+<div class="sheet-mask" id="settingSheet" onclick="hideSettingSheet(event)">
+    <div class="action-sheet">
+        <div class="card-title" style="font-size:15px">签到设置</div>
+        <div class="setting-line">
+            <div class="key">位置坐标</div>
+            <div class="val" id="locText">未设置</div>
+            <button class="btn ghost sm" onclick="chooseLocation()">地图选点</button>
+        </div>
+        <div class="setting-line">
+            <div class="key">手机定位</div>
+            <div class="val" style="font-size:11px;color:var(--sub)">用本机 GPS/网络定位</div>
+            <button class="btn ghost sm" onclick="usePhoneLocation()">获取</button>
+        </div>
+        <div class="setting-line">
+            <div class="key">拍照签到图片</div>
+            <div class="val" id="photoText">未选择</div>
+            <button class="btn ghost sm" onclick="choosePhoto()">选择图片</button>
+        </div>
+        <div class="setting-block">
+            <div class="key">巡检频率</div>
+            <div class="chips" id="intervalChips"></div>
+        </div>
+        <div class="setting-block">
+            <div class="key">账号间隔（多账号巡检时每个账号之间等待）</div>
+            <div class="chips" id="gapChips"></div>
+        </div>
+        <div class="setting-line">
+            <div class="key">课堂范围</div>
+            <div class="val" id="scopeText">全部课程</div>
+            <button class="btn ghost sm" onclick="openScopeSheet()">选择</button>
+        </div>
+        <div class="setting-line" onclick="openGestureSheet()" style="cursor:pointer">
+            <div class="key">手势签到练习</div>
+            <div class="val" style="font-size:11px;color:var(--sub)">画一下看手势码 ›</div>
+        </div>
+        <div class="setting-line" onclick="openXxtApp()" style="cursor:pointer">
+            <div class="key">打开学习通 App</div>
+            <div class="val" style="font-size:11px;color:var(--sub)">人工兜底签到 ›</div>
+        </div>
+        <div class="setting-line">
+            <div class="key">已处理记录</div>
+            <div class="val" style="font-size:11px;color:var(--sub)">清除后下一轮巡检会重新提醒</div>
+            <button class="btn ghost sm" onclick="clearHandled()">清除</button>
+        </div>
+        <button class="btn ghost" onclick="hideSettingSheet()" style="margin-top:14px">关闭</button>
+    </div>
+</div>
+<div class="sheet-mask" id="quizSettingSheet" onclick="hideQuizSettingSheet(event)">
+    <div class="action-sheet">
+        <div class="card-title" style="font-size:15px">刷题设置</div>
+        <div class="setting-block">
+            <div class="key">OCS 题库配置（直接粘贴脚本里的题库 JSON）</div>
+            <textarea id="ocsConfig" class="ocs-ta" spellcheck="false"
+                      placeholder='[{"name":"N1搜题助手","url":"https://tk.n1t.cn/api/search.php","method":"post","data":{"type":"${type}","question":"${title}","key":"你的密钥","options":"${options}","contentType":"ocs"},"headers":{"Content-Type":"application/x-www-form-urlencoded"}}]'></textarea>
+            <div class="toolbar">
+                <button class="btn ghost sm" onclick="clearOcs()">清空</button>
+                <button class="btn sm grow" onclick="saveOcs()">保存配置</button>
+            </div>
+            <div class="ocs-sub" id="ocsSummary">未配置 OCS 题库</div>
+        </div>
+        <div class="setting-block">
+            <div class="key">OCS 查题测试</div>
+            <input id="ocsTitle" class="ocs-input" placeholder="题目内容（不带选项也行）">
+            <textarea id="ocsOptions" class="ocs-ta" spellcheck="false" style="min-height:64px;margin-top:7px"
+                      placeholder="选项，每行一个，例如：&#10;马克思主义哲学&#10;辩证唯物主义"></textarea>
+            <div class="toolbar">
+                <button class="btn sm grow" onclick="testOcs()">测试查题</button>
+            </div>
+            <div id="ocsTestResult"></div>
+        </div>
+        <div class="setting-block">
+            <div class="key">每题停留（秒）</div>
+            <input id="quizStay" class="ocs-input" type="number" inputmode="numeric" min="0" max="60"
+                   placeholder="5" onchange="saveQuizSettings()">
+        </div>
+        <div class="setting-block">
+            <div class="key">提交前等待（秒）</div>
+            <input id="quizWait" class="ocs-input" type="number" inputmode="numeric" min="0" max="120"
+                   placeholder="15" onchange="saveQuizSettings()">
+        </div>
+        <div class="setting-line">
+            <div class="key">只暂存不交卷（默认开启）</div>
+            <div class="val" style="font-size:11px;color:var(--sub)">开启只保存答案，关闭才会真正提交</div>
+            <input type="checkbox" id="quizSaveOnly" onchange="saveQuizSettings()">
+        </div>
+        <button class="btn ghost" onclick="hideQuizSettingSheet()" style="margin-top:14px">关闭</button>
+    </div>
+</div>
+<div class="sheet-mask" id="qrSheet" onclick="hideQrSheet(event)">
+    <div class="action-sheet">
+        <div class="card-title" style="font-size:14px;margin:2px 2px 6px">扫描大屏二维码</div>
+        <button onclick="pickQrCamera()">打开相机实时扫描</button>
+        <button onclick="pickQrGallery()">从相册选择二维码</button>
+        <button class="cancel" onclick="hideQrSheet()">取消</button>
+    </div>
+</div>
+
+<div class="sheet-mask" id="faceSheet" onclick="hideFaceSheet(event)">
+    <div class="action-sheet">
+        <div class="card-title" style="font-size:14px;margin:2px 2px 6px">这次签到需要人脸识别</div>
+        <div class="note" style="margin:0 2px 10px">请点下面的按钮打开学习通官方 App，完成人脸识别后直接返回本应用，会自动继续完成这次签到。若返回后仍提示需要人脸，请在官方 App 里直接签完。</div>
+        <button onclick="goFace()">打开学习通 App 做人脸</button>
+        <button class="cancel" onclick="hideFaceSheet()">稍后处理</button>
+    </div>
+</div>
+
+<div class="sheet-mask" id="studyPermSheet" onclick="hideStudyPermSheet(event)">
+    <div class="action-sheet">
+        <div class="card-title" style="font-size:14px;margin:2px 2px 6px">先开启后台保活权限</div>
+        <div class="note" style="margin:0 2px 10px" id="studyPermTip">为保证退到后台、锁屏后继续刷课，建议开启通知、电池优化白名单等权限。</div>
+        <button onclick="hideStudyPermSheet(); MimiXxt.openPermissionSettings();">去开启权限</button>
+        <button class="cancel" onclick="hideStudyPermSheet(); doStudyStart(pendingStudyPlan);">仍然开始刷课</button>
+    </div>
+</div>
+
+<div class="sheet-mask" id="scopeSheet" onclick="hideScopeSheet(event)">
+    <div class="action-sheet">
+        <div class="card-title" style="font-size:14px;margin:4px 2px 0">课堂范围：打开开关＝不签这门课（默认全部参与）</div>
+        <div class="sub" style="margin:2px 2px 0;font-size:10.5px">打开某门课的开关后，不再获取这门课的签到信息，也不会自动签它。</div>
+        <div id="scopeList" style="max-height:46vh;overflow-y:auto;margin-top:4px"></div>
+        <div class="toolbar">
+            <button class="btn ghost sm" onclick="scopeAll()">全部参与</button>
+            <button class="btn ghost sm grow" onclick="hideScopeSheet()">取消</button>
+            <button class="btn sm" onclick="saveScope()">保存</button>
+        </div>
+    </div>
+</div>
+<div class="sheet-mask" id="gestureSheet" onclick="hideGestureSheet(event)">
+    <div class="action-sheet">
+        <div class="card-title" id="gestureSheetTitle" style="font-size:14px;margin:4px 2px 0">手势签到</div>
+        <div class="sub" id="gestureSheetTip" style="margin:4px 2px 0;font-size:10.5px">按住拖动依次连接圆点，至少 4 个点</div>
+        <div id="gesturePad" class="gesture-pad"></div>
+        <div class="gesture-code" id="gestureCode">手势码：—</div>
+        <div class="toolbar">
+            <button class="btn sm grow" id="gestureSubmitBtn" onclick="submitGestureSign()" style="display:none">提交签到</button>
+            <button class="btn ghost sm grow" onclick="resetGesture()">重画</button>
+            <button class="btn ghost sm grow" onclick="hideGestureSheet()">关闭</button>
+        </div>
+    </div>
+</div>
+<script>
+    var state = {
+        accounts: [],
+        settings: {},
+        monitor: false,
+        logs: [],
+        acts: {},
+        studyStatus: {}
+    };
+    var study = {
+        accountId: '',
+        courses: [],
+        chapters: {},
+        loaded: {},
+        videos: {},
+        expanded: {},
+        checked: {},
+        timer: null,
+        running: false
+    };
+    var pendingStudyPlan = null;
+    var quiz = {
+        courses: [],
+        checked: {},
+        timer: null,
+        running: false,
+        status: {}
+    };
+
+    function chapterKey(course, ch) {
+        return course.courseId + ':' + course.clazzId + ':' + ch.id;
+    }
+
+    function isChapterChecked(course, ch) {
+        var k = chapterKey(course, ch);
+        if (study.checked[k] === undefined) { return !ch.finished; }
+        return !!study.checked[k];
+    }
+
+    function toggleChapterCheck(i, j, val) {
+        var course = study.courses[i];
+        if (!course) { return; }
+        var list = study.chapters[course.courseId + ':' + course.clazzId] || [];
+        var ch = list[j];
+        if (!ch) { return; }
+        study.checked[chapterKey(course, ch)] = !!val;
+        updateStudySel(i);
+    }
+    var pending = null;
+    var maskTimer = null;
+    var toastTimer = null;
+
+    function $(id) { return document.getElementById(id); }
+
+    function esc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+            return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+        });
+    }
+
+    function call(fn) {
+        try {
+            var text = fn();
+            return JSON.parse(text || '{}');
+        } catch (e) {
+            return {ok: false, message: '调用失败：' + (e && e.message ? e.message : e)};
+        }
+    }
+
+    function showMask(text) {
+        $('maskText').textContent = text || '处理中…';
+        $('mask').className = 'mask show';
+        if (maskTimer) { clearTimeout(maskTimer); }
+        maskTimer = setTimeout(function () {
+            $('mask').className = 'mask';
+        }, 45000);
+    }
+
+    function hideMask() {
+        if (maskTimer) { clearTimeout(maskTimer); maskTimer = null; }
+        $('mask').className = 'mask';
+    }
+
+    // 原生桥是同步调用，会阻塞 WebView 绘制；先让遮罩画出来，再执行耗时操作
+    function busy(text, work, done) {
+        showMask(text);
+        setTimeout(function () {
+            var r = null, err = '';
+            try {
+                r = work();
+            } catch (e) {
+                err = (e && e.message) ? e.message : String(e);
+            }
+            // 桥接方法返回的是 JSON 字符串，这里统一解析，避免 r.ok 取不到
+            if (typeof r === 'string') {
+                try {
+                    r = JSON.parse(r);
+                } catch (e2) {
+                    r = null;
+                }
+            }
+            if (!r || typeof r !== 'object') {
+                r = {ok: false, message: err || '操作失败，请重试'};
+            }
+            hideMask();
+            if (done) { done(r, err); }
+        }, 40);
+    }
+
+    function toast(text) {
+        if (!text) { return; }
+        var el = $('toast');
+        el.textContent = text;
+        el.className = 'toast show';
+        if (toastTimer) { clearTimeout(toastTimer); }
+        toastTimer = setTimeout(function () { el.className = 'toast'; }, 2600);
+    }
+
+    function closeSelf() { MimiXxt.closeDialog(); }
+
+    function quizComingSoon() {
+        toast('刷题功能将在下个版本上线');
+    }
+
+    var TAB_TITLES = {account: '账号', sign: '签到', study: '刷课', quiz: '刷题', logs: '日志'};
+
+    function switchTab(name) {
+        var pages = ['account', 'sign', 'study', 'quiz', 'logs'];
+        for (var i = 0; i < pages.length; i++) {
+            var active = pages[i] === name;
+            $('page-' + pages[i]).className = 'page' + (active ? ' active' : '');
+            $('tab-' + pages[i]).className = active ? 'active' : '';
+        }
+        $('headTitle').textContent = TAB_TITLES[name] || '学习通助手';
+        if (name === 'study') {
+            renderStudyAccount();
+        } else if (name === 'quiz') {
+            renderQuizAccount();
+            renderQuizCourses();
+        } else if (name === 'logs') {
+            reloadLogs();
+        }
+    }
+
+    // ------------------------------------------------------------ 初始化
+    function init() {
+        var b = call(function () { return MimiXxt.bootstrap(); });
+        state.accounts = b.accounts || [];
+        state.settings = b.settings || {};
+        state.monitor = !!b.monitor;
+        state.logs = b.logs || [];
+        renderAccounts();
+        renderSettings();
+        renderLogs();
+        initStudy();
+        initQuiz();
+        $('autoSwitch').addEventListener('change', onAutoChanged);
+        $('pwd').addEventListener('keydown', function (e) {
+            if (e.keyCode === 13) { doLogin(); }
+        });
+        if (!state.accounts.length) { $('addCard').style.display = 'block'; }
+    }
+
+    // -------------------------------------------------------------- 账号
+    function renderAccounts() {
+        var box = $('accountList');
+        var list = state.accounts || [];
+        $('accountCount').textContent = '共 ' + list.length + ' 个账号';
+        if (!list.length) {
+            box.innerHTML = '<div class="empty">还没有登录任何学习通账号</div>';
+            return;
+        }
+        var picked = state.settings.studyAccount || '';
+        var html = '';
+        for (var i = 0; i < list.length; i++) {
+            var a = list[i];
+            var isPick = picked ? picked === a.id : i === 0;
+            html += '<div class="act">'
+                + '<div class="act-title">' + esc(a.name || a.phone) + '</div>'
+                + '<div class="act-sub">登录状态：' + (a.logged ? '已登录' : '未登录')
+                + (a.lastLoginAt ? ' · 上次登录 ' + fmtTime(a.lastLoginAt) : '')
+                + (a.error ? ' · ' + esc(a.error) : '') + '</div>'
+                + '<div class="act-actions">'
+                + '<button class="btn ghost sm" onclick="relogin(\'' + esc(a.id) + '\')">重新登录</button>'
+                + '<button class="btn ghost sm danger" onclick="doLogout(\'' + esc(a.id) + '\')">删除</button>'
+                + '<label class="radio-label" style="margin-left:auto">'
+                + '<input class="radio" type="radio" name="studyPick" value="' + esc(a.id) + '"'
+                + (isPick ? ' checked' : '') + ' onchange="pickStudy(\'' + esc(a.id) + '\')">刷课</label>'
+                + '</div></div>';
+        }
+        box.innerHTML = html;
+    }
+
+    function fmtTime(ms) {
+        var d = new Date(Number(ms) || 0);
+        if (!ms || isNaN(d.getTime())) { return ''; }
+        function p(n) { return n < 10 ? '0' + n : '' + n; }
+        return (d.getMonth() + 1) + '-' + p(d.getDate()) + ' '
+            + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+
+    function toggleAdd() {
+        var card = $('addCard');
+        card.style.display = card.style.display === 'none' ? 'block' : 'none';
+        if (card.style.display === 'block') { $('phone').focus(); }
+    }
+
+    function relogin(id) {
+        var list = state.accounts || [];
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].id === id) {
+                $('phone').value = list[i].phone || '';
+                $('pwd').value = '';
+                $('addCard').style.display = 'block';
+                $('pwd').focus();
+                toast('请输入密码重新登录');
+                return;
+            }
+        }
+    }
+
+    function pickStudy(id) {
+        state.settings.studyAccount = id;
+        study.accountId = id;
+        study.courses = [];
+        study.chapters = {};
+        study.loaded = {};
+        study.videos = {};
+        study.expanded = {};
+        study.checked = {};
+        $('studyCourseList').innerHTML = '<div class="empty">刷课账号已切换，请刷新课程</div>';
+        quiz.courses = [];
+        quiz.checked = {};
+        renderQuizCourses();
+        call(function () { return MimiXxt.studyPickAccount(id); });
+        renderStudyAccount();
+        renderQuizAccount();
+        toast('刷课账号已切换');
+    }
+
+    function doLogin() {
+        var phone = $('phone').value.replace(/\s/g, '');
+        var pwd = $('pwd').value;
+        if (!phone || !pwd) {
+            toast('请输入手机号和密码');
+            return;
+        }
+        busy('正在登录学习通…', function () {
+            return MimiXxt.login(phone, pwd);
+        }, function (r) {
+            toast(r.message || (r.ok ? '登录成功' : '登录失败'));
+            if (r.ok) {
+                $('pwd').value = '';
+                $('addCard').style.display = 'none';
+                state.accounts = r.accounts || [];
+                renderAccounts();
+                switchTab('sign');
+            }
+        });
+    }
+
+    function doLogout(id) {
+        var r = call(function () { return MimiXxt.logout(id); });
+        state.accounts = r.accounts || [];
+        if (state.settings.studyAccount === id) {
+            state.settings.studyAccount = '';
+            study.accountId = '';
+            call(function () { return MimiXxt.studyPickAccount(''); });
+        }
+        renderAccounts();
+        renderStudyAccount();
+        state.acts = {};
+        renderActivities([]);
+        toast('已删除该账号');
+    }
+
+    // -------------------------------------------------------------- 签到
+    function refreshAll(silent) {
+        if (silent) {
+            $('signState').textContent = '正在刷新活动…';
+        }
+        busy('正在刷新签到活动…', function () {
+            return MimiXxt.refresh();
+        }, function (r) {
+            applyRefresh(r, silent);
+        });
+    }
+
+    function applyRefresh(r, silent) {
+        if (!r.ok) {
+            if (!silent) { toast(r.message || '刷新失败'); }
+            renderSettings();
+            return;
+        }
+        state.acts = {};
+        var list = r.accounts || [];
+        for (var i = 0; i < list.length; i++) {
+            state.acts[list[i].id] = list[i];
+        }
+        renderActivities(list);
+        if (r.logs) { state.logs = r.logs; renderLogs(); }
+        renderSettings();
+        if (!silent) { toast('刷新完成'); }
+    }
+
+    function actCard(acc, a) {
+        var action = '';
+        var type = a.type || '';
+        if (a.done) {
+            return '<div class="act">'
+                + '<div class="act-title">' + esc(a.title) + '</div>'
+                + '<div class="act-actions"><span class="tag">已完成</span></div>'
+                + '</div>';
+        }
+        if (type.indexOf('二维码') >= 0) {
+            action = '<span class="tag">自动抓取老师发的二维码，失败才需要扫码</span>';
+        } else if (type.indexOf('位置') >= 0) {
+            action = '<button class="btn sm" onclick="locationFlow(\'' + acc.id + '\',\'' + a.aid
+                + '\',\'' + (a.teacherLat || '') + '\',\'' + (a.teacherLon || '') + '\')">选点签到</button>';
+        } else if (type.indexOf('拍照') >= 0) {
+            action = '<button class="btn sm" onclick="cameraFlow(\'' + acc.id + '\',\'' + a.aid + '\')">拍照签到</button>'
+                + '<button class="btn ghost sm" onclick="photoFlow(\'' + acc.id + '\',\'' + a.aid + '\')">选图签到</button>';
+        } else if (type.indexOf('手势') >= 0) {
+            action = '<button class="btn sm" onclick="gestureFlow(\'' + acc.id + '\',\'' + a.aid + '\')">画手势签到</button>';
+        } else if (type.indexOf('签到码') >= 0) {
+            action = '<input class="code" id="code_' + a.aid + '" placeholder="输入签到码">'
+                + '<button class="btn sm" onclick="signOne(\'' + acc.id + '\',\'' + a.aid
+                + '\',document.getElementById(\'code_' + a.aid + '\').value)">签到</button>';
+        } else {
+            action = '<button class="btn sm" onclick="signOne(\'' + acc.id + '\',\'' + a.aid + '\',\'\')">签到</button>';
+        }
+        // 需要人脸时仍保留原来的签到入口（先选点/输码再触发人脸）；扫码+人脸只能去官方 App
+        if (a.needFace) {
+            if (type.indexOf('二维码') >= 0) {
+                action += '<button class="btn ghost sm" onclick="openOfficialApp()">去官方 App 签到</button>'
+                    + '<span class="tag">已开人脸</span>';
+            } else {
+                action += '<button class="btn ghost sm" onclick="askFace(\'' + acc.id + '\',\'' + a.aid
+                    + '\')">完成人脸后继续</button><span class="tag">需人脸</span>';
+            }
+        }
+        var sub = '';
+        if (a.teacherAddress) { sub += '教师位置：' + esc(a.teacherAddress); }
+        if (a.auto) {
+            sub += (sub ? ' · ' : '') + '可自动签到';
+        } else if (type.indexOf('拍照') >= 0) {
+            sub += (sub ? ' · ' : '') + '可立即签到';
+        }
+        return '<div class="act">'
+            + '<div class="act-title">' + esc(a.title) + '</div>'
+            + (sub ? '<div class="act-sub">' + sub + '</div>' : '')
+            + '<div class="act-actions">' + action + '</div>'
+            + '</div>';
+    }
+
+    function renderActivities(list) {
+        var box = $('activityList');
+        if (!list || !list.length) {
+            box.innerHTML = '<div class="empty">请先在「账号」页登录学习通，然后刷新活动</div>';
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < list.length; i++) {
+            var acc = list[i];
+            var acts = acc.acts || [];
+            html += '<div class="group"><div class="group-title">' + esc(acc.name || acc.phone)
+                + '<span class="pill">' + acts.length + ' 个活动</span></div>';
+            if (acc.error) {
+                html += '<div class="err">' + esc(acc.error) + '</div>';
+            } else if (!acts.length) {
+                html += '<div class="empty small">暂无进行中的签到</div>';
+            }
+            for (var j = 0; j < acts.length; j++) {
+                html += actCard(acc, acts[j]);
+            }
+            html += '</div>';
+        }
+        box.innerHTML = html;
+    }
+
+    function signOne(accId, aid, code) {
+        busy('正在签到…', function () {
+            return MimiXxt.signOne(accId, aid, code || '');
+        }, function (r) {
+            toast(r.message || '已提交');
+            if (r.logs) { state.logs = r.logs; renderLogs(); }
+            if (r.ok) {
+                showResults([{title: '签到', message: r.message, ok: true}]);
+            } else if (r.status === 'NEED_FACE' || r.status === 'BLOCKED') {
+                askFace(accId, aid);
+            } else if (r.status === 'OFFICIAL_ONLY') {
+                showResults([{title: '签到', message: r.message, ok: false}]);
+            }
+        });
+    }
+
+    function doSignAll() {
+        busy('正在一键签到…', function () {
+            return MimiXxt.signAll();
+        }, function (r) {
+            if (!r.ok) {
+                toast(r.message || '一键签到失败');
+                return;
+            }
+            var list = r.results || [];
+            if (!list.length) {
+                toast('没有可处理的签到');
+            } else {
+                showResults(list);
+                toast('已处理 ' + list.length + ' 个签到');
+            }
+            var needQr = false;
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].status === 'NEED_QR') { needQr = true; }
+            }
+            if (needQr) {
+                showQrSheet();
+                toast('有二维码签到，请识别大屏二维码');
+            }
+            if (r.logs) { state.logs = r.logs; renderLogs(); }
+        });
+    }
+
+    function showResults(list) {
+        var html = '<div class="card"><div class="row"><div class="grow"><div class="name">签到结果</div></div>'
+            + '<button class="btn ghost sm" onclick="clearResults()">清除</button></div>';
+        for (var i = 0; i < list.length; i++) {
+            var r = list[i];
+            html += '<div class="res"><span class="dot ' + (r.ok ? 'ok' : 'bad') + '"></span><div class="grow">'
+                + '<div class="res-title">' + esc(r.title || '签到') + '</div>'
+                + '<div class="res-msg">' + esc((r.accountName ? r.accountName + ' · ' : '') + (r.message || ''))
+                + '</div></div></div>';
+        }
+        html += '</div>';
+        $('resultBox').innerHTML = html;
+    }
+
+    function clearResults() { $('resultBox').innerHTML = ''; }
+
+    function locationFlow(accId, aid, lat, lon) {
+        pending = {accId: accId, aid: aid};
+        MimiXxt.pickLocation(lat || state.settings.lat || '', lon || state.settings.lon || '');
+    }
+
+    function photoFlow(accId, aid) {
+        pending = {accId: accId, aid: aid};
+        MimiXxt.pickPhoto();
+    }
+
+    function cameraFlow(accId, aid) {
+        pending = {accId: accId, aid: aid};
+        MimiXxt.pickPhotoCamera();
+    }
+
+    function showQrSheet() { $('qrSheet').className = 'sheet-mask show'; }
+
+    function hideQrSheet(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.action-sheet')) { return; }
+        $('qrSheet').className = 'sheet-mask';
+    }
+
+    var facePending = null;
+
+    function askFace(accId, aid) {
+        facePending = {accId: accId, aid: aid};
+        $('faceSheet').className = 'sheet-mask show';
+    }
+
+    function hideFaceSheet(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.action-sheet')) { return; }
+        $('faceSheet').className = 'sheet-mask';
+    }
+
+    function goFace() {
+        var p = facePending;
+        hideFaceSheet();
+        if (!p) { return; }
+        var r = call(function () { return MimiXxt.openXxtApp(); });
+        if (!r.ok) {
+            // 打不开官方 App 就不留下「等回来续签」的标记，避免每次回前台都重试
+            call(function () { return MimiXxt.markFacePending('', ''); });
+            toast(r.message || '打不开学习通');
+            return;
+        }
+        call(function () { return MimiXxt.markFacePending(p.accId, p.aid); });
+        toast('完成人脸后返回，会自动继续签到');
+    }
+
+    function openOfficialApp() {
+        var r = call(function () { return MimiXxt.openXxtApp(); });
+        if (!r.ok) { toast(r.message || '打不开学习通'); }
+    }
+
+    function pickQrCamera() { hideQrSheet(); MimiXxt.pickQrCamera(); }
+
+    function pickQrGallery() { hideQrSheet(); MimiXxt.pickQrGallery(); }
+
+    function doScanQr(raw) {
+        busy('正在扫码签到…', function () {
+            return MimiXxt.scanQr(raw);
+        }, function (r) {
+            if (!r.ok) {
+                toast(r.message || '扫码签到失败');
+                return;
+            }
+            var list = r.results || [];
+            if (list.length) { showResults(list); }
+            toast(list.length ? '已处理 ' + list.length + ' 个账号' : '没有可签到的二维码活动');
+            if (r.logs) { state.logs = r.logs; renderLogs(); }
+        });
+    }
+
+    var scopeDraft = [];
+
+    var scopeRows = [];
+    var scopeSeen = {};
+
+    function scopeAdd(id, name) {
+        if (!id || scopeSeen[id]) { return; }
+        scopeSeen[id] = true;
+        scopeRows.push({id: id, name: name || ('课程 ' + id)});
+    }
+
+    function openScopeSheet() {
+        scopeDraft = String((state.settings && state.settings.scope) || '').split(',')
+            .filter(function (v) { return v && v.trim(); });
+        scopeRows = [];
+        scopeSeen = {};
+        // 签到活动里出现过的课程先放进来
+        for (var key in state.acts) {
+            var list = (state.acts[key] || {}).acts || [];
+            for (var i = 0; i < list.length; i++) {
+                scopeAdd(list[i].courseId, list[i].courseName);
+            }
+        }
+        var ids = [];
+        for (var a = 0; a < (state.accounts || []).length; a++) {
+            ids.push(state.accounts[a].id);
+        }
+        if (!ids.length) {
+            finishScopeRows();
+            return;
+        }
+        // 再拉账号下的全部课程（不只是有签到活动的）
+        loadScopeCourses(ids, 0);
+    }
+
+    function loadScopeCourses(ids, idx) {
+        if (idx >= ids.length) {
+            hideMask();
+            finishScopeRows();
+            return;
+        }
+        showMask('正在读取全部课程 ' + (idx + 1) + '/' + ids.length + '…');
+        // 先让遮罩画出来，再执行同步桥接，避免看起来像卡住
+        setTimeout(function () {
+            var r = call(function () { return MimiXxt.courses(ids[idx]); });
+            if (r && r.ok) {
+                var cs = r.courses || [];
+                for (var i = 0; i < cs.length; i++) {
+                    scopeAdd(cs[i].courseId, cs[i].courseName);
+                }
+            }
+            loadScopeCourses(ids, idx + 1);
+        }, 40);
+    }
+
+    function finishScopeRows() {
+        for (var k = 0; k < scopeDraft.length; k++) { scopeAdd(scopeDraft[k], ''); }
+        if (!scopeRows.length) {
+            toast('还没有读到课程，请先在「账号」页登录学习通');
+            return;
+        }
+        scopeRows.sort(function (x, y) {
+            return String(x.name).localeCompare(String(y.name), 'zh');
+        });
+        renderScopeRows();
+        $('scopeSheet').className = 'sheet-mask show';
+    }
+
+    function renderScopeRows() {
+        var html = '';
+        for (var j = 0; j < scopeRows.length; j++) {
+            html += '<label class="row" style="cursor:pointer">'
+                + '<div class="grow"><div class="name">' + esc(scopeRows[j].name) + '</div></div>'
+                + '<input type="checkbox" value="' + esc(scopeRows[j].id) + '"'
+                + (scopeDraft.indexOf(scopeRows[j].id) >= 0 ? ' checked' : '')
+                + ' onchange="toggleScope(this)"></label>';
+        }
+        $('scopeList').innerHTML = html;
+    }
+
+    function toggleScope(el) {
+        var idx = scopeDraft.indexOf(el.value);
+        if (el.checked && idx < 0) {
+            scopeDraft.push(el.value);
+        } else if (!el.checked && idx >= 0) {
+            scopeDraft.splice(idx, 1);
+        }
+    }
+
+    function scopeAll() {
+        scopeDraft = [];
+        var boxes = $('scopeList').querySelectorAll('input[type=checkbox]');
+        for (var i = 0; i < boxes.length; i++) { boxes[i].checked = false; }
+        toast('已清空，保存后所有课堂都会获取签到');
+    }
+
+    function hideScopeSheet(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.action-sheet')) { return; }
+        $('scopeSheet').className = 'sheet-mask';
+    }
+
+    function saveScope() {
+        var r = call(function () { return MimiXxt.saveScope(scopeDraft.join(',')); });
+        if (r && r.settings) { state.settings = r.settings; }
+        hideScopeSheet();
+        renderSettings();
+        toast(scopeDraft.length ? ('已排除 ' + scopeDraft.length + ' 门课堂') : '所有课堂都会获取签到');
+    }
+
+    function usePhoneLocation() {
+        busy('正在获取手机定位…', function () {
+            return MimiXxt.phoneLocation();
+        }, function (r) {
+            if (!r.ok) {
+                toast(r.message || '手机定位失败');
+                return;
+            }
+            if (r.settings) { state.settings = r.settings; }
+            renderSettings();
+            toast('已保存手机定位：' + r.lat + ', ' + r.lon);
+        });
+    }
+
+    function openXxtApp() {
+        var r = call(function () { return MimiXxt.openXxtApp(); });
+        if (!r.ok) { toast(r.message || '打不开学习通'); }
+    }
+
+    var gestureSeq = [];
+    var pendingGesture = null;
+
+    function openGestureSheet() {
+        pendingGesture = null;
+        $('gestureSheetTitle').textContent = '手势签到练习';
+        $('gestureSheetTip').textContent = '按住拖动依次连接圆点，至少 4 个点';
+        $('gestureSubmitBtn').style.display = 'none';
+        $('gestureSheet').className = 'sheet-mask show';
+        buildGesturePad();
+    }
+
+    // 活动卡片直接弹九宫格：画完点「提交签到」就按这门活动提交
+    function gestureFlow(accId, aid) {
+        pendingGesture = {accId: accId, aid: aid};
+        $('gestureSheetTitle').textContent = '画手势签到';
+        $('gestureSheetTip').textContent = '按老师给的手势依次连接圆点，画完点「提交签到」';
+        $('gestureSubmitBtn').style.display = '';
+        $('gestureSheet').className = 'sheet-mask show';
+        buildGesturePad();
+    }
+
+    function submitGestureSign() {
+        if (!pendingGesture) { return; }
+        if (gestureSeq.length < 4) { toast('至少连 4 个点'); return; }
+        var code = gestureSeq.join('');
+        var target = pendingGesture;
+        busy('提交手势签到…', function () {
+            return MimiXxt.signGesture(target.accId, target.aid, code);
+        }, function (r) {
+            hideGestureSheet();
+            toast(r && r.message ? r.message : '已提交');
+            refreshAll(true);
+        });
+    }
+
+    function buildGesturePad() {
+        gestureSeq = [];
+        var pad = $('gesturePad');
+        pad.innerHTML = '';
+        for (var i = 0; i < 9; i++) {
+            var el = document.createElement('div');
+            el.className = 'dot';
+            var row = Math.floor(i / 3), col = i % 3;
+            el.style.left = (col * 80 + 12) + 'px';
+            el.style.top = (row * 80 + 12) + 'px';
+            el.textContent = String(i + 1);
+            pad.appendChild(el);
+        }
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '240');
+        svg.setAttribute('height', '240');
+        svg.innerHTML = '<polyline id="gestureLine" fill="none" stroke="#C96442" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points=""></polyline>';
+        pad.appendChild(svg);
+        bindGesture(pad);
+        updateGestureCode();
+    }
+
+    function bindGesture(pad) {
+        if (pad.getAttribute('data-bound')) { return; }
+        pad.setAttribute('data-bound', '1');
+        pad.addEventListener('touchstart', function (e) { gestureTouch(e); }, { passive: false });
+        pad.addEventListener('touchmove', function (e) { e.preventDefault(); gestureTouch(e); }, { passive: false });
+        pad.addEventListener('mousedown', function (e) { gestureTouch(e); });
+        pad.addEventListener('mousemove', function (e) { if (e.buttons === 1) { gestureTouch(e); } });
+    }
+
+    function gestureTouch(e) {
+        var t = (e.touches && e.touches[0]) ? e.touches[0] : e;
+        var el = document.elementFromPoint(t.clientX, t.clientY);
+        if (!el || String(el.className).indexOf('dot') < 0) { return; }
+        var dots = $('gesturePad').querySelectorAll('.dot');
+        var idx = Array.prototype.indexOf.call(dots, el);
+        if (idx < 0 || gestureSeq.indexOf(idx + 1) >= 0) { return; }
+        gestureSeq.push(idx + 1);
+        el.className = 'dot on';
+        drawGesture(dots);
+    }
+
+    function drawGesture(dots) {
+        var pts = [];
+        for (var i = 0; i < gestureSeq.length; i++) {
+            var d = dots[gestureSeq[i] - 1];
+            pts.push((parseFloat(d.style.left) + 28) + ',' + (parseFloat(d.style.top) + 28));
+        }
+        var line = document.getElementById('gestureLine');
+        if (line) { line.setAttribute('points', pts.join(' ')); }
+        updateGestureCode();
+    }
+
+    function updateGestureCode() {
+        $('gestureCode').textContent = '手势码：' + (gestureSeq.length >= 4
+            ? gestureSeq.join('') : '—（至少连 4 个点）');
+    }
+
+    function resetGesture() {
+        buildGesturePad();
+    }
+
+    function hideGestureSheet(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.action-sheet')) { return; }
+        $('gestureSheet').className = 'sheet-mask';
+        pendingGesture = null;
+    }
+
+    function openSettingSheet() {
+        renderSettings();
+        $('settingSheet').className = 'sheet-mask show';
+    }
+
+    function hideSettingSheet(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.action-sheet')) { return; }
+        $('settingSheet').className = 'sheet-mask';
+    }
+
+    function openQuizSettingSheet() {
+        renderSettings();
+        $('ocsConfig').value = (state.settings && state.settings.ocsConfig) || '';
+        $('quizSettingSheet').className = 'sheet-mask show';
+    }
+
+    function hideQuizSettingSheet(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.action-sheet')) { return; }
+        $('quizSettingSheet').className = 'sheet-mask';
+    }
+
+    // -------------------------------------------------------------- 刷课
+    var SPEED_OPTIONS = [1, 1.5, 2];
+
+    function renderSpeedChips(current) {
+        var html = '';
+        for (var i = 0; i < SPEED_OPTIONS.length; i++) {
+            var v = SPEED_OPTIONS[i];
+            html += '<button class="' + (v === current ? 'sel' : '')
+                + '" onclick="pickSpeed(' + v + ')">' + v.toFixed(1) + 'x</button>';
+        }
+        $('speedChips').innerHTML = html;
+    }
+
+    function pickSpeed(v) {
+        state.settings.studySpeed = parseFloat(v) || 2;
+        renderSpeedChips(state.settings.studySpeed);
+    }
+
+    function initStudy() {
+        renderSpeedChips(parseFloat(state.settings.studySpeed) || 2);
+        renderStudyAccount();
+        var r = call(function () { return MimiXxt.studyStatus(); });
+        applyStudyStatus(r.status, r.logs, true);
+        if (r.status && r.status.running) { startStudyPolling(); }
+    }
+
+    function renderStudyAccount() {
+        var list = state.accounts || [];
+        var id = study.accountId || state.settings.studyAccount || (list.length ? list[0].id : '');
+        study.accountId = id;
+        var name = '未选择';
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].id === id) { name = list[i].name || list[i].phone; }
+        }
+        $('studyAccName').textContent = name;
+        renderSpeedChips(parseFloat(state.settings.studySpeed) || 2);
+    }
+
+    function loadStudyCourses() {
+        if (!study.accountId) { toast('请先登录学习通账号'); return; }
+        busy('正在读取课程…', function () {
+            return MimiXxt.studyCourses(study.accountId);
+        }, function (r) {
+            if (!r.ok) { toast(r.message || '读取课程失败'); return; }
+            study.courses = r.courses || [];
+            study.chapters = {};
+            study.loaded = {};
+            study.videos = {};
+            study.expanded = {};
+            study.checked = {};
+            renderStudyCourses();
+            toast(r.message || ('共 ' + study.courses.length + ' 门课程'));
+        });
+    }
+
+    function renderStudyCourses() {
+        var box = $('studyCourseList');
+        var all = study.courses || [];
+        if (!all.length) {
+            box.innerHTML = '<div class="empty">没有读到课程，请确认该账号已加入课程</div>';
+            return;
+        }
+        var kw = ($('studySearch') ? $('studySearch').value : '').trim().toLowerCase();
+        var parts = '', count = 0;
+        for (var i = 0; i < all.length; i++) {
+            var c = all[i];
+            var hay = ((c.title || '') + ' ' + (c.teacher || '')).toLowerCase();
+            if (kw && hay.indexOf(kw) < 0) {
+                continue;
+            }
+            count++;
+            parts += '<div class="act">'
+                + '<div class="act-title">' + esc(c.title) + '</div>'
+                + '<div class="act-sub">' + esc(c.teacher || '') + '</div>'
+                + '<div class="act-actions">'
+                + '<button class="btn ghost sm" onclick="toggleStudyCourse(' + i + ')">展开章节</button>'
+                + '<button class="btn ghost sm" onclick="selectCourseChapters(' + i + ',true)">全选</button>'
+                + '<button class="btn ghost sm" onclick="selectCourseChapters(' + i + ',false)">反选</button>'
+                + '<span class="tag" id="studyTag_' + i + '">未选择</span>'
+                + '</div><div id="studyCh_' + i + '"></div></div>';
+        }
+        if (!count) {
+            box.innerHTML = '<div class="empty">没有匹配的课程</div>';
+            return;
+        }
+        box.innerHTML = '<div class="group"><div class="group-title">课程<span class="pill">'
+            + count + (count === all.length ? '' : ('/' + all.length)) + '</span></div>' + parts + '</div>';
+        // 搜索过滤会重建 DOM，把已读过的章节重新画回来，避免「展开章节」点开是空的
+        for (var k = 0; k < all.length; k++) {
+            var key = all[k].courseId + ':' + all[k].clazzId;
+            var chBox = $('studyCh_' + k);
+            if (!chBox || !study.loaded[key]) { continue; }
+            renderStudyChapters(k);
+            chBox.style.display = study.expanded[key] ? '' : 'none';
+        }
+    }
+
+    function toggleStudyCourse(i) {
+        var course = study.courses[i];
+        if (!course) { return; }
+        var key = course.courseId + ':' + course.clazzId;
+        var box = $('studyCh_' + i);
+        if (!box) { return; }
+        if (study.loaded[key]) {
+            study.expanded[key] = !study.expanded[key];
+            box.style.display = study.expanded[key] ? '' : 'none';
+            return;
+        }
+        busy('正在读取章节…', function () {
+            return MimiXxt.studyChapters(study.accountId, course.courseId, course.clazzId, course.cpi || '');
+        }, function (r) {
+            if (!r.ok) { toast(r.message || '读取章节失败'); return; }
+            if (r.cpi) { course.cpi = r.cpi; }
+            study.loaded[key] = true;
+            study.expanded[key] = true;
+            study.chapters[key] = r.chapters || [];
+            renderStudyChapters(i);
+        });
+    }
+
+    function renderStudyChapters(i) {
+        var course = study.courses[i];
+        if (!course) { return; }
+        var key = course.courseId + ':' + course.clazzId;
+        var list = study.chapters[key] || [];
+        var box = $('studyCh_' + i);
+        if (!list.length) {
+            box.innerHTML = '<div class="empty small">没有读到章节</div>';
+            return;
+        }
+        var html = '';
+        for (var j = 0; j < list.length; j++) {
+            var c = list[j];
+            var sel = isChapterChecked(course, c);
+            html += '<div class="chapter">'
+                + '<input type="checkbox"' + (sel ? ' checked' : '')
+                + ' onchange="toggleChapterCheck(' + i + ',' + j + ',this.checked)">'
+                + '<div class="grow" onclick="toggleChapterVideos(' + i + ',' + j + ')">'
+                + '<div class="cname">' + esc(c.title) + ' <span style="color:var(--sub)">›</span></div>'
+                + '<div class="csub">' + (c.jobCount ? c.jobCount + ' 个任务点 · ' : '')
+                + (c.finished ? '已完成' : '未完成') + '</div></div></div>'
+                + '<div class="vidbox" id="vidbox_' + i + '_' + j + '" style="display:none"></div>';
+        }
+        box.innerHTML = html;
+        updateStudySel(i);
+    }
+
+    function fmtDur(sec) {
+        sec = Math.max(0, parseInt(sec, 10) || 0);
+        var m = Math.floor(sec / 60), s = sec % 60;
+        return m + ':' + (s < 10 ? '0' + s : s);
+    }
+
+    function toggleChapterVideos(i, j) {
+        var course = study.courses[i];
+        if (!course) { return; }
+        var key = course.courseId + ':' + course.clazzId;
+        var list = study.chapters[key] || [];
+        var ch = list[j];
+        var box = $('vidbox_' + i + '_' + j);
+        if (!ch || !box) { return; }
+        var vkey = key + ':' + ch.id;
+        if (study.videos[vkey]) {
+            if (!box.innerHTML) {
+                renderChapterVideos(i, j, box);
+                return;
+            }
+            box.style.display = box.style.display === 'none' ? '' : 'none';
+            return;
+        }
+        showMask('正在读取任务点…');
+        setTimeout(function () {
+            var r = call(function () {
+                return MimiXxt.studyVideos(study.accountId, course.courseId,
+                    course.clazzId, course.cpi || '', ch.id);
+            });
+            hideMask();
+            if (!r.ok) { toast(r.message || '读取任务点失败'); return; }
+            if (r.cpi) { course.cpi = r.cpi; }
+            study.videos[vkey] = r.videos || [];
+            renderChapterVideos(i, j, box);
+        }, 40);
+    }
+
+    function renderChapterVideos(i, j, box) {
+        var course = study.courses[i];
+        var key = course.courseId + ':' + course.clazzId;
+        var ch = (study.chapters[key] || [])[j];
+        var list = (ch && study.videos[key + ':' + ch.id]) || [];
+        if (!list.length) {
+            box.innerHTML = '<div class="empty small">这个章节没有视频任务点</div>';
+            box.style.display = '';
+            return;
+        }
+        var html = '';
+        for (var k = 0; k < list.length; k++) {
+            var v = list[k];
+            html += '<div class="vid"><span class="vdot' + (v.passed ? ' ok' : '') + '"></span>'
+                + '<div class="grow"><div class="vname">' + esc(v.name) + '</div>'
+                + '<div class="vsub">' + (v.duration ? fmtDur(v.duration) : '时长未知')
+                + (v.face ? ' · 需人脸' : '') + (v.passed ? ' · 已完成' : ' · 未完成')
+                + '</div></div></div>';
+        }
+        box.innerHTML = html;
+        box.style.display = '';
+    }
+
+    var bulkLoading = false;
+
+    // 单门课程内的全选 / 反选：只作用于这门课程下的章节
+    function selectCourseChapters(i, all) {
+        if (bulkLoading) { return; }
+        var course = study.courses[i];
+        if (!course) { return; }
+        if (!study.accountId) { toast('请先登录学习通账号'); return; }
+        var key = course.courseId + ':' + course.clazzId;
+        if (!study.loaded[key]) {
+            bulkLoading = true;
+            busy('正在读取章节…', function () {
+                return MimiXxt.studyChapters(study.accountId, course.courseId,
+                    course.clazzId, course.cpi || '');
+            }, function (r) {
+                bulkLoading = false;
+                if (!r.ok) { toast(r.message || '读取章节失败'); return; }
+                if (r.cpi) { course.cpi = r.cpi; }
+                study.loaded[key] = true;
+                study.chapters[key] = r.chapters || [];
+                applyCourseCheck(i, all);
+            });
+            return;
+        }
+        applyCourseCheck(i, all);
+    }
+
+    function applyCourseCheck(i, all) {
+        var course = study.courses[i];
+        if (!course) { return; }
+        var key = course.courseId + ':' + course.clazzId;
+        var list = study.chapters[key] || [];
+        if (!list.length) { toast('这门课程没有读到章节'); return; }
+        var n = 0;
+        for (var j = 0; j < list.length; j++) {
+            var k = chapterKey(course, list[j]);
+            study.checked[k] = all ? true : !isChapterChecked(course, list[j]);
+            if (study.checked[k]) { n++; }
+        }
+        study.expanded[key] = true;
+        renderStudyChapters(i);
+        var chBox = $('studyCh_' + i);
+        if (chBox) { chBox.style.display = ''; }
+        toast(all ? ('已全选 ' + n + ' 个章节') : ('已反选，当前 ' + n + ' 个章节'));
+    }
+
+    function updateStudySel(i) {
+        var course = study.courses[i];
+        if (!course) { return; }
+        var list = study.chapters[course.courseId + ':' + course.clazzId] || [];
+        var n = 0;
+        for (var j = 0; j < list.length; j++) {
+            if (isChapterChecked(course, list[j])) { n++; }
+        }
+        var tag = $('studyTag_' + i);
+        if (tag) { tag.textContent = n ? ('已选 ' + n + ' 章') : '未选择'; }
+    }
+
+    function startStudy() {
+        if (!study.accountId) { toast('请先登录学习通账号'); return; }
+        var courses = [];
+        for (var i = 0; i < study.courses.length; i++) {
+            var course = study.courses[i];
+            var key = course.courseId + ':' + course.clazzId;
+            if (!study.loaded[key]) { continue; }
+            var list = study.chapters[key] || [];
+            var chapters = [];
+            for (var j = 0; j < list.length; j++) {
+                if (isChapterChecked(course, list[j])) {
+                    chapters.push({id: list[j].id, title: list[j].title});
+                }
+            }
+            if (chapters.length) {
+                courses.push({
+                    courseId: course.courseId,
+                    clazzId: course.clazzId,
+                    cpi: course.cpi || '',
+                    title: course.title,
+                    chapters: chapters
+                });
+            }
+        }
+        if (!courses.length) { toast('请先展开课程并勾选章节'); return; }
+        var plan = {
+            accountId: study.accountId,
+            speed: parseFloat(state.settings.studySpeed) || 2,
+            courses: courses
+        };
+        // 刷课前先查保活权限，缺通知 / 电池优化白名单等就提醒去开启
+        var perm = call(function () { return MimiXxt.studyPermState(); });
+        if (perm && perm.ok === false) {
+            pendingStudyPlan = plan;
+            $('studyPermTip').textContent = '为保证退到后台、锁屏后继续刷课，建议开启：'
+                + (perm.text || '相关权限') + '。';
+            $('studyPermSheet').classList.add('show');
+            return;
+        }
+        doStudyStart(plan);
+    }
+
+    function doStudyStart(plan) {
+        if (!plan) { return; }
+        busy('正在启动刷课…', function () {
+            return MimiXxt.studyStart(JSON.stringify(plan));
+        }, function (r) {
+            toast(r.message || (r.ok ? '已开始刷课' : '启动失败'));
+            if (r.ok) {
+                state.settings.studyAccount = study.accountId;
+                state.settings.studySpeed = plan.speed;
+                $('studyProgressCard').style.display = 'block';
+                applyStudyStatus(r.status, r.logs);
+                startStudyPolling();
+            }
+        });
+    }
+
+    function hideStudyPermSheet(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.action-sheet')) { return; }
+        $('studyPermSheet').classList.remove('show');
+    }
+
+    function stopStudy() {
+        busy('正在停止刷课…', function () {
+            return MimiXxt.studyStop();
+        }, function (r) {
+            if (r.status) { toast(r.status.text || '正在停止…'); }
+            startStudyPolling();
+        });
+    }
+
+    function startStudyPolling() {
+        if (study.timer) { return; }
+        pollStudy();
+        study.timer = setInterval(pollStudy, 2500);
+    }
+
+    function pollStudy() {
+        var r = call(function () { return MimiXxt.studyStatus(); });
+        applyStudyStatus(r.status, r.logs);
+    }
+
+    function applyStudyStatus(st, logs, silent) {
+        if (!st) { return; }
+        study.running = !!st.running;
+        var show = !!(st.running || st.finished);
+        $('studyProgressCard').style.display = show ? 'block' : 'none';
+        var text = st.text || '就绪';
+        var title = (st.running && st.chapter) ? st.chapter : text;
+        if ($('studyStatusText').textContent !== title) {
+            $('studyStatusText').textContent = title;
+        }
+        $('studyState').textContent = text;
+        var vtext = '';
+        if (st.video) {
+            vtext = st.video;
+            if (st.dur > 0) {
+                vtext += '　' + fmtDur(st.cur) + ' / ' + fmtDur(st.dur)
+                    + '　' + (parseFloat(st.speed) || 2).toFixed(1) + 'x';
+            }
+        }
+        if ($('studyVideoText').textContent !== vtext) {
+            $('studyVideoText').textContent = vtext;
+        }
+        // 外层进度条显示当前视频的播放进度，总进度放到「任务详细」里
+        var pct = parseInt(st.percent, 10) || 0;
+        if (!pct && st.dur > 0) { pct = Math.min(100, Math.round((st.cur || 0) * 100 / st.dur)); }
+        var barStyle = Math.max(0, Math.min(100, pct)) + '%';
+        if ($('studyBar').style.width !== barStyle) { $('studyBar').style.width = barStyle; }
+        $('studyBarWrap').className = 'bar' + (show ? ' show' : '');
+        $('studyStartBtn').style.display = st.running ? 'none' : '';
+        $('studyStopBtn').style.display = st.running ? '' : 'none';
+        if (logs && logs.length !== state.logs.length) {
+            state.logs = logs;
+            renderLogs();
+        }
+        if (!st.running) {
+            if (study.timer) { clearInterval(study.timer); study.timer = null; }
+            if (st.finished && !silent) { toast(st.text || '刷课结束'); }
+        }
+        state.studyStatus = st;
+        renderStudyDetail(st);
+    }
+
+    // -------------------------------------------------------------- 任务详细
+    function openStudyDetail() {
+        $('studyDetailSheet').className = 'sheet-mask show';
+        renderStudyDetail(state.studyStatus || {});
+    }
+
+    function hideStudyDetail(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.action-sheet')) { return; }
+        $('studyDetailSheet').className = 'sheet-mask';
+    }
+
+    function renderStudyDetail(st) {
+        if (!$('detailCourse')) { return; }
+        st = st || {};
+        $('detailCourse').textContent = st.course || '—';
+        $('detailChapter').textContent = st.chapter || '—';
+        $('detailVideo').textContent = st.video || '—';
+        var pct = st.percent || 0;
+        $('detailPercent').textContent = pct + '%';
+        $('detailBar').style.width = pct + '%';
+        $('detailBarWrap').className = 'bar' + (pct > 0 ? ' show' : '');
+        $('detailTime').textContent = st.dur > 0 ? (fmtDur(st.cur) + ' / ' + fmtDur(st.dur)) : '—';
+        $('detailSpeed').textContent = (parseFloat(st.speed) || 2).toFixed(1) + 'x';
+        var total = st.total || 0;
+        var done = st.done || 0;
+        var failed = st.failed || 0;
+        $('detailCount').textContent = total
+            ? ('已完成 ' + done + ' / ' + total + (failed ? ' · 失败 ' + failed : ''))
+            : '—';
+    }
+
+    // -------------------------------------------------------------- 刷题
+    function initQuiz() {
+        renderQuizAccount();
+        var r = call(function () { return MimiXxt.quizStatus(); });
+        applyQuizStatus(r.status, r.logs, true);
+        if (r.status && r.status.running) { startQuizPolling(); }
+    }
+
+    function renderQuizAccount() {
+        var list = state.accounts || [];
+        var name = '未选择';
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].id === study.accountId) { name = list[i].name || list[i].phone; }
+        }
+        if ($('quizAccName')) { $('quizAccName').textContent = name; }
+    }
+
+    function loadQuizCourses() {
+        if (!study.accountId) { toast('请先登录学习通账号'); return; }
+        busy('正在读取课程…', function () {
+            return MimiXxt.studyCourses(study.accountId);
+        }, function (r) {
+            if (!r.ok) { toast(r.message || '读取课程失败'); return; }
+            quiz.courses = r.courses || [];
+            quiz.checked = {};
+            renderQuizCourses();
+            toast(r.message || ('共 ' + quiz.courses.length + ' 门课程'));
+        });
+    }
+
+    function isQuizCourseChecked(c) {
+        var key = c.courseId + ':' + c.clazzId;
+        if (quiz.checked[key] === undefined) { return true; }
+        return !!quiz.checked[key];
+    }
+
+    function toggleQuizCourse(i, val) {
+        var c = quiz.courses[i];
+        if (!c) { return; }
+        quiz.checked[c.courseId + ':' + c.clazzId] = !!val;
+    }
+
+    function renderQuizCourses() {
+        var box = $('quizCourseList');
+        if (!box) { return; }
+        var all = quiz.courses || [];
+        if (!all.length) {
+            box.innerHTML = '<div class="empty">点「刷新课程」读取该账号的课程</div>';
+            return;
+        }
+        var kw = ($('quizSearch') ? $('quizSearch').value : '').trim().toLowerCase();
+        var parts = '', count = 0;
+        for (var i = 0; i < all.length; i++) {
+            var c = all[i];
+            var hay = ((c.title || '') + ' ' + (c.teacher || '')).toLowerCase();
+            if (kw && hay.indexOf(kw) < 0) { continue; }
+            count++;
+            parts += '<div class="act">'
+                + '<div class="act-title">' + esc(c.title) + '</div>'
+                + '<div class="act-sub">' + esc(c.teacher || '') + '</div>'
+                + '<div class="act-actions">'
+                + '<label class="radio-label" style="margin-left:auto">'
+                + '<input type="checkbox"' + (isQuizCourseChecked(c) ? ' checked' : '')
+                + ' onchange="toggleQuizCourse(' + i + ',this.checked)">刷题</label>'
+                + '</div></div>';
+        }
+        if (!count) {
+            box.innerHTML = '<div class="empty">没有匹配的课程</div>';
+            return;
+        }
+        box.innerHTML = '<div class="group"><div class="group-title">课程<span class="pill">'
+            + count + (count === all.length ? '' : ('/' + all.length)) + '</span></div>' + parts + '</div>';
+    }
+
+    function startQuiz() {
+        if (!study.accountId) { toast('请先登录学习通账号'); return; }
+        if (!quiz.courses.length) { toast('请先刷新课程'); return; }
+        if (!(state.settings && state.settings.ocsConfig)) {
+            toast('请先在「题库设置」里配置 OCS 题库');
+            openQuizSettingSheet();
+            return;
+        }
+        var picked = [];
+        for (var i = 0; i < quiz.courses.length; i++) {
+            if (isQuizCourseChecked(quiz.courses[i])) { picked.push(quiz.courses[i]); }
+        }
+        if (!picked.length) { toast('请至少勾选一门课程'); return; }
+        showMask('正在读取章节…');
+        setTimeout(function () {
+            var built = [], fail = '';
+            for (var i = 0; i < picked.length; i++) {
+                var course = picked[i];
+                var r = call(function () {
+                    return MimiXxt.studyChapters(study.accountId, course.courseId,
+                        course.clazzId, course.cpi || '');
+                });
+                if (!r.ok) { fail = r.message || ('读取「' + course.title + '」章节失败'); break; }
+                if (r.cpi) { course.cpi = r.cpi; }
+                var list = r.chapters || [];
+                var chapters = [];
+                for (var j = 0; j < list.length; j++) {
+                    chapters.push({id: list[j].id, title: list[j].title});
+                }
+                built.push({
+                    courseId: course.courseId,
+                    clazzId: course.clazzId,
+                    cpi: course.cpi || '',
+                    title: course.title,
+                    chapters: chapters
+                });
+            }
+            hideMask();
+            if (fail) { toast(fail); return; }
+            if (!built.length) { toast('没有读到可刷题的章节'); return; }
+            doQuizStart({accountId: study.accountId, courses: built});
+        }, 40);
+    }
+
+    function doQuizStart(plan) {
+        busy('正在启动刷题…', function () {
+            return MimiXxt.quizStart(JSON.stringify(plan));
+        }, function (r) {
+            toast(r.message || (r.ok ? '已开始刷题' : '启动失败'));
+            if (r.ok) {
+                $('quizProgressCard').style.display = 'block';
+                applyQuizStatus(r.status, r.logs);
+                startQuizPolling();
+            }
+        });
+    }
+
+    function stopQuiz() {
+        busy('正在停止刷题…', function () {
+            return MimiXxt.quizStop();
+        }, function (r) {
+            if (r.status) { toast(r.status.text || '正在停止…'); }
+            startQuizPolling();
+        });
+    }
+
+    function startQuizPolling() {
+        if (quiz.timer) { return; }
+        pollQuiz();
+        quiz.timer = setInterval(pollQuiz, 2500);
+    }
+
+    function pollQuiz() {
+        var r = call(function () { return MimiXxt.quizStatus(); });
+        applyQuizStatus(r.status, r.logs);
+    }
+
+    function applyQuizStatus(st, logs, silent) {
+        if (!st) { return; }
+        quiz.running = !!st.running;
+        var show = !!(st.running || st.finished);
+        $('quizProgressCard').style.display = show ? 'block' : 'none';
+        var title = (st.running && st.chapter) ? st.chapter : (st.text || '就绪');
+        if ($('quizStatusText').textContent !== title) { $('quizStatusText').textContent = title; }
+        $('quizState').textContent = st.text || '就绪';
+        var paper = st.paper || '';
+        if (st.course && st.chapter) {
+            paper = st.course + ' · ' + st.chapter + (paper ? ' · ' + paper : '');
+        }
+        if ($('quizPaperText').textContent !== paper) { $('quizPaperText').textContent = paper; }
+        var done = (st.submitted || 0) + (st.saved || 0) + (st.failed || 0) + (st.skipped || 0);
+        var total = st.total || 0;
+        var pct = total > 0 ? Math.min(100, Math.round(done * 100 / total)) : (st.finished ? 100 : 0);
+        $('quizBar').style.width = pct + '%';
+        $('quizCountText').textContent = '已答 ' + (st.answered || 0) + ' 题 · 交卷 '
+            + (st.submitted || 0) + ' 份' + (st.saved ? ' · 暂存 ' + st.saved + ' 份' : '')
+            + (st.failed ? ' · 失败 ' + st.failed : '')
+            + (st.skipped ? ' · 跳过 ' + st.skipped : '');
+        $('quizStartBtn').style.display = st.running ? 'none' : '';
+        $('quizStopBtn').style.display = st.running ? '' : 'none';
+        if (logs && logs.length !== state.logs.length) {
+            state.logs = logs;
+            renderLogs();
+        }
+        if (!st.running) {
+            if (quiz.timer) { clearInterval(quiz.timer); quiz.timer = null; }
+            if (st.finished && !silent) { toast(st.text || '刷题结束'); }
+        }
+        quiz.status = st;
+    }
+
+    // -------------------------------------------------------------- 设置
+    function renderSettings() {
+        var s = state.settings || {};
+        $('autoSwitch').checked = !!s.auto;
+        renderIntervalChips(parseInt(s.interval, 10) || 10);
+        renderGapChips(parseInt(s.accountGap, 10) || 0);
+        var loc = '';
+        if (s.address) {
+            loc = s.address;
+        } else if (s.lat && s.lon) {
+            loc = s.lat + ', ' + s.lon;
+        }
+        $('locText').textContent = loc || '未设置';
+        $('photoText').textContent = s.photoName || (s.photo ? '已选择图片' : '未选');
+        var scopeIds = String(s.scope || '').split(',').filter(function (v) { return v && v.trim(); });
+        var scopeLabel = scopeIds.length ? ('已排除 ' + scopeIds.length + ' 门课堂') : '全部课程';
+        $('scopeText').textContent = scopeLabel;
+        var ocsBanks = s.ocsBanks || '';
+        $('ocsSummary').textContent = s.ocsConfig
+            ? ('已配置：' + (ocsBanks || '题库'))
+            : '未配置 OCS 题库';
+        $('quizStay').value = (s.quizStay === undefined || s.quizStay === null) ? 5 : s.quizStay;
+        $('quizWait').value = (s.quizWait === undefined || s.quizWait === null) ? 15 : s.quizWait;
+        $('quizSaveOnly').checked = !!s.quizSaveOnly;
+        $('signSummary').textContent = '位置：' + (loc || '未设置') + '　|　拍照：'
+            + (s.photo ? '已选' : '未选') + '　|　课堂：'
+            + (scopeIds.length ? '排除 ' + scopeIds.length + ' 门' : '全部') + '　|　巡检：'
+            + (s.interval || 10) + ' 秒/轮';
+        $('signState').textContent = s.auto
+            ? '巡检运行中（每 ' + (s.interval || 10) + ' 秒一轮）'
+            : '就绪';
+    }
+
+    var INTERVAL_OPTIONS = [5, 10, 20, 30, 60];
+    var GAP_OPTIONS = [0, 1, 2, 3, 4, 5, 6];
+
+    function renderIntervalChips(current) {
+        var html = '';
+        for (var i = 0; i < INTERVAL_OPTIONS.length; i++) {
+            var v = INTERVAL_OPTIONS[i];
+            html += '<button class="' + (v === current ? 'sel' : '')
+                + '" onclick="pickInterval(' + v + ')">' + v + ' 秒/轮</button>';
+        }
+        $('intervalChips').innerHTML = html;
+    }
+
+    function renderGapChips(current) {
+        var html = '';
+        for (var i = 0; i < GAP_OPTIONS.length; i++) {
+            var v = GAP_OPTIONS[i];
+            html += '<button class="' + (v === current ? 'sel' : '')
+                + '" onclick="pickGap(' + v + ')">' + v + ' 秒</button>';
+        }
+        $('gapChips').innerHTML = html;
+    }
+
+    function onAutoChanged() {
+        var on = $('autoSwitch').checked;
+        var iv = parseInt(state.settings.interval, 10) || 10;
+        busy(on ? '正在启动自动巡检…' : '正在停止自动巡检…', function () {
+            return MimiXxt.saveSettings(on, iv);
+        }, function (r) {
+            state.settings.auto = on;
+            state.settings.interval = iv;
+            state.monitor = !!r.monitor;
+            renderSettings();
+            toast(r.ok ? (on ? '自动巡检已开启' : '已关闭自动巡检') : (r.message || '设置失败'));
+            reloadLogs();
+        });
+    }
+
+    function pickInterval(iv) {
+        iv = parseInt(iv, 10) || 10;
+        var on = !!state.settings.auto;
+        var r = call(function () { return MimiXxt.saveSettings(on, iv); });
+        state.settings.interval = iv;
+        renderSettings();
+        toast(r.ok ? ('巡检频率：' + iv + ' 秒/轮') : (r.message || '设置失败'));
+    }
+
+    function pickGap(v) {
+        v = parseInt(v, 10) || 0;
+        var r = call(function () { return MimiXxt.saveAccountGap(v); });
+        if (r && r.settings) { state.settings = r.settings; }
+        renderSettings();
+        toast('账号间隔：' + v + ' 秒');
+    }
+
+    // ------------------------------------------------------------ OCS 题库
+    function saveQuizSettings() {
+        var stay = parseInt($('quizStay').value, 10);
+        var wait = parseInt($('quizWait').value, 10);
+        if (isNaN(stay) || stay < 0) { stay = 5; }
+        if (isNaN(wait) || wait < 0) { wait = 15; }
+        var r = call(function () {
+            return MimiXxt.quizSaveSettings(stay, wait, !!$('quizSaveOnly').checked);
+        });
+        if (r && r.settings) { state.settings = r.settings; }
+        renderSettings();
+        toast('刷题设置已保存');
+    }
+
+    function saveOcs() {
+        var raw = ($('ocsConfig').value || '').trim();
+        busy('正在保存 OCS 配置…', function () {
+            return MimiXxt.ocsSave(raw);
+        }, function (r) {
+            if (r.settings) { state.settings = r.settings; }
+            renderSettings();
+            $('ocsTestResult').innerHTML = '';
+            toast(r.message || (r.ok ? '已保存' : '保存失败'));
+        });
+    }
+
+    function clearOcs() {
+        $('ocsConfig').value = '';
+        saveOcs();
+    }
+
+    function testOcs() {
+        var title = ($('ocsTitle').value || '').trim();
+        if (!title) { toast('请先输入题目内容'); return; }
+        var options = $('ocsOptions').value || '';
+        busy('正在向题库查题…', function () {
+            return MimiXxt.ocsTest(title, options);
+        }, function (r) {
+            var box = $('ocsTestResult');
+            if (!r.ok) {
+                box.innerHTML = '<div class="err">' + esc(r.message || '查题失败') + '</div>';
+                return;
+            }
+            var list = r.results || [];
+            var html = '';
+            for (var i = 0; i < list.length; i++) {
+                var it = list[i];
+                html += '<div class="res"><span class="dot ' + (it.ok ? 'ok' : 'bad') + '"></span>'
+                    + '<div><div class="res-title">' + esc(it.bank) + '：'
+                    + (it.ok ? esc(it.answer) : esc(it.message || '没有答案')) + '</div>'
+                    + '<div class="res-msg">耗时 ' + (it.millis || 0) + ' ms'
+                    + (it.ok ? '' : ('　' + esc(it.raw || ''))) + '</div></div></div>';
+            }
+            if (!list.length) { html = '<div class="empty small">没有可用的题库</div>'; }
+            box.innerHTML = html;
+            toast(r.message || '查题完成');
+        });
+    }
+
+    function chooseLocation() {
+        pending = null;
+        MimiXxt.pickLocation(state.settings.lat || '', state.settings.lon || '');
+    }
+
+    function choosePhoto() {
+        pending = null;
+        MimiXxt.pickPhoto();
+    }
+
+    function clearHandled() {
+        call(function () { return MimiXxt.clearHandled(); });
+        toast('已清除，下一轮巡检会重新提醒');
+    }
+
+    function renderLogs() {
+        var list = state.logs || [];
+        var box = $('logBox');
+        box.textContent = list.length ? list.join('\n') : '暂无日志';
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function reloadLogs() {
+        busy('正在读取日志…', function () {
+            return MimiXxt.logs();
+        }, function (r) {
+            state.logs = r.logs || [];
+            renderLogs();
+        });
+    }
+
+    function copyLogs() { MimiXxt.copyLogs(); }
+
+    function clearLogs() {
+        var r = call(function () { return MimiXxt.clearLogs(); });
+        state.logs = r.logs || [];
+        renderLogs();
+    }
+
+    // ------------------------------------------------------------ 原生事件
+    window.MimiXxtEvent = function (ev) {
+        if (!ev || !ev.type) { return; }
+        var data = ev.data || {};
+        if (ev.type === 'location') {
+            state.settings.lat = data.lat || '';
+            state.settings.lon = data.lon || '';
+            state.settings.address = data.address || '';
+            renderSettings();
+            if (pending) {
+                var p = pending;
+                pending = null;
+                signOne(p.accId, p.aid, '');
+            }
+        } else if (ev.type === 'photo') {
+            state.settings.photo = data.path || '';
+            state.settings.photoName = data.name || 'sign_photo.jpg';
+            renderSettings();
+            if (pending) {
+                var p2 = pending;
+                pending = null;
+                signOne(p2.accId, p2.aid, '');
+            }
+        } else if (ev.type === 'qr') {
+            if (!data.raw) {
+                toast('没有识别到二维码，请重试');
+                return;
+            }
+            doScanQr(data.raw);
+        } else if (ev.type === 'faceResume') {
+            toast(data.message || '');
+            if (data.ok) {
+                refreshAll(true);
+            }
+        } else if (ev.type === 'toast') {
+            toast(data.text || '');
+        }
+    };
+
+    init();
+</script>
+</body>
+</html>

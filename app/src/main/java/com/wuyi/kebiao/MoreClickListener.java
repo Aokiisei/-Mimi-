@@ -8,6 +8,8 @@ package com.wuyi.kebiao;
 
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.net.Uri;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.CheckBox;
@@ -111,6 +113,14 @@ public class MoreClickListener implements View.OnClickListener {
             // ===== 通知 =====
             content.addView(groupHeader(context, "通知", density));
             content.addView(entryRow(context, "通知设置", density, new NotificationSettingsClickListener(fragment)));
+            content.addView(entryRow(context, "权限与保活（通知 / 电池优化 / 相机 / 定位）", density,
+                    new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            android.app.Activity activity = fragment == null ? null : fragment.getActivity();
+                            XxtPermissionHelper.showDialog(activity != null ? activity : v.getContext());
+                        }
+                    }));
             content.addView(divider(context, density));
 
             // ===== 工具 =====
@@ -122,6 +132,17 @@ public class MoreClickListener implements View.OnClickListener {
             // ===== 帮助与支持 =====
             content.addView(groupHeader(context, "帮助与支持", density));
             content.addView(entryRow(context, "使用说明", density, new UsageGuideClickListener()));
+            content.addView(entryRow(context, "个人官网（aokiisei.xyz）", density, new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        v.getContext().startActivity(new Intent("android.intent.action.VIEW",
+                                Uri.parse("https://aokiisei.xyz")));
+                    } catch (Throwable th) {
+                        Toast.makeText(v.getContext(), "无法打开浏览器", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }));
             content.addView(entryRow(context, "问题反馈", density, new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -135,6 +156,14 @@ public class MoreClickListener implements View.OnClickListener {
                 public void onClick(View v) {
                     if (fragment != null) {
                         fragment.showSponsorDialog();
+                    }
+                }
+            }));
+            content.addView(entryRow(context, "鸣谢", density, new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (fragment != null) {
+                        fragment.showThanksDialog();
                     }
                 }
             }));

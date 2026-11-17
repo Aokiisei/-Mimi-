@@ -65,6 +65,36 @@
         }
         .route { display: none; flex-direction: column; min-height: 0; }
         .route.on { display: flex; }
+        .pick-wrap {
+            position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 40;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(20, 20, 19, 0.34); padding: 24px;
+        }
+        .pick-wrap.hide { display: none; }
+        .pick-box {
+            width: 100%; max-width: 320px; background: var(--bg);
+            border-radius: 16px; padding: 18px 16px 16px;
+            box-shadow: 0 18px 44px rgba(20, 20, 19, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+        .pick-title { font-size: 16px; letter-spacing: .2px; }
+        .pick-sub { margin-top: 5px; font-size: 11px; color: var(--sub); }
+        .pick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+        .pick-item {
+            height: 46px; border-radius: 11px; border: 1px solid var(--border);
+            background: #FFFFFF; color: var(--ink); font-family: inherit;
+            font-size: 15px; letter-spacing: .3px;
+        }
+        .pick-item:active { background: var(--soft); border-color: rgba(201,100,66,0.42); color: var(--primary); }
+        .pick-cancel {
+            width: 100%; height: 40px; margin-top: 10px; border: none; border-radius: 10px;
+            background: transparent; color: var(--sub); font-family: inherit; font-size: 13px;
+        }
+        .line-btn {
+            flex: 0 0 auto; height: 28px; padding: 0 10px; margin-right: 2px;
+            border-radius: 8px; border: 1px solid var(--border); background: #FFFFFF;
+            color: var(--primary); font-family: inherit; font-size: 12px;
+        }
+        .line-btn:active { background: var(--soft); }
         .times {
             display: flex; align-items: center; gap: 16px; padding: 11px 18px 0;
             font-size: 12px; color: var(--sub);
@@ -162,6 +192,7 @@
             <div class="title">武夷实时公交</div>
             <div class="sub">双向线路，左右滑动查看全部站点</div>
         </div>
+        <button class="line-btn" onclick="showPicker()">换线</button>
         <button class="close" onclick="closeSheet()">✕</button>
     </div>
 
@@ -174,6 +205,15 @@
 
     <div class="tabs" id="tabs"></div>
     <div id="routes"></div>
+
+    <div class="pick-wrap hide" id="pickWrap" onclick="hidePicker(event)">
+        <div class="pick-box">
+            <div class="pick-title">选择公交线路</div>
+            <div class="pick-sub">选好后自动定位到武夷学院，随时可再点「换线」重选</div>
+            <div class="pick-grid" id="pickGrid"></div>
+            <button class="pick-cancel" onclick="hidePicker()">取消</button>
+        </div>
+    </div>
 
     <div class="foot">线路站点与首末班整理自掌上公交，如有调整请以现场为准。</div>
 </div>
@@ -269,8 +309,55 @@
     function buildTabs() {
         document.getElementById('tabs').innerHTML = ORDER.map(function (no) {
             return '<button class="tab' + (no === current ? ' on' : '') + '" data-no="' + no +
-                '" onclick="switchRoute(' + no + ')">' + no + ' 路</button>';
+                '" onclick="pickTab(' + no + ')">' + no + ' 路</button>';
         }).join('');
+    }
+
+    // 打开页面先让用户选线路，避免默认停在 7 路
+    function buildPicker() {
+        document.getElementById('pickGrid').innerHTML = ORDER.map(function (no) {
+            return '<button class="pick-item" onclick="pickRoute(' + no + ')">' + no + ' 路</button>';
+        }).join('');
+    }
+
+    function pickRoute(no) {
+        touched = true;
+        document.getElementById('pickWrap').classList.add('hide');
+        switchRoute(no);
+        focusSchool(no);
+        if (LIVE_ROUTES[String(no)]) toggleLive(no);
+    }
+
+    // 二级菜单：「换线」随时重新打开线路选择，不必退出公交页
+    function showPicker() {
+        document.getElementById('pickWrap').classList.remove('hide');
+    }
+
+    function hidePicker(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.pick-box')) { return; }
+        document.getElementById('pickWrap').classList.add('hide');
+        if (!touched) { pickRoute(current); }
+    }
+
+    // 顶部线路标签切换：同样以武夷学院为定位点，实时面板跟着切
+    function pickTab(no) {
+        touched = true;
+        switchRoute(no);
+        focusSchool(no);
+        if (LIVE_ROUTES[String(no)] && liveState.route !== String(no)) toggleLive(no);
+    }
+
+    // 把所选线路的武夷学院居中显示
+    function focusSchool(no) {
+        clearSeg(no);
+        const idx = ROUTES[no].stops.indexOf(DEFAULT_STOP);
+        if (idx < 0) {
+            setHint('当前显示 ' + no + ' 路', false);
+            return;
+        }
+        const stop = centerIndex(no, idx, true);
+        stop.classList.add('seg');
+        setHint('当前显示 ' + no + ' 路 · ' + DEFAULT_STOP + '（已居中）', false);
     }
 
     function buildRoutes() {
@@ -472,14 +559,6 @@
             document.getElementById('to').value = '';
             setHint('输入起点与终点，可标出区间', false);
         }
-    }
-
-    function initDefault() {
-        const idx = ROUTES[current].stops.indexOf(DEFAULT_STOP);
-        if (idx < 0) return;
-        const stop = centerIndex(current, idx, false);
-        stop.classList.add('seg');
-        setHint('当前显示 ' + current + ' 路 · ' + DEFAULT_STOP + '（已居中）', false);
     }
 
     function closeSheet() {
@@ -695,17 +774,17 @@
         });
     });
     window.addEventListener('resize', function () {
-        if (!touched) initDefault();
+        if (touched) focusSchool(current);
     });
     if (document.readyState === 'complete') {
         bootBus();
     } else {
         window.addEventListener('load', bootBus);
     }
-    // 打开页面即展示实时公交，收起只能由用户点击「实时」按钮触发
+    // 打开页面先弹出线路选择，选好后再居中武夷学院并展示实时公交
     function bootBus() {
-        initDefault();
-        if (LIVE_ROUTES[String(current)]) toggleLive(current);
+        buildPicker();
+        document.getElementById('pickWrap').classList.remove('hide');
     }
 </script>
 </body>

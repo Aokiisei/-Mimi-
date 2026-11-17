@@ -39,6 +39,28 @@
                 </LinearLayout>
                 <ImageView android:layout_width="18.0dp" android:layout_height="18.0dp" android:layout_gravity="center_vertical" android:layout_marginStart="8.0dp" android:src="@drawable/ic_arrow_forward" android:tint="@color/cl_stone" />
             </LinearLayout>
+
+            <View android:layout_width="match_parent" android:layout_height="1.0px" android:layout_marginStart="64.0dp" android:background="#14000000" />
+
+            <LinearLayout android:orientation="horizontal" android:id="@+id/layout_xxt_sign" android:background="?selectableItemBackground" android:padding="16.0dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <ImageView android:background="@drawable/bg_icon_circle" android:padding="8.0dp" android:layout_width="36.0dp" android:layout_height="36.0dp" android:layout_marginEnd="12.0dp" android:layout_gravity="center_vertical" android:src="@drawable/ic_signin" />
+                <LinearLayout android:orientation="vertical" android:layout_width="0.0dp" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <TextView android:textSize="16.0sp" android:textColor="@color/cl_ink" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="学习通助手" />
+                    <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:maxLines="1" android:ellipsize="end" android:text="签到、自动巡检与视频刷课" />
+                </LinearLayout>
+                <ImageView android:layout_width="18.0dp" android:layout_height="18.0dp" android:layout_gravity="center_vertical" android:layout_marginStart="8.0dp" android:src="@drawable/ic_arrow_forward" android:tint="@color/cl_stone" />
+            </LinearLayout>
+
+            <View android:layout_width="match_parent" android:layout_height="1.0px" android:layout_marginStart="64.0dp" android:background="#14000000" />
+
+            <LinearLayout android:orientation="horizontal" android:id="@+id/layout_rest_room" android:background="?selectableItemBackground" android:padding="16.0dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <ImageView android:background="@drawable/bg_icon_circle" android:padding="8.0dp" android:layout_width="36.0dp" android:layout_height="36.0dp" android:layout_marginEnd="12.0dp" android:layout_gravity="center_vertical" android:src="@drawable/ic_classroom" />
+                <LinearLayout android:orientation="vertical" android:layout_width="0.0dp" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <TextView android:textSize="16.0sp" android:textColor="@color/cl_ink" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="空闲教室" />
+                    <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:maxLines="1" android:ellipsize="end" android:text="按日期、教学楼查空闲教室" />
+                </LinearLayout>
+                <ImageView android:layout_width="18.0dp" android:layout_height="18.0dp" android:layout_gravity="center_vertical" android:layout_marginStart="8.0dp" android:src="@drawable/ic_arrow_forward" android:tint="@color/cl_stone" />
+            </LinearLayout>
         </LinearLayout>
 
         <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="2.0dp" android:layout_marginTop="18.0dp" android:layout_marginBottom="8.0dp" android:text="出行" />
@@ -49,6 +71,17 @@
                 <LinearLayout android:orientation="vertical" android:layout_width="0.0dp" android:layout_height="wrap_content" android:layout_weight="1.0">
                     <TextView android:textSize="16.0sp" android:textColor="@color/cl_ink" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="武夷实时公交" />
                     <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:maxLines="1" android:ellipsize="end" android:text="实时车辆位置、线路与到站信息" />
+                </LinearLayout>
+                <ImageView android:layout_width="18.0dp" android:layout_height="18.0dp" android:layout_gravity="center_vertical" android:layout_marginStart="8.0dp" android:src="@drawable/ic_arrow_forward" android:tint="@color/cl_stone" />
+            </LinearLayout>
+
+            <View android:layout_width="match_parent" android:layout_height="1.0dp" android:layout_marginStart="64.0dp" android:background="#14000000" />
+
+            <LinearLayout android:orientation="horizontal" android:id="@+id/layout_tram_query" android:background="?selectableItemBackground" android:padding="16.0dp" android:gravity="center_vertical" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <ImageView android:background="@drawable/bg_icon_circle" android:padding="8.0dp" android:layout_width="36.0dp" android:layout_height="36.0dp" android:layout_marginEnd="12.0dp" android:layout_gravity="center_vertical" android:src="@drawable/ic_tram" />
+                <LinearLayout android:orientation="vertical" android:layout_width="0.0dp" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <TextView android:textSize="16.0sp" android:textColor="@color/cl_ink" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="武夷有轨电车" />
+                    <TextView android:textSize="12.0sp" android:textColor="@color/cl_stone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dp" android:maxLines="1" android:ellipsize="end" android:text="实时列车位置与到站信息" />
                 </LinearLayout>
                 <ImageView android:layout_width="18.0dp" android:layout_height="18.0dp" android:layout_gravity="center_vertical" android:layout_marginStart="8.0dp" android:src="@drawable/ic_arrow_forward" android:tint="@color/cl_stone" />
             </LinearLayout>
